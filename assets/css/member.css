@@ -32,6 +32,12 @@
   --ease: cubic-bezier(.2, .8, .2, 1);
 }
 
+/* 共通リセット（ログイン・会員サイトは style.css を読み込まないため） */
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+img { max-width: 100%; }
+
 /* ---------- 共通パーツ ---------- */
 .lux { background: var(--ink); color: var(--pearl); font-family: var(--sans); }
 .gold-text { color: var(--gold-light); }

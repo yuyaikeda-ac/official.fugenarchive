@@ -21,6 +21,8 @@
 
 /* ---------- ベース ---------- */
 *, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
 html { scroll-behavior: smooth; }
 body { margin: 0; font-family: var(--font); color: var(--text); background: var(--bg); line-height: 1.8; font-size: 15px; }
 img { max-width: 100%; height: auto; vertical-align: bottom; }
@@ -51,9 +53,9 @@ h1, h2, h3, h4 { line-height: 1.4; }
 
 .global-nav { background: var(--main); }
 .global-nav ul { display: flex; list-style: none; margin: 0 auto; padding: 0 16px; }
-.global-nav li { flex: 1; }
+.global-nav li { flex: 1 1 auto; }
 .global-nav .sp-only { display: none; }
-.global-nav a { display: block; padding: 14px 8px; text-align: center; color: #fff; text-decoration: none; font-size: 14px; font-weight: 500; border-left: 1px solid rgba(255,255,255,.15); }
+.global-nav a { display: block; padding: 14px 10px; white-space: nowrap; text-align: center; color: #fff; text-decoration: none; font-size: 14px; font-weight: 500; border-left: 1px solid rgba(255,255,255,.15); }
 .global-nav li:last-child a { border-right: 1px solid rgba(255,255,255,.15); }
 .global-nav a:hover, .global-nav a.is-current { background: var(--main-dark); color: #fff; box-shadow: inset 0 -4px 0 var(--accent); }
 
@@ -91,7 +93,7 @@ h1, h2, h3, h4 { line-height: 1.4; }
 .btn-wrap.center { text-align: center; }
 
 /* ---------- News（トップ） ---------- */
-.news-area { display: grid; grid-template-columns: 1fr 300px; gap: 32px; }
+.news-area { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 32px; }
 .news-box { display: flex; flex-direction: column; background: #fff; border: 1px solid var(--border); border-top: 4px solid var(--main); }
 /* 一覧ボタンは件数に関係なく常にボックスの下端に固定（タブを切り替えても位置が動かない） */
 .news-box .tab-panel.is-show { display: flex; flex-direction: column; flex: 1; }
@@ -99,15 +101,34 @@ h1, h2, h3, h4 { line-height: 1.4; }
 .news-box .btn-wrap { margin-top: auto; padding-top: 16px; }
 .news-box-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 0 20px; }
 /* News のタブ（区分） */
-.news-tabs { display: flex; align-items: flex-end; gap: 2px; padding: 0 20px; border-bottom: 2px solid var(--main); overflow-x: auto; scrollbar-width: thin; }
-.news-tabs [role=tab] { flex-shrink: 0; position: relative; padding: 10px 16px; border: 1px solid var(--border); border-bottom: 0; background: var(--bg-gray); font: 500 13px var(--font); color: var(--text-sub); cursor: pointer; border-radius: 4px 4px 0 0; white-space: nowrap; transition: background .2s, color .2s; }
-.news-tabs [role=tab]:hover { background: #e6ecf4; color: var(--main); }
-.news-tabs [role=tab].is-active { background: var(--main); border-color: var(--main); color: #fff; }
-.news-tabs [role=tab]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.news-tabs .cnt { margin-left: 6px; font-size: 11px; opacity: .7; }
-#list-view .news-tabs { padding: 0; margin-bottom: 8px; }
+/* ---------- News のタブ ----------
+   各区分の色は下の --c で指定（ラベルの色と合わせています） */
+.news-tabs { display: flex; margin: 0 20px; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+.news-tabs::-webkit-scrollbar { display: none; }
+.news-tabs [role=tab] { --c: var(--main); flex: 1 0 auto; position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 13px 14px 12px; border: 0; background: transparent; font: 500 14px var(--font); color: var(--text-sub); cursor: pointer; white-space: nowrap;
+  transition: color .2s, background .2s; }
+.news-tabs [role=tab]::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c); opacity: .55; transition: opacity .2s, transform .2s; }
+.news-tabs [role=tab]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--c); transform: scaleX(0); transition: transform .25s ease; }
+.news-tabs [role=tab]:hover { color: var(--c); background: #f7f9fc; }
+.news-tabs [role=tab]:hover::after { transform: scaleX(.4); }
+.news-tabs [role=tab].is-active { color: var(--c); font-weight: 700; background: linear-gradient(180deg, transparent, rgba(11,58,110,.04)); }
+.news-tabs [role=tab].is-active::before { opacity: 1; transform: scale(1.15); }
+.news-tabs [role=tab].is-active::after { transform: scaleX(1); }
+.news-tabs [role=tab]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 4px; }
+.news-tabs .cnt { min-width: 20px; padding: 0 6px; border-radius: 10px; background: #eef1f5; color: var(--text-sub); font-size: 11px; font-weight: 500; line-height: 18px; text-align: center; }
 .news-tabs .cnt:empty { display: none; }
-.news-box-head h2 { margin: 16px 0; font-family: Georgia, var(--font-serif); color: var(--main); font-size: 26px; }
+.news-tabs [role=tab].is-active .cnt { background: var(--c); color: #fff; }
+/* 区分ごとの色（assets/js/db.js の NEWS_CATEGORIES の color と同じ） */
+.news-tabs [data-key="topics"]  { --c: #0b3a6e; }
+.news-tabs [data-key="kaikoku"] { --c: #2e7d6b; }
+.news-tabs [data-key="event"]   { --c: #b8862b; }
+.news-tabs [data-key="archive"] { --c: #3a6ea5; }
+.news-tabs [data-key="recruit"] { --c: #a0522d; }
+.news-tabs [data-key="report"]  { --c: #5b6b7d; }
+#list-view .news-tabs { margin: 0 0 8px; }
+.news-box-head h2 { display: flex; align-items: baseline; gap: 12px; margin: 22px 0 14px; font-family: Georgia, var(--font-serif); color: var(--main); font-size: 28px; }
+.news-box-head h2::after { content: "お知らせ"; font-family: var(--font); font-size: 13px; font-weight: 500; color: var(--text-sub); letter-spacing: .1em; padding-left: 12px; border-left: 2px solid var(--accent); line-height: 1.2; }
 .tabs { display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; }
 .tabs button { padding: 10px 24px; border: 1px solid var(--border); border-bottom: 0; background: var(--bg-gray); font-family: inherit; font-size: 14px; cursor: pointer; border-radius: 4px 4px 0 0; color: var(--text-sub); }
 .tabs button.is-active { background: var(--main); color: #fff; border-color: var(--main); }
@@ -166,7 +187,7 @@ h1, h2, h3, h4 { line-height: 1.4; }
 .page-head p { margin: 4px 0 0; font-size: 13px; opacity: .8; letter-spacing: .1em; }
 .breadcrumb { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 12px 0; font-size: 12px; color: var(--text-sub); }
 .breadcrumb li + li::before { content: "›"; margin-right: 8px; }
-.content { padding: 24px 0 64px; }
+.content { padding-top: 24px; padding-bottom: 64px; }
 .content h2 { font-size: 22px; color: var(--main); border-left: 5px solid var(--main); padding: 4px 0 4px 14px; margin: 48px 0 20px; background: var(--main-light); }
 .content h2:first-child { margin-top: 16px; }
 .content h3 { font-size: 18px; color: var(--main); border-bottom: 1px solid var(--border); padding-bottom: 6px; margin: 32px 0 12px; }
@@ -229,7 +250,7 @@ h1, h2, h3, h4 { line-height: 1.4; }
 
 /* ---------- レスポンシブ（タブレット・スマホ） ---------- */
 @media (max-width: 960px) {
-  .news-area { grid-template-columns: 1fr; }
+  .news-area { grid-template-columns: minmax(0, 1fr); }
   .side-banners { display: grid; grid-template-columns: repeat(2, 1fr); }
   .cards { grid-template-columns: repeat(2, 1fr); }
   .quick-links { grid-template-columns: repeat(2, 1fr); }
@@ -258,8 +279,11 @@ h1, h2, h3, h4 { line-height: 1.4; }
   .sec-title { font-size: 26px; }
   .news-box-head { padding: 0 12px; }
   .tabs button { padding: 8px 14px; font-size: 13px; }
-  .news-tabs { padding: 0 12px; }
-  .news-tabs [role=tab] { padding: 9px 12px; }
+  .news-box .news-list { min-height: 240px; }
+  .quick-links { gap: 8px; }
+  .quick-links a { min-height: 56px; padding: 10px 8px; font-size: 13px; line-height: 1.5; }
+  .news-tabs { margin: 0 12px; -webkit-mask-image: linear-gradient(90deg, #000 82%, transparent); mask-image: linear-gradient(90deg, #000 82%, transparent); }
+  .news-tabs [role=tab] { flex: 0 0 auto; padding: 12px 12px 11px; font-size: 13px; }
   .tab-panel { padding: 4px 12px 16px; }
   .side-banners { grid-template-columns: 1fr; }
   .archive-promo { grid-template-columns: 1fr; justify-items: center; text-align: center; gap: 20px; padding: 24px 16px; }
@@ -267,8 +291,10 @@ h1, h2, h3, h4 { line-height: 1.4; }
   .cards { grid-template-columns: 1fr; }
   .page-head { padding: 28px 0; }
   .page-head h1 { font-size: 22px; }
-  .table th, .table td { display: block; width: 100%; }
-  .table thead { display: none; }
+  /* 項目名＋内容の2列の表は縦に積む。見出し行（thead）がある一覧表は表のまま表示 */
+  .table:not(:has(thead)) th, .table:not(:has(thead)) td { display: block; width: 100%; }
+  .table:has(thead) { font-size: 13px; }
+  .table:has(thead) th, .table:has(thead) td { padding: 10px 8px; }
   .event-item { grid-template-columns: 80px 1fr; gap: 14px; }
   .event-date .md { font-size: 18px; }
 }
