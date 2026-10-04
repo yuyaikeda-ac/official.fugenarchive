@@ -92,10 +92,12 @@ h1, h2, h3, h4 { line-height: 1.4; }
 
 /* ---------- News（トップ） ---------- */
 .news-area { display: grid; grid-template-columns: 1fr 300px; gap: 32px; }
-.news-box { background: #fff; border: 1px solid var(--border); border-top: 4px solid var(--main); }
+.news-box { display: flex; flex-direction: column; background: #fff; border: 1px solid var(--border); border-top: 4px solid var(--main); }
+/* 一覧ボタンは件数に関係なく常にボックスの下端に固定（タブを切り替えても位置が動かない） */
+.news-box .tab-panel.is-show { display: flex; flex-direction: column; flex: 1; }
+.news-box .news-list { min-height: 336px; }
+.news-box .btn-wrap { margin-top: auto; padding-top: 16px; }
 .news-box-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 0 20px; }
-.news-more { font-size: 13px; text-decoration: none; }
-.news-more:hover { text-decoration: underline; }
 /* News のタブ（区分） */
 .news-tabs { display: flex; align-items: flex-end; gap: 2px; padding: 0 20px; border-bottom: 2px solid var(--main); overflow-x: auto; scrollbar-width: thin; }
 .news-tabs [role=tab] { flex-shrink: 0; position: relative; padding: 10px 16px; border: 1px solid var(--border); border-bottom: 0; background: var(--bg-gray); font: 500 13px var(--font); color: var(--text-sub); cursor: pointer; border-radius: 4px 4px 0 0; white-space: nowrap; transition: background .2s, color .2s; }
