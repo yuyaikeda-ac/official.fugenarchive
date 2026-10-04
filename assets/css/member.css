@@ -58,7 +58,7 @@ img { max-width: 100%; }
 .field { position: relative; margin-bottom: 22px; }
 .field > label { display: block; font-size: 13px; font-weight: 500; letter-spacing: .04em; color: var(--pearl); margin-bottom: 8px; }
 .field .req { display: inline-block; margin-left: 8px; padding: 0 6px; font-size: 10px; border-radius: 3px; background: var(--danger); color: #fff; vertical-align: 1px; }
-.field input, .field select, .field textarea {
+.field input:not([type="checkbox"]):not([type="radio"]), .field select, .field textarea {
   width: 100%; padding: 13px 16px; border-radius: 10px; border: 1px solid #cdd5e1;
   background: #fff; color: var(--pearl); font: 15px var(--sans); transition: border-color .25s, box-shadow .25s;
 }
@@ -81,10 +81,30 @@ img { max-width: 100%; }
 .strength[data-level="2"] i:nth-child(-n+2) { background: var(--warn); }
 .strength[data-level="3"] i:nth-child(-n+3) { background: #4f8fd1; }
 .strength[data-level="4"] i { background: var(--ok); }
-.check { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; font-size: 14px; color: var(--pearl); }
-.check input { appearance: none; width: 20px; height: 20px; margin: 2px 0 0; flex-shrink: 0; border: 1.5px solid #9aa8bc; border-radius: 5px; display: grid; place-items: center; cursor: pointer; background: #fff; }
-.check input:checked { background: var(--navy); border-color: var(--navy); }
-.check input:checked::after { content: "✓"; color: #fff; font-size: 13px; font-weight: 700; }
+
+/* ---------- チェックボックス・ラジオボタン（全ページ共通） ----------
+   ・文字の1行目の中央にそろえる（1lh = 1行の高さ）
+   ・label の中に input を入れるだけで自動でこの見た目になります */
+input[type="checkbox"], input[type="radio"] {
+  -webkit-appearance: none; appearance: none; flex-shrink: 0; width: 20px; height: 20px; margin: 0;
+  display: inline-grid; place-content: center; vertical-align: -4px; cursor: pointer;
+  border: 1.5px solid #9aa8bc; background: #fff; transition: background .15s, border-color .15s, box-shadow .15s;
+}
+input[type="checkbox"] { border-radius: 5px; }
+input[type="radio"] { border-radius: 50%; }
+input[type="checkbox"]::before { content: ""; width: 10px; height: 5px; margin-top: -3px; border-left: 2.5px solid #fff; border-bottom: 2.5px solid #fff; transform: rotate(-45deg) scale(0); transition: transform .15s ease; }
+input[type="radio"]::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--navy); transform: scale(0); transition: transform .15s ease; }
+input[type="checkbox"]:checked { background: var(--navy); border-color: var(--navy); }
+input[type="checkbox"]:checked::before { transform: rotate(-45deg) scale(1); }
+input[type="radio"]:checked { border-color: var(--navy); }
+input[type="radio"]:checked::before { transform: scale(1); }
+input[type="checkbox"]:hover, input[type="radio"]:hover { border-color: var(--navy); }
+input[type="checkbox"]:focus-visible, input[type="radio"]:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(29,85,144,.3); }
+input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cursor: not-allowed; }
+:where(label:has(> input[type="checkbox"]), label:has(> input[type="radio"])) { display: inline-flex; align-items: flex-start; gap: 10px; cursor: pointer; line-height: 1.7; }
+:where(label:has(> input[type="checkbox"]), label:has(> input[type="radio"])) > input { margin-top: .25em; margin-top: calc((1lh - 20px) / 2); }
+
+.field > label.check { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 0; font-size: 14px; font-weight: 400; letter-spacing: 0; color: var(--pearl); }
 .check a { color: var(--navy-2); }
 .alert { padding: 14px 18px; border-radius: 10px; font-size: 14px; margin-bottom: 18px; border: 1px solid; }
 .alert.error { background: #fdf0ef; border-color: #f0c4bf; color: #9b2c22; }
@@ -441,83 +461,67 @@ img { max-width: 100%; }
 .docs.list .doc .foot { gap: 18px; }
 
 /* ============ 会員証 ============
+   ロゴの風景画を主役にした美術館の会員証のようなデザイン
    カードの大きさに合わせて文字も拡大縮小（cqw = カード幅の 1%） */
 .card-stage { perspective: 1600px; display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 20px 0; }
 .mcard { --mx: 50%; --my: 50%; position: relative; width: min(520px, 100%); aspect-ratio: 1.586; container-type: inline-size; transform-style: preserve-3d; transition: transform .8s var(--ease); cursor: pointer; }
 .mcard.is-flipped { transform: rotateY(180deg); }
 .mcard-tilt { width: 100%; height: 100%; transform-style: preserve-3d; transition: transform .3s ease-out; }
-.mcard-face { position: absolute; inset: 0; border-radius: 4.6cqw; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden;
-  box-shadow: 0 2px 4px rgba(4,20,45,.2), 0 30px 60px -24px rgba(4,20,45,.65), inset 0 0 0 1px rgba(255,255,255,.12); }
+.mcard-face { position: absolute; inset: 0; border-radius: 4.4cqw; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: #fbfaf6;
+  box-shadow: 0 1px 2px rgba(16,36,70,.12), 0 28px 56px -26px rgba(16,36,70,.55); }
+.mcard-face::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(16,36,70,.08); pointer-events: none; }
 
 /* ---- 表面 ---- */
-.mcard-front { color: #fff; padding: 6.2cqw 6.6cqw 5.6cqw; display: flex; flex-direction: column;
-  background:
-    radial-gradient(120% 90% at 100% 0%, rgba(87,150,214,.55) 0%, transparent 55%),
-    radial-gradient(90% 80% at 0% 100%, rgba(201,161,68,.22) 0%, transparent 60%),
-    linear-gradient(145deg, #12457f 0%, #0b3a6e 38%, #082b54 72%, #061f3f 100%); }
-/* 紙幣のような細い地紋（ギョーシェ） */
-.mc-guilloche { position: absolute; inset: 0; pointer-events: none; opacity: .55;
-  background:
-    repeating-radial-gradient(circle at 108% 118%, rgba(233,207,127,.16) 0 .18cqw, transparent .18cqw 1.25cqw),
-    repeating-radial-gradient(circle at -10% -20%, rgba(255,255,255,.07) 0 .14cqw, transparent .14cqw 1.6cqw);
-  -webkit-mask-image: linear-gradient(115deg, transparent 20%, #000 60%); mask-image: linear-gradient(115deg, transparent 20%, #000 60%); }
-/* ロゴの透かし */
-.mc-watermark { position: absolute; left: -12cqw; bottom: -20cqw; width: 62cqw; height: 62cqw; border-radius: 50%; object-fit: cover; opacity: .06; filter: grayscale(1) contrast(1.2); mix-blend-mode: screen; pointer-events: none; }
-/* 金の内枠 */
-.mc-frame { position: absolute; inset: 2.6cqw; border-radius: 3cqw; border: 1px solid rgba(233,207,127,.38); pointer-events: none; }
-.mc-frame::before, .mc-frame::after { content: ""; position: absolute; width: 4cqw; height: 4cqw; border: 1.5px solid #e9cf7f; opacity: .8; }
-.mc-frame::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; border-radius: 3cqw 0 0 0; }
-.mc-frame::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; border-radius: 0 0 3cqw 0; }
-/* 光の反射（マウスの位置に追従） */
-.mc-holo { position: absolute; inset: 0; pointer-events: none; opacity: .35; transition: opacity .4s;
-  background:
-    radial-gradient(40% 55% at var(--mx) var(--my), rgba(255,255,255,.28), transparent 70%),
-    linear-gradient(115deg, transparent 30%, rgba(255,240,200,.16) 45%, rgba(170,210,255,.14) 52%, transparent 66%);
-  background-size: 100% 100%, 220% 100%; background-position: 0 0, calc(var(--mx) * -1) 0; mix-blend-mode: soft-light; }
-.mcard.is-hover .mc-holo { opacity: 1; }
+.mcard-front { display: flex; flex-direction: column; color: #14233a; }
+.mc-art { position: relative; height: 47%; overflow: hidden; flex-shrink: 0; }
+/* 円形のロゴ画像から、山頂と記念碑が入る帯の部分を切り出す（記念碑が右寄りになるよう配置） */
+.mc-art img { position: absolute; left: 50%; top: 50%; width: 140%; max-width: none; transform: translate(-45%, -35.5%); }
+.mc-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, rgba(5,25,52,.62) 0%, rgba(5,25,52,.32) 38%, rgba(5,25,52,0) 62%), linear-gradient(180deg, rgba(5,25,52,.25), transparent 55%); }
+.mc-art-top { position: absolute; z-index: 1; inset: 0; display: flex; align-items: flex-start; justify-content: space-between; padding: 5cqw 5.6cqw; }
+.mc-org { display: flex; flex-direction: column; gap: .7cqw; color: #fff; text-shadow: 0 .2cqw 1.2cqw rgba(0,0,0,.35); }
+.mc-org .ja { font-family: var(--serif); font-weight: 700; font-size: 3.5cqw; letter-spacing: .12em; line-height: 1.2; }
+.mc-org .en { font-family: var(--display); font-weight: 600; font-size: 1.9cqw; letter-spacing: .14em; opacity: .9; }
+.mc-type { padding: .8cqw 2.4cqw; border-radius: 99px; font-size: 2.15cqw; font-weight: 700; letter-spacing: .16em; color: #fff; white-space: nowrap;
+  background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 
-.mc-head { position: relative; display: flex; align-items: center; gap: 2.6cqw; }
-.mc-logo { width: 10.5cqw; height: 10.5cqw; border-radius: 50%; object-fit: cover; flex-shrink: 0; box-shadow: 0 0 0 .5cqw rgba(233,207,127,.85), 0 .8cqw 2cqw rgba(0,0,0,.35); }
-.mc-org { display: flex; flex-direction: column; gap: .5cqw; min-width: 0; }
-.mc-org .ja { font-family: var(--serif); font-weight: 700; font-size: 3.7cqw; letter-spacing: .08em; line-height: 1.2; white-space: nowrap; }
-.mc-org .en { font-family: var(--display); font-weight: 600; font-size: 1.85cqw; letter-spacing: .2em; color: #e9cf7f; white-space: nowrap; }
-.mc-type { margin-left: auto; align-self: flex-start; padding: .9cqw 2.6cqw; border-radius: 99px; font-size: 2.3cqw; font-weight: 700; letter-spacing: .14em; white-space: nowrap; color: #3b2a05;
-  background: linear-gradient(135deg, #f6e3a4, #d2ad4c 45%, #b8862b 60%, #ecd28a); box-shadow: 0 .4cqw 1.2cqw rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.6); }
+.mc-main { position: relative; flex: 1; display: flex; align-items: flex-end; justify-content: space-between; gap: 4cqw; padding: 0 5.6cqw 5cqw; border-top: .5cqw solid #c9a144; }
+.mc-info { min-width: 0; flex: 1; padding-top: 3.6cqw; }
+.mc-kicker { display: flex; align-items: center; gap: 1.6cqw; font-family: var(--display); font-weight: 600; font-size: 1.95cqw; letter-spacing: .26em; text-transform: uppercase; color: #a17a24; }
+.mc-kicker i { width: 3cqw; height: 1px; background: currentColor; opacity: .6; }
+.mc-name { margin-top: 1.6cqw; font-family: var(--serif); font-weight: 700; font-size: 6.8cqw; line-height: 1.15; letter-spacing: .14em; color: #0b2a4f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-meta { display: flex; gap: 5.5cqw; margin-top: 3cqw; }
+.mc-meta div { display: flex; flex-direction: column; gap: .4cqw; }
+.mc-meta span { font-family: var(--display); font-weight: 600; font-size: 1.7cqw; letter-spacing: .2em; text-transform: uppercase; color: #8a94a3; }
+.mc-meta b { font-family: var(--sans); font-weight: 500; font-size: 3cqw; letter-spacing: .08em; color: #14233a; font-variant-numeric: tabular-nums; }
 
-.mc-body { position: relative; flex: 1; display: flex; align-items: flex-end; justify-content: space-between; gap: 4cqw; }
-.mc-info { min-width: 0; flex: 1; }
-.mc-kicker { font-family: var(--display); font-weight: 600; font-size: 2.1cqw; letter-spacing: .32em; color: rgba(233,207,127,.95); margin-bottom: 1.2cqw; }
-.mc-name { font-family: var(--serif); font-weight: 700; font-size: 6.6cqw; letter-spacing: .1em; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 .3cqw 1cqw rgba(0,0,0,.3); }
-.mc-kana { font-size: 2.2cqw; letter-spacing: .2em; opacity: .7; margin-top: .6cqw; min-height: 2.6cqw; }
-.mc-meta { display: flex; gap: 5cqw; margin: 3.4cqw 0 0; padding-top: 2.4cqw; border-top: 1px solid rgba(233,207,127,.35); }
-.mc-meta dt { font-family: var(--display); font-weight: 600; font-size: 1.75cqw; letter-spacing: .22em; color: rgba(255,255,255,.62); }
-.mc-meta dd { margin: .5cqw 0 0; font-family: var(--display); font-weight: 700; font-size: 3.9cqw; letter-spacing: .08em; font-variant-numeric: lining-nums tabular-nums; font-feature-settings: "lnum" 1, "tnum" 1; }
-
-.mc-qr { display: flex; flex-direction: column; align-items: center; gap: 1.2cqw; flex-shrink: 0; }
-.mc-qr-code { width: 21cqw; height: 21cqw; padding: 1.8cqw; border-radius: 2.4cqw; background: #fff; box-shadow: 0 1cqw 2.6cqw rgba(0,0,0,.35), 0 0 0 .5cqw rgba(233,207,127,.5); display: grid; place-items: center; }
-.mc-qr-code svg { width: 100%; height: 100%; display: block; }
+.mc-qr { position: relative; z-index: 2; flex-shrink: 0; width: 20cqw; height: 20cqw; margin-top: -10cqw; padding: 1.8cqw; border-radius: 2.6cqw; background: #fff;
+  box-shadow: 0 .8cqw 2.8cqw rgba(16,36,70,.22), 0 0 0 1px rgba(16,36,70,.06); display: grid; place-items: center; align-self: flex-start; }
+.mc-qr svg { width: 100%; height: 100%; display: block; }
 .mc-qr-wait { color: var(--muted); font-size: 2.2cqw; }
-.mc-qr-cap { font-family: var(--display); font-weight: 600; font-size: 1.6cqw; letter-spacing: .24em; color: rgba(255,255,255,.75); }
+/* マウスを乗せたときの光 */
+.mc-shine { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .4s; mix-blend-mode: soft-light;
+  background: radial-gradient(45% 60% at var(--mx) var(--my), rgba(255,255,255,.55), transparent 70%); }
+.mcard.is-hover .mc-shine { opacity: 1; }
 
 /* ---- 裏面 ---- */
-.mcard-back { transform: rotateY(180deg); display: flex; flex-direction: column; color: var(--pearl);
-  background: radial-gradient(120% 80% at 100% 100%, rgba(201,161,68,.12), transparent 60%), linear-gradient(160deg, #fffdf8, #f4efe3); }
-.mb-band { display: flex; align-items: center; justify-content: space-between; padding: 4cqw 6.6cqw; color: #fff; background: linear-gradient(135deg, #12457f, #082b54); border-bottom: .6cqw solid #c9a144; }
-.mb-band span { font-family: var(--display); font-weight: 600; font-size: 2.6cqw; letter-spacing: .4em; color: #f1d98e; }
-.mb-band img { width: 8cqw; height: 8cqw; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 .4cqw rgba(241,217,142,.8); }
-.mb-body { flex: 1; display: flex; flex-direction: column; padding: 4cqw 6.6cqw 4.4cqw; }
-.mb-sign { display: flex; flex-direction: column; gap: 1cqw; }
-.mb-sign-label { font-size: 1.8cqw; letter-spacing: .14em; color: var(--muted); }
-.mb-sign-line { height: 8cqw; display: flex; align-items: center; padding: 0 2.4cqw; border-radius: 1cqw; border: 1px solid #e3d8bd; font-family: var(--serif); font-size: 3.6cqw; color: var(--navy);
-  background: repeating-linear-gradient(90deg, #fffdf6 0 1.6cqw, #f6efdc 1.6cqw 3.2cqw); }
-.mb-terms { list-style: none; margin: 3.2cqw 0 0; padding: 0; font-size: 2.15cqw; line-height: 1.75; color: #4a5568; }
-.mb-terms li { position: relative; padding-left: 2.6cqw; }
-.mb-terms li::before { content: ""; position: absolute; left: 0; top: 1.4cqw; width: 1cqw; height: 1cqw; border-radius: 50%; background: #c9a144; }
-.mb-foot { margin-top: auto; display: flex; justify-content: space-between; gap: 2cqw; padding-top: 2.4cqw; border-top: 1px solid #e3d8bd; font-size: 1.9cqw; color: var(--muted); letter-spacing: .04em; }
+.mcard-back { transform: rotateY(180deg); display: flex; flex-direction: column; color: #14233a; }
+.mb-body { flex: 1; display: flex; flex-direction: column; padding: 5cqw 5.6cqw 3cqw; }
+.mb-head { display: flex; align-items: center; gap: 2.2cqw; padding-bottom: 3cqw; border-bottom: 1px solid #e6e0d0; }
+.mb-head img { width: 7cqw; height: 7cqw; border-radius: 50%; object-fit: cover; }
+.mb-head b { display: block; font-family: var(--serif); font-size: 2.9cqw; letter-spacing: .1em; color: #0b2a4f; }
+.mb-head span { font-family: var(--display); font-weight: 600; font-size: 1.7cqw; letter-spacing: .14em; color: #8a94a3; }
+.mb-sign { display: flex; flex-direction: column; gap: .8cqw; margin-top: 3.4cqw; }
+.mb-sign-line { padding: 0 .4cqw 1cqw; border-bottom: 1px solid #14233a; font-family: var(--serif); font-size: 3.6cqw; letter-spacing: .14em; color: #0b2a4f; }
+.mb-sign-label { font-family: var(--display); font-weight: 600; font-size: 1.7cqw; letter-spacing: .24em; text-transform: uppercase; color: #8a94a3; }
+.mb-terms { list-style: none; margin: auto 0 0; padding: 0; font-size: 1.95cqw; line-height: 1.8; color: #4a5568; }
+.mb-terms li { position: relative; padding-left: 2.4cqw; }
+.mb-terms li::before { content: ""; position: absolute; left: 0; top: 1.5cqw; width: .8cqw; height: .8cqw; border-radius: 50%; background: #c9a144; }
+.mb-art { position: relative; height: 15%; overflow: hidden; border-top: .5cqw solid #c9a144; }
+.mb-art img { position: absolute; left: 50%; top: 50%; width: 140%; max-width: none; transform: translate(-45%, -31%); }
 
 /* ダッシュボードの小さい会員証 */
 .mini-card .mcard { width: 100%; cursor: pointer; }
-.mini-card .mcard-face { box-shadow: 0 16px 32px -14px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.18); }
+.mini-card .mcard-face { box-shadow: 0 16px 32px -14px rgba(0,0,0,.5); }
 
 .card-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
 .card-hint { color: var(--muted); font-size: 13px; margin: -6px 0 0; text-align: center; }
@@ -619,6 +623,6 @@ img { max-width: 100%; }
   .card-stage .mcard, .card-stage .mcard * { visibility: visible; }
   .card-stage .mcard { position: fixed; left: 10mm; top: 10mm; width: 86mm; transform: none !important; }
   .mcard-tilt { transform: none !important; }
-  .mcard-back, .mc-holo { display: none; }
+  .mcard-back, .mc-shine { display: none; }
   .mcard-front { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

@@ -199,6 +199,29 @@ h1, h2, h3, h4 { line-height: 1.4; }
 .table th { background: var(--main-light); width: 28%; font-weight: 500; }
 .table thead th { background: var(--main); color: #fff; width: auto; }
 
+
+/* ---------- チェックボックス・ラジオボタン（全ページ共通） ----------
+   ・文字の1行目の中央にそろえる（1lh = 1行の高さ）
+   ・label の中に input を入れるだけで自動でこの見た目になります */
+input[type="checkbox"], input[type="radio"] {
+  -webkit-appearance: none; appearance: none; flex-shrink: 0; width: 20px; height: 20px; margin: 0;
+  display: inline-grid; place-content: center; vertical-align: -4px; cursor: pointer;
+  border: 1.5px solid #9aa8bc; background: #fff; transition: background .15s, border-color .15s, box-shadow .15s;
+}
+input[type="checkbox"] { border-radius: 5px; }
+input[type="radio"] { border-radius: 50%; }
+input[type="checkbox"]::before { content: ""; width: 10px; height: 5px; margin-top: -3px; border-left: 2.5px solid #fff; border-bottom: 2.5px solid #fff; transform: rotate(-45deg) scale(0); transition: transform .15s ease; }
+input[type="radio"]::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--main); transform: scale(0); transition: transform .15s ease; }
+input[type="checkbox"]:checked { background: var(--main); border-color: var(--main); }
+input[type="checkbox"]:checked::before { transform: rotate(-45deg) scale(1); }
+input[type="radio"]:checked { border-color: var(--main); }
+input[type="radio"]:checked::before { transform: scale(1); }
+input[type="checkbox"]:hover, input[type="radio"]:hover { border-color: var(--main); }
+input[type="checkbox"]:focus-visible, input[type="radio"]:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(29,85,144,.3); }
+input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cursor: not-allowed; }
+:where(label:has(> input[type="checkbox"]), label:has(> input[type="radio"])) { display: inline-flex; align-items: flex-start; gap: 10px; cursor: pointer; line-height: 1.7; }
+:where(label:has(> input[type="checkbox"]), label:has(> input[type="radio"])) > input { margin-top: .25em; margin-top: calc((1lh - 20px) / 2); }
+
 /* フィルター・検索 */
 .filter-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 24px; padding: 16px; background: var(--bg-gray); border-radius: 6px; }
 .filter-bar input, .filter-bar select { padding: 8px 12px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; font-family: inherit; }
@@ -225,6 +248,7 @@ h1, h2, h3, h4 { line-height: 1.4; }
 .form { max-width: 720px; }
 .form-row { margin-bottom: 20px; }
 .form-row label { display: block; font-weight: 500; margin-bottom: 6px; }
+.form-row label:has(> input[type="checkbox"]) { display: flex; align-items: flex-start; gap: 10px; font-weight: 400; margin-bottom: 0; line-height: 1.7; }
 .form-row .req { display: inline-block; margin-left: 8px; padding: 0 6px; font-size: 11px; background: var(--important); color: #fff; border-radius: 2px; }
 .form input[type="text"], .form input[type="email"], .form input[type="password"], .form input[type="date"], .form select, .form textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 4px; font-size: 15px; font-family: inherit; }
 .form textarea { min-height: 180px; resize: vertical; }
