@@ -13,7 +13,9 @@ news.html         お知らせ一覧／詳細（news.html?id=xxx）
 archive.html      普賢アーカイブについて（紹介ページ・外部サイトへのリンク）※HTMLを直接編集
 events.html       行事・イベント
 contact.html      資料提供・お問い合わせフォーム（Firestore の contacts に保存）
-join.html         入会案内（会員特典・会員種別・入会の流れ・オンライン申込・FAQ）
+join.html         入会案内（会員特典・会員種別・入会の流れ・FAQ）
+apply.html        入会お申込みフォーム（4ステップ。apply.html?type=student で種別を選択済みにできる）
+apply-done.html   お申込み完了ページ
 member-login.html 会員ログイン（パスワード再設定つき）
 member.html       会員サイト（ダッシュボード・お知らせ・行事参加登録・資料室・会員証・プロフィール）
 admin.html        管理画面（お知らせ・行事・会員の承認・会員向けコンテンツの管理）

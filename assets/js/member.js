@@ -88,7 +88,7 @@ function gate(kind, detail = "") {
       <p><a class="lux-btn ghost" href="contact.html">お問い合わせ</a></p>`,
     suspended: `<p class="eyebrow">Suspended</p><h1>会員資格が停止されています</h1><p>詳しくは委員会までお問い合わせください。</p>`,
     none: `<p class="eyebrow">Not a member</p><h1>会員登録が見つかりません</h1><p>このアカウントには会員情報が登録されていません。<br>入会をご希望の方は入会案内からお申込みください。</p>
-      <p><a class="lux-btn" href="join.html">入会案内へ</a></p>`,
+      <p><a class="lux-btn" href="apply.html">入会を申し込む</a>　<a class="lux-btn ghost" href="join.html">入会案内</a></p>`,
     setup: `<p class="eyebrow">Setup</p><h1>Firebase が未設定です</h1><p>assets/js/firebase-config.js を設定してください。</p>`,
     error: `<p class="eyebrow">Error</p><h1>読み込みに失敗しました</h1><p>${esc(detail)}</p><p><button class="lux-btn" onclick="location.reload()">再読み込み</button></p>`
   };

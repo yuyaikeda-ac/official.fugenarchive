@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>入会案内｜普賢アーカイブ運営委員会</title>
-<meta name="description" content="普賢アーカイブ運営委員会の会員募集。会員特典・会員種別（入会金・年会費無料）・入会の流れ・オンライン入会申込。">
+<meta name="description" content="普賢アーカイブ運営委員会の会員募集。会員特典・会員種別（入会金・年会費無料）・入会の流れ・よくある質問。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap" rel="stylesheet">
@@ -25,7 +25,7 @@
         <h1 class="reveal d1">記録を、<br><span class="gold-text">未来へつなぐ仲間</span>に。</h1>
         <p class="lead reveal d2">普賢アーカイブ運営委員会は、普賢に関わる記録と記憶を次の世代へ受け継ぐ活動を行っています。会員として、この取り組みを一緒に支えていただけませんか。</p>
         <div class="actions reveal d3">
-          <a class="lux-btn" href="#apply">入会を申し込む <span aria-hidden="true">→</span></a>
+          <a class="lux-btn" href="apply.html">入会を申し込む <span aria-hidden="true">→</span></a>
           <a class="lux-btn ghost" href="member-login.html">会員ログイン</a>
         </div>
       </div>
@@ -109,7 +109,7 @@
             <li>総会での議決権</li>
             <li>アーカイブ活動への参画</li>
           </ul>
-          <a class="lux-btn" href="#apply" data-plan="regular">正会員で申し込む</a>
+          <a class="lux-btn" href="apply.html?type=regular">正会員で申し込む</a>
         </article>
         <article class="plan reveal d1">
           <span class="ribbon">FREE</span>
@@ -124,7 +124,7 @@
             <li>デジタル会員証</li>
             <li>アーカイブ活動への参画</li>
           </ul>
-          <a class="lux-btn ghost" href="#apply" data-plan="student">学生会員で申し込む</a>
+          <a class="lux-btn ghost" href="apply.html?type=student">学生会員で申し込む</a>
         </article>
       </div>
     </div>
@@ -138,105 +138,25 @@
         <h2>入会の流れ</h2>
       </div>
       <ol class="flow three">
-        <li class="reveal"><div class="dot">1</div><h3>オンライン申込</h3><p>下のフォームから3分ほどで<br>お申込みいただけます。</p></li>
+        <li class="reveal"><div class="dot">1</div><h3>オンライン申込</h3><p><a href="apply.html" style="color:var(--navy-2)">申込フォーム</a>から3分ほどで<br>お申込みいただけます。</p></li>
         <li class="reveal d1"><div class="dot">2</div><h3>委員会による審査・承認</h3><p>委員会にて申込内容を審査し、<br>承認の可否を決定します。</p></li>
         <li class="reveal d2"><div class="dot">3</div><h3>会員サイト利用開始</h3><p>承認されると会員証が発行され、<br>すべての特典をご利用いただけます。</p></li>
       </ol>
     </div>
   </section>
 
-  <!-- ===== お申込みフォーム ===== -->
-  <section class="lux-section" id="apply">
+  <!-- ===== お申込みへの案内 ===== -->
+  <section class="lux-section join-cta">
     <div class="inner">
-      <div class="lux-head reveal">
-        <p class="eyebrow">Application</p>
-        <h2>入会お申込み</h2>
-        <p>本会は<strong style="color:var(--gold-light)">委員会承認制</strong>です。お申込み後、委員会の審査を経て承認された方のみ会員となります。</p>
-      </div>
-
-      <div class="wizard reveal" id="wizard">
-        <ol class="steps" id="steps" aria-label="申込の進行状況">
-          <li class="is-active"><span>1</span>会員種別</li>
-          <li><span>2</span>お客様情報</li>
-          <li><span>3</span>アカウント</li>
-          <li><span>4</span>確認</li>
-        </ol>
-
-        <form id="apply-form" novalidate>
-          <!-- STEP 1 -->
-          <div class="step-panel is-show" data-step="1">
-            <h3 class="step-title">会員種別をお選びください</h3>
-            <p class="step-sub">あとから委員会へご相談いただくことで変更も可能です。</p>
-            <div class="type-select two" role="radiogroup" aria-label="会員種別">
-              <label><input type="radio" name="type" value="regular" checked><div><strong>正会員</strong><small>本会の目的に賛同する方・無料</small></div></label>
-              <label><input type="radio" name="type" value="student"><div><strong>学生会員</strong><small>学生の方・無料</small></div></label>
-            </div>
-          </div>
-
-          <!-- STEP 2 -->
-          <div class="step-panel" data-step="2">
-            <h3 class="step-title">お客様情報</h3>
-            <p class="step-sub">入力内容はこのブラウザに一時保存されるので、途中で閉じても大丈夫です。</p>
-            <div class="grid-2">
-              <div class="field"><label for="f-name">お名前<span class="req">必須</span></label><input id="f-name" name="name" autocomplete="name" placeholder="普賢 太郎" required maxlength="100"><p class="err">お名前を入力してください</p></div>
-              <div class="field"><label for="f-kana">フリガナ<span class="req">必須</span></label><input id="f-kana" name="kana" placeholder="フゲン タロウ" required maxlength="100" data-kana><p class="err">カタカナで入力してください</p></div>
-            </div>
-            <div class="field"><label for="f-email">メールアドレス<span class="req">必須</span></label><input id="f-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required maxlength="200"><p class="hint">ご連絡先・ログインIDとして使用します（Google で申し込む場合は Google アカウントのアドレスになります）</p><p class="err">正しいメールアドレスを入力してください</p></div>
-            <div class="field"><label for="f-aff">ご所属（勤務先・学校名など）</label><input id="f-aff" name="affiliation" autocomplete="organization" maxlength="200"></div>
-            <div class="grid-2">
-              <div class="field"><label for="f-phone">電話番号</label><input id="f-phone" name="phone" type="tel" autocomplete="tel" placeholder="090-0000-0000" maxlength="30"></div>
-              <div class="field"><label for="f-address">ご住所</label><input id="f-address" name="address" autocomplete="street-address" maxlength="300"></div>
-            </div>
-          </div>
-
-          <!-- STEP 3 -->
-          <div class="step-panel" data-step="3">
-            <h3 class="step-title">アカウント設定</h3>
-            <p class="step-sub">会員サイトへのログイン方法を選んでください。</p>
-            <div class="login-method" role="radiogroup" aria-label="ログイン方法">
-              <label><input type="radio" name="method" value="password" checked> メールアドレスとパスワード</label>
-              <label><input type="radio" name="method" value="google"> <svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg> Googleアカウント</label>
-            </div>
-            <p class="hint" id="google-note" hidden style="margin:-8px 0 22px;font-size:13px;color:var(--muted)">「申込を確定する」を押すと Google のログイン画面が開きます。会員登録には Google アカウントのメールアドレスが使われます。</p>
-            <div id="pw-fields">
-            <div class="field">
-              <label for="f-pw">パスワード<span class="req">必須</span></label>
-              <div class="pw-wrap"><input id="f-pw" name="password" type="password" autocomplete="new-password" minlength="8" required><button type="button" class="pw-toggle" data-pw="f-pw">表示</button></div>
-              <div class="strength" id="strength" data-level="0"><i></i><i></i><i></i><i></i></div>
-              <p class="hint">8文字以上。英字・数字・記号を組み合わせると安全です</p>
-              <p class="err">8文字以上で入力してください</p>
-            </div>
-            <div class="field">
-              <label for="f-pw2">パスワード（確認）<span class="req">必須</span></label>
-              <div class="pw-wrap"><input id="f-pw2" name="password2" type="password" autocomplete="new-password" required><button type="button" class="pw-toggle" data-pw="f-pw2">表示</button></div>
-              <p class="err">パスワードが一致しません</p>
-            </div>
-            </div>
-            <div class="field"><label for="f-msg">入会の動機・メッセージ（任意）</label><textarea id="f-msg" name="message" maxlength="2000" placeholder="普賢との関わりや、活動への想いなどをお聞かせください"></textarea></div>
-            <div class="field"><label class="check"><input type="checkbox" name="newsletter" checked> 会員向けのお知らせをメールで受け取る</label></div>
-            <div class="field"><label class="check"><input type="checkbox" name="agree" required> <span><a href="about.html#rules" target="_blank">運営規程</a>および<a href="privacy.html" target="_blank">プライバシーポリシー</a>に同意します</span></label><p class="err">同意が必要です</p></div>
-          </div>
-
-          <!-- STEP 4 -->
-          <div class="step-panel" data-step="4">
-            <h3 class="step-title">入力内容の確認</h3>
-            <p class="step-sub">内容をご確認のうえ「申込を確定する」を押してください。</p>
-            <dl class="confirm-list" id="confirm"></dl>
-          </div>
-
-          <div id="apply-alert"></div>
-          <div class="wizard-nav" id="wizard-nav">
-            <button type="button" class="lux-btn ghost" id="prev" hidden>← 戻る</button>
-            <button type="submit" class="lux-btn" id="next" style="margin-left:auto">次へ →</button>
-          </div>
-        </form>
-
-        <!-- 完了 -->
-        <div class="done-view" id="done" hidden>
-          <div class="done-mark">✓</div>
-          <h3 class="step-title">お申込みを受け付けました</h3>
-          <p class="step-sub" style="line-height:2">ご入会のお申込みありがとうございます。<br>委員会で審査のうえ、承認の可否をご登録のメールアドレスへご連絡いたします。<br>※ 承認されるまでは会員サイトの各機能はご利用いただけません。<br>審査の状況は会員サイトからいつでもご確認いただけます。</p>
-          <a class="lux-btn" href="member.html">会員サイトで状況を確認する →</a>
+      <div class="cta-box reveal">
+        <div>
+          <p class="eyebrow">Application</p>
+          <h2>入会のお申込み</h2>
+          <p>オンラインで3分ほどでお申込みいただけます。入会金・年会費はかかりません。<br>本会は<strong>委員会承認制</strong>です。委員会の審査を経て承認された方のみ会員となります。</p>
+        </div>
+        <div class="cta-actions">
+          <a class="lux-btn" href="apply.html">入会を申し込む →</a>
+          <a class="lux-btn ghost" href="member-login.html">お申込み済みの方（会員ログイン）</a>
         </div>
       </div>
     </div>
@@ -262,155 +182,10 @@
 
 <footer id="site-footer"></footer>
 
-<script type="module">
-  import { apply, applyWithGoogle, errorMessage, MEMBER_TYPES } from "./assets/js/member-api.js";
-  import { esc } from "./assets/js/db.js";
-
-  // ---------- スクロールで出現 ----------
+<script>
+  // スクロールで出現
   const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add("is-in"); io.unobserve(e.target); } }), { threshold: .12 });
   document.querySelectorAll(".reveal").forEach(el => io.observe(el));
-
-  // ---------- ウィザード ----------
-  const form = document.getElementById("apply-form");
-  const F = form.elements;
-  const panels = [...form.querySelectorAll(".step-panel")];
-  const stepLis = [...document.querySelectorAll(".steps li")];
-  const prevBtn = document.getElementById("prev");
-  const nextBtn = document.getElementById("next");
-  const alertBox = document.getElementById("apply-alert");
-  const DRAFT_KEY = "fugen-join-draft";
-  let step = 1;
-
-  // 料金表のボタン → 種別を選択してフォームへ
-  document.querySelectorAll("[data-plan]").forEach(a => a.addEventListener("click", () => {
-    form.querySelector(`input[name=type][value=${a.dataset.plan}]`).checked = true;
-    go(1);
-  }));
-
-  function go(n) {
-    step = n;
-    panels.forEach(p => p.classList.toggle("is-show", +p.dataset.step === n));
-    stepLis.forEach((li, i) => { li.classList.toggle("is-active", i + 1 === n); li.classList.toggle("is-done", i + 1 < n); });
-    document.getElementById("steps").style.setProperty("--p", (n - 1) / 3);
-    prevBtn.hidden = n === 1;
-    nextBtn.innerHTML = n === 4 ? "申込を確定する" : "次へ →";
-    alertBox.innerHTML = "";
-    if (n === 4) renderConfirm();
-    const first = panels[n - 1].querySelector("input:not([type=radio]):not([type=checkbox]), input:checked");
-    if (first && document.activeElement !== document.body) setTimeout(() => first.focus({ preventScroll: true }), 50);
-  }
-
-  // ---------- ログイン方法（パスワード / Google） ----------
-  const useGoogle = () => F.method.value === "google";
-  form.querySelectorAll("input[name=method]").forEach(r => r.addEventListener("change", () => {
-    document.getElementById("pw-fields").hidden = useGoogle();
-    document.getElementById("google-note").hidden = !useGoogle();
-  }));
-
-  // ---------- 入力チェック ----------
-  const rules = {
-    name: v => v.trim().length > 0,
-    kana: v => /^[ァ-ヶーぁ-ゖ\s　]+$/.test(v.trim()),
-    email: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()),
-    password: v => useGoogle() || v.length >= 8,
-    password2: v => useGoogle() || (v === F.password.value && v.length > 0),
-    agree: (_, el) => el.checked
-  };
-  function check(el) {
-    const rule = rules[el.name];
-    if (!rule) return true;
-    const ok = rule(el.value, el);
-    const field = el.closest(".field");
-    field.classList.toggle("is-invalid", !ok);
-    field.classList.toggle("is-valid", ok && el.type !== "checkbox" && el.type !== "password");
-    return ok;
-  }
-  function validateStep(n) {
-    const els = [...panels[n - 1].querySelectorAll("input, textarea")].filter(el => rules[el.name]);
-    const results = els.map(check);
-    const firstBad = els[results.indexOf(false)];
-    if (firstBad) firstBad.focus();
-    return !firstBad;
-  }
-  form.addEventListener("input", e => {
-    const field = e.target.closest(".field");
-    if (field?.classList.contains("is-invalid") || field?.classList.contains("is-valid")) check(e.target);
-    if (e.target.name === "password") strength(e.target.value);
-    saveDraft();
-  });
-  form.addEventListener("focusout", e => { if (e.target.value) check(e.target); });
-
-  function strength(v) {
-    let s = 0;
-    if (v.length >= 8) s++;
-    if (v.length >= 12) s++;
-    if (/[A-Za-z]/.test(v) && /\d/.test(v)) s++;
-    if (/[^A-Za-z0-9]/.test(v)) s++;
-    document.getElementById("strength").dataset.level = v ? Math.max(1, s) : 0;
-  }
-
-  // パスワード表示切替
-  document.querySelectorAll(".pw-toggle").forEach(b => b.addEventListener("click", () => {
-    const input = document.getElementById(b.dataset.pw);
-    const show = input.type === "password";
-    input.type = show ? "text" : "password";
-    b.textContent = show ? "隠す" : "表示";
-  }));
-
-  // ---------- 下書き保存（パスワードは保存しません） ----------
-  const DRAFT_FIELDS = ["type", "name", "kana", "email", "affiliation", "phone", "address", "message"];
-  function saveDraft() {
-    try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(Object.fromEntries(DRAFT_FIELDS.map(k => [k, F[k].value])))); } catch {}
-  }
-  try {
-    const d = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "null");
-    if (d) DRAFT_FIELDS.forEach(k => {
-      if (k === "type") { const r = form.querySelector(`input[name=type][value="${d.type}"]`); if (r) r.checked = true; }
-      else if (d[k]) F[k].value = d[k];
-    });
-  } catch {}
-
-  // ---------- 確認画面 ----------
-  function renderConfirm() {
-    const rows = [
-      ["会員種別", `${MEMBER_TYPES[F.type.value].label}（入会金・年会費 無料）`],
-      ["お名前", F.name.value], ["フリガナ", F.kana.value], ["メールアドレス", F.email.value],
-      ["ご所属", F.affiliation.value || "—"], ["電話番号", F.phone.value || "—"], ["ご住所", F.address.value || "—"],
-      ["メッセージ", F.message.value || "—"], ["お知らせメール", F.newsletter.checked ? "受け取る" : "受け取らない"],
-      ["ログイン方法", useGoogle() ? "Googleアカウント（確定時にGoogleのログイン画面が開きます）" : "メールアドレスとパスワード"]
-    ];
-    document.getElementById("confirm").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
-  }
-
-  // ---------- 送信 ----------
-  prevBtn.addEventListener("click", () => go(step - 1));
-  form.addEventListener("submit", async e => {
-    e.preventDefault();
-    if (step < 4) { if (validateStep(step)) go(step + 1); return; }
-    nextBtn.disabled = true; prevBtn.disabled = true;
-    nextBtn.innerHTML = '<span class="spinner"></span> 送信中…';
-    try {
-      const data = {
-        type: F.type.value, name: F.name.value.trim(), kana: F.kana.value.trim(), email: F.email.value.trim(),
-        affiliation: F.affiliation.value.trim(), phone: F.phone.value.trim(), address: F.address.value.trim(),
-        message: F.message.value.trim(), newsletter: F.newsletter.checked, password: F.password.value
-      };
-      await (useGoogle() ? applyWithGoogle(data) : apply(data));
-      try { sessionStorage.removeItem(DRAFT_KEY); } catch {}
-      form.hidden = true;
-      document.querySelector(".steps").hidden = true;
-      document.getElementById("done").hidden = false;
-      document.getElementById("wizard").scrollIntoView({ behavior: "smooth", block: "center" });
-    } catch (err) {
-      console.error(err);
-      if (err.code === "auth/popup-closed-by-user" || err.code === "auth/cancelled-popup-request") {
-        nextBtn.disabled = false; prevBtn.disabled = false; nextBtn.innerHTML = "申込を確定する"; return;
-      }
-      alertBox.innerHTML = `<div class="alert error">${esc(errorMessage(err))}</div>`;
-      nextBtn.disabled = false; prevBtn.disabled = false;
-      nextBtn.innerHTML = "申込を確定する";
-    }
-  });
 </script>
 </body>
 </html>

@@ -224,6 +224,37 @@
   .faq { padding: 4px 16px; }
 }
 
+/* ---------- 下層ページの見出し（apply.html / apply-done.html） ---------- */
+.sub-hero { position: relative; overflow: hidden; padding: 40px 0 44px; background:
+  radial-gradient(ellipse 60% 80% at 90% 0%, rgba(79,143,209,.16), transparent 60%),
+  linear-gradient(180deg, #f3f8fd 0%, #fbfaf6 100%); border-bottom: 1px solid var(--line-soft); }
+.sub-hero h1 { font-family: var(--serif); font-size: clamp(26px, 3.4vw, 38px); margin: 8px 0 12px; color: var(--navy); letter-spacing: .06em; }
+.sub-hero p { margin: 0; color: #3f4b5e; line-height: 1.9; max-width: 760px; }
+.sub-hero p strong { color: var(--navy); }
+.sub-crumb { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 22px; padding: 0; font-size: 12px; color: var(--muted); }
+.sub-crumb li + li::before { content: "›"; margin-right: 8px; }
+.sub-crumb a { color: var(--navy-2); }
+.apply-help { max-width: 820px; margin: 24px auto 0; text-align: center; font-size: 13px; color: var(--muted); }
+.apply-help a { color: var(--navy-2); }
+
+/* 入会案内：申込への誘導 */
+.join-cta { background: #fff; }
+.cta-box { display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: center; padding: 44px 48px; border-radius: 24px; color: #fff;
+  background: radial-gradient(ellipse at 100% 0%, rgba(255,255,255,.18), transparent 55%), linear-gradient(135deg, #2a6cb0, var(--navy)); box-shadow: var(--shadow-lg); }
+.cta-box .eyebrow { color: #f1d98e; }
+.cta-box h2 { font-family: var(--serif); font-size: clamp(24px, 3vw, 32px); margin: 8px 0 12px; }
+.cta-box p { margin: 0; color: rgba(255,255,255,.9); line-height: 1.9; }
+.cta-box p strong { color: #fff; }
+.cta-actions { display: flex; flex-direction: column; gap: 12px; min-width: 280px; }
+.cta-box .lux-btn { background: #fff; color: var(--navy); border-color: #fff; }
+.cta-box .lux-btn:hover { background: var(--gold-soft); color: var(--navy); }
+.cta-box .lux-btn.ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,.7); }
+.cta-box .lux-btn.ghost:hover { background: rgba(255,255,255,.12); color: #fff; }
+@media (max-width: 860px) {
+  .cta-box { grid-template-columns: 1fr; padding: 32px 24px; text-align: center; }
+  .cta-actions { min-width: 0; }
+}
+
 /* ============================================================
    ログインページ（member-login.html）
    ============================================================ */
