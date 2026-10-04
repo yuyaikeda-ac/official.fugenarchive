@@ -21,7 +21,7 @@ import {
   query, orderBy, limit as qLimit, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
-  getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
+  getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { firebaseConfig } from "./firebase-config.js";
 import { sampleData } from "./sample-data.js";
@@ -90,6 +90,7 @@ export const adminApi = {
   },
   login: (email, password) => signInWithEmailAndPassword(auth, email, password),
   logout: () => signOut(auth),
+  resetPassword: (email) => sendPasswordResetEmail(auth, email),
   onAuth: (cb) => isDemo ? cb(null) : onAuthStateChanged(auth, cb)
 };
 

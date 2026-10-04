@@ -44,6 +44,8 @@
         <div class="form-row"><label for="login-pass">パスワード</label><input type="password" id="login-pass" required autocomplete="current-password"></div>
         <div id="login-msg"></div>
         <button class="btn btn-primary" type="submit">ログイン</button>
+        <button class="btn" type="button" id="reset-btn" style="margin-left:8px">パスワードの設定・再設定</button>
+        <p style="font-size:13px;color:var(--text-sub);margin-top:12px">初めてログインする場合やパスワードを忘れた場合は、メールアドレスを入力して「パスワードの設定・再設定」を押してください。設定用のメールが届きます。</p>
       </form>
     </section>
 
@@ -189,6 +191,14 @@
     catch (err) { console.error(err); notice("login-msg", "error", "ログインに失敗しました。メールアドレスとパスワードをご確認ください。"); }
   });
   $("logout").addEventListener("click", () => adminApi.logout());
+
+  // パスワードの設定・再設定メール
+  $("reset-btn").addEventListener("click", async () => {
+    const email = $("login-email").value.trim();
+    if (!email) { notice("login-msg", "error", "メールアドレスを入力してください。"); $("login-email").focus(); return; }
+    try { await adminApi.resetPassword(email); notice("login-msg", "success", `${email} にパスワード設定用のメールを送信しました。メール内のリンクからパスワードを設定してください。`); }
+    catch (err) { console.error(err); notice("login-msg", "error", "メールを送信できませんでした。メールアドレスをご確認ください。"); }
+  });
 
   // ---------- タブ ----------
   document.querySelectorAll("[data-col]").forEach(b => b.addEventListener("click", () => {
