@@ -158,7 +158,7 @@
       label: "会員", order: "createdAt", noCreate: true,
       fields: [
         { key: "type", label: "会員種別", type: "select", options: { regular: "正会員", associate: "準会員", student: "学生会員" }, required: true },
-        { key: "memberNo", label: "会員番号", type: "text" },
+        { key: "memberNo", label: "会員番号（有効な会員は空欄で保存すると自動で採番）", type: "text", generate: true },
         { key: "validUntil", label: "有効期限（通常は空欄＝期限なし）", type: "date" },
         { key: "name", label: "お名前", type: "text", required: true },
         { key: "kana", label: "フリガナ", type: "text" },
@@ -195,11 +195,18 @@
   // ★ 会員の状態は「承認」「否認」「停止」「再開」ボタンでのみ変更します（委員会承認制）
   const MEMBER_STATUS = { pending: "審査中", active: "有効", suspended: "停止中", rejected: "否認" };
 
-  // 会員番号を自動採番（例：FA-2026-0001）
-  function nextMemberNo() {
-    const y = new Date().getFullYear();
-    const nums = rows.map(r => /^FA-\d{4}-(\d+)$/.exec(r.memberNo || "")).filter(Boolean).map(m => +m[1]);
-    return `FA-${y}-${String((nums.length ? Math.max(...nums) : 0) + 1).padStart(4, "0")}`;
+  // ============================================================
+  //  会員番号の自動採番（例：FA-2026-0001）
+  //  ★ 形式を変えるときは MEMBER_NO の prefix（頭の文字）と digits（連番の桁数）を変更
+  //    ・連番はデータベースのカウンター（counters/memberNo）で管理し、重複しません
+  //    ・年の部分は採番した年。連番は年をまたいでも通しで増えます
+  // ============================================================
+  const MEMBER_NO = { prefix: "FA", digits: 4 };
+  const memberNoSeq = (no) => { const m = /-(\d+)$/.exec(no || ""); return m ? +m[1] : 0; };
+  async function issueMemberNo() {
+    const maxUsed = Math.max(0, ...rows.map(r => memberNoSeq(r.memberNo)));
+    const seq = await adminApi.issueMemberSeq(maxUsed);
+    return `${MEMBER_NO.prefix}-${new Date().getFullYear()}-${String(seq).padStart(MEMBER_NO.digits, "0")}`;
   }
 
   const $ = (id) => document.getElementById(id);
@@ -456,8 +463,10 @@
     if (editId) openEditor(rows.find(r => r.id === editId));
     if (approve) {
       const r = rows.find(x => x.id === approve);
-      const no = r.memberNo || nextMemberNo();
-      if (!window.confirm(`${r.name} さんを委員会承認として登録します。\n会員番号：${no}`)) return;
+      if (!window.confirm(`${r.name} さんを委員会承認として登録します。${r.memberNo ? `\n会員番号：${r.memberNo}` : "\n会員番号は自動で採番されます。"}`)) return;
+      let no = r.memberNo;
+      try { if (!no) no = await issueMemberNo(); }
+      catch (err) { console.error(err); notice("admin-msg", "error", "会員番号の採番に失敗しました：" + err.message); return; }
       return setMember(approve, { status: "active", memberNo: no, approvedAt: new Date(), approvedBy: currentAdmin.uid }, `${r.name} さんを承認しました（${no}）。`);
     }
     if (reject) {
@@ -492,6 +501,7 @@
         else if (f.type === "select") input = `<select name="${f.key}"${req}>${Object.entries(f.options).map(([k, l]) =>
           `<option value="${esc(k)}"${row?.[f.key] === k ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
         else input = `<input type="${f.type === "url" ? "text" : f.type}" name="${f.key}" value="${v(f.key)}"${req}>`;
+        if (f.generate) input = `<div style="display:flex;gap:8px">${input}<button type="button" class="btn" data-generate="${f.key}" style="white-space:nowrap">自動生成</button></div>`;
         return `<div class="form-row"><label>${esc(f.label)}${reqMark}</label>${input}</div>`;
       }).join("") +
       `<button type="submit" class="btn btn-primary">保存</button> <button type="button" class="btn" id="cancel">キャンセル</button>`;
@@ -503,6 +513,18 @@
 
   function closeEditor() { $("editor").hidden = true; $("edit-form").innerHTML = ""; }
 
+  // 「自動生成」ボタン：会員番号を新しく採番して入力欄に入れる
+  $("edit-form").addEventListener("click", async (e) => {
+    const key = e.target.dataset.generate;
+    if (!key) return;
+    const input = $("edit-form").elements[key];
+    if (input.value.trim() && !window.confirm(`現在の会員番号「${input.value.trim()}」を新しい番号に置き換えますか？`)) return;
+    e.target.disabled = true;
+    try { input.value = await issueMemberNo(); }
+    catch (err) { console.error(err); notice("admin-msg", "error", "会員番号の採番に失敗しました：" + err.message); }
+    finally { e.target.disabled = false; }
+  });
+
   $("edit-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const form = e.target, data = {};
@@ -511,6 +533,15 @@
       data[f.key] = f.type === "checkbox" ? el.checked : el.value.trim();
     });
     try {
+      if (current === "members") {
+        const id = form.dataset.id;
+        const member = rows.find(r => r.id === id);
+        // 有効な会員で番号が空欄なら自動で採番
+        if (!data.memberNo && member?.status === "active") data.memberNo = await issueMemberNo();
+        // 他の会員と同じ番号は保存しない
+        const dup = data.memberNo && rows.find(r => r.id !== id && r.memberNo === data.memberNo);
+        if (dup) { notice("admin-msg", "error", `会員番号「${data.memberNo}」は ${dup.name} さんが使用しています。別の番号にするか「自動生成」を押してください。`); return; }
+      }
       await adminApi.save(current, form.dataset.id || null, data);
       notice("admin-msg", "success", "保存しました。");
       closeEditor(); load();

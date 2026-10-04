@@ -8,6 +8,7 @@
 //    events   : 行事（title, date, place, description, url）
 //    contacts : お問い合わせ（name, email, subject, message, createdAt）※書き込みのみ
 //    admins   : 管理者（ドキュメントID = UID。role: "owner"（オーナー） | "admin"（管理者））
+//    counters/memberNo : 会員番号の連番カウンター（seq）
 //    admin_invites : 管理者への招待（ドキュメントID = 小文字のメールアドレス）※オーナーのみ作成可
 //
 //  会員機能（assets/js/member-api.js で使用）
@@ -19,7 +20,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
-  query, orderBy, limit as qLimit, serverTimestamp
+  query, orderBy, limit as qLimit, serverTimestamp, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail,
@@ -93,6 +94,20 @@ export const adminApi = {
     if (isDemo) throw new Error("デモモードでは削除できません。");
     await deleteDoc(doc(db, name, id));
   },
+  /**
+   * 会員番号の連番を 1 つ発行する（トランザクションで重複なし）
+   * minSeq：既存の会員番号の最大値（カウンターが古い・未作成の場合の下限）
+   */
+  async issueMemberSeq(minSeq = 0) {
+    const ref = doc(db, "counters", "memberNo");
+    return runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      const seq = Math.max(snap.exists() ? Number(snap.data().seq) || 0 : 0, minSeq) + 1;
+      tx.set(ref, { seq, updatedAt: serverTimestamp() });
+      return seq;
+    });
+  },
+
   /** 管理者情報（role: "owner" | "admin"）。管理者でなければ null */
   async getAdmin(uid) {
     const snap = await getDoc(doc(db, "admins", uid));

@@ -64,6 +64,11 @@ service cloud.firestore {
       allow delete: if isOwner() && resource.data.role != 'owner';
     }
 
+    // ---------- 会員番号の連番カウンター（管理者のみ） ----------
+    match /counters/{id} {
+      allow read, write: if isAdmin();
+    }
+
     // ---------- 管理者への招待（ID = 小文字のメールアドレス） ----------
     match /admin_invites/{email} {
       allow read: if isOwner() || (signedIn() && request.auth.token.email.lower() == email);
