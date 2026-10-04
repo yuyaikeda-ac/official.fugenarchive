@@ -2,54 +2,51 @@
 //  Cloud Functions：申請・お問い合わせ時のメール送信
 //  Firestore にデータが保存されると自動で動きます。
 //
-//  ・送信元：Gmail（SENDER のアカウント）
-//  ・Gmail のアプリパスワードは Secret Manager に「GMAIL_APP_PASSWORD」として保存
-//    （登録：firebase functions:secrets:set GMAIL_APP_PASSWORD）
+//  ・送信は Google Apps Script（apps-script/Code.gs）経由。
+//    Apps Script を設置した Gmail アカウントから送信されます。
+//  ・Secret Manager に次の 2 つを登録しておきます
+//      MAIL_WEBAPP_URL … Apps Script のウェブアプリの URL
+//      MAIL_TOKEN      … Apps Script の setup で表示された TOKEN
 //  ・メールの文面は mails.js で編集できます
 // ============================================================
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { defineSecret } = require("firebase-functions/params");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const logger = require("firebase-functions/logger");
-const nodemailer = require("nodemailer");
 const mails = require("./mails");
 
-// ★ 送信に使う Gmail アカウント
-const SENDER = "yuya.ikr@gmail.com";
-const GMAIL_APP_PASSWORD = defineSecret("GMAIL_APP_PASSWORD");
+const MAIL_WEBAPP_URL = defineSecret("MAIL_WEBAPP_URL");
+const MAIL_TOKEN = defineSecret("MAIL_TOKEN");
 
 // Firestore と同じ東京リージョンで動かす
 setGlobalOptions({ region: "asia-northeast1", maxInstances: 3 });
 
-const opts = { secrets: [GMAIL_APP_PASSWORD], retry: false };
+const opts = { secrets: [MAIL_WEBAPP_URL, MAIL_TOKEN], retry: false };
 
-let transporter = null;
-function getTransporter() {
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: { user: SENDER, pass: GMAIL_APP_PASSWORD.value().replace(/\s/g, "") }
-    });
-  }
-  return transporter;
-}
-
-/** メールを順に送信（1通失敗しても他は送る） */
+/** Apps Script にまとめて送信を依頼する */
 async function sendAll(list, context) {
-  for (const m of list) {
-    if (!m.to) continue;
-    try {
-      await getTransporter().sendMail({
-        from: `"${mails.CONFIG.orgName}" <${SENDER}>`,
-        to: m.to,
-        replyTo: m.replyTo,
-        subject: m.subject,
-        text: m.text
-      });
-      logger.info(`メール送信：${context}`, { to: m.to, subject: m.subject });
-    } catch (e) {
-      logger.error(`メール送信失敗：${context}`, { to: m.to, error: e.message });
+  const targets = list.filter(m => m.to);
+  if (!targets.length) return;
+  try {
+    const res = await fetch(MAIL_WEBAPP_URL.value().trim(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: MAIL_TOKEN.value().trim(), mails: targets }),
+      redirect: "follow"
+    });
+    const text = await res.text();
+    let result;
+    try { result = JSON.parse(text); } catch { throw new Error(`Apps Script の応答が不正です（HTTP ${res.status}）: ${text.slice(0, 200)}`); }
+    if (!result.ok) throw new Error(`Apps Script エラー: ${result.error}`);
+    for (const r of result.results) {
+      if (r.ok) logger.info(`メール送信：${context}`, { to: r.to });
+      else logger.error(`メール送信失敗：${context}`, { to: r.to, error: r.error });
     }
+    if (typeof result.remaining === "number" && result.remaining < 20) {
+      logger.warn(`本日の残り送信可能数が少なくなっています：${result.remaining} 通`);
+    }
+  } catch (e) {
+    logger.error(`メール送信失敗：${context}`, { to: targets.map(m => m.to), error: e.message });
   }
 }
 

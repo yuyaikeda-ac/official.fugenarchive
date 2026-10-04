@@ -11,7 +11,8 @@
       "**/.*",
       "**/.*/**",
       "**/node_modules/**",
-      "functions/**"
+      "functions/**",
+      "apps-script/**"
     ]
   },
   "functions": [

@@ -16,6 +16,8 @@ contact.html      資料提供・お問い合わせフォーム（Firestore の 
 join.html         入会案内（会員特典・会員種別・入会の流れ・FAQ）
 apply.html        入会お申込みフォーム（4ステップ。apply.html?type=student で種別を選択済みにできる）
 apply-done.html   お申込み完了ページ
+functions/        Cloud Functions（申請時のメール送信。文面は mails.js）
+apps-script/      メール送信用 Google Apps Script（Gmail アカウントに設置）
 member-login.html 会員ログイン（パスワード再設定つき）
 member.html       会員サイト（ダッシュボード・お知らせ・行事参加登録・資料室・会員証・プロフィール）
 admin.html        管理画面（お知らせ・行事・会員の承認・会員向けコンテンツの管理）
@@ -72,6 +74,30 @@ firebase.json                Firebase Hosting 設定
 ## Google ログイン
 
 会員ログイン・管理画面・入会申込で「Googleでログイン」が使えます。**Firebase コンソール > Authentication > ログイン方法 で「Google」を有効にしてください。** 独自ドメインで公開する場合は、Authentication > 設定 > 承認済みドメイン にそのドメインを追加してください。
+
+## メール送信（Google Apps Script 経由）
+
+入会申込・審査結果・お問い合わせ・管理者招待のときに、Cloud Functions（`functions/`）が Google Apps Script（`apps-script/Code.gs`）に依頼してメールを送ります。メールは **Apps Script を設置した Gmail アカウント** から送信されます（無料アカウントは 1 日約 100 通まで）。
+
+| 送るメール | 宛先 |
+|---|---|
+| 入会申込の通知／受付確認 | 委員会／申込者 |
+| 承認・否認の結果 | 申込者 |
+| お問い合わせの通知／自動返信 | 委員会（返信すると送信者に届く）／送信者 |
+| 管理者招待 | 招待された人 |
+
+- 文面・委員会の通知先は `functions/mails.js` の `CONFIG` と各関数で編集します。
+- **設置手順**
+  1. 送信に使う Gmail アカウントで https://script.google.com →「新しいプロジェクト」に `apps-script/Code.gs` を貼り付けて保存
+  2. 関数 `setup` を実行（権限を許可）→ 実行ログの TOKEN を控える
+  3. 「デプロイ」→「新しいデプロイ」→ 種類「ウェブアプリ」、実行ユーザー「自分」、アクセス「全員」→ URL を控える
+  4. プロジェクトのフォルダで次を実行し、それぞれ貼り付ける
+     ```
+     firebase functions:secrets:set MAIL_WEBAPP_URL --project fugen-archive-official
+     firebase functions:secrets:set MAIL_TOKEN --project fugen-archive-official
+     ```
+  5. `firebase deploy --only functions`
+- Apps Script のコードを変更したときは「デプロイを管理」→ 編集 → バージョン「新バージョン」で更新します（URL は変わりません）。
 
 ## Firestore のデータ形式
 
