@@ -14,6 +14,7 @@ import { db, auth, isDemo, signInWithGoogle } from "./db.js";
 //    firestore.rules の type の一覧も合わせて編集してください。
 export const MEMBER_TYPES = {
   regular: { label: "正会員" },
+  associate: { label: "準会員" },
   student: { label: "学生会員" }
 };
 

@@ -86,7 +86,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['name', 'kana', 'email', 'type', 'affiliation', 'phone',
              'address', 'message', 'newsletter', 'status', 'createdAt'])
         && request.resource.data.status == 'pending'
-        && request.resource.data.type in ['regular', 'student']
+        && request.resource.data.type in ['regular', 'associate', 'student']
         && str(request.resource.data.name, 100)
         && str(request.resource.data.kana, 100)
         && str(request.resource.data.email, 200)

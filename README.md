@@ -80,7 +80,7 @@ firebase.json                Firebase Hosting 設定
 | `news` | `title`, `date`（"2026-10-01" 形式の文字列）, `category`（`topics` / `kaikoku` / `event` / `archive` / `recruit` / `report`）, `important`（true/false）, `body`, `url` |
 | `events` | `title`, `date`（"YYYY-MM-DD"）, `place`, `description`, `url` |
 | `contacts` | `subject`, `name`, `email`, `message`, `createdAt`（自動） |
-| `members` | ドキュメントID = 会員の UID。`name`, `kana`, `email`, `type`（regular/student）, `status`（pending/active/suspended/rejected）, `memberNo`, `approvedAt`, `approvedBy`（承認した管理者の UID）, `validUntil`（任意） など |
+| `members` | ドキュメントID = 会員の UID。`name`, `kana`, `email`, `type`（regular=正会員 / associate=準会員 / student=学生会員）, `status`（pending/active/suspended/rejected）, `memberNo`, `approvedAt`, `approvedBy`（承認した管理者の UID）, `validUntil`（任意） など |
 | `member_news` | `title`, `date`, `body`, `important` |
 | `member_docs` | `title`, `date`, `category`, `description`, `url` |
 | `rsvps` | 行事の参加登録。ID = 行事ID_会員UID |

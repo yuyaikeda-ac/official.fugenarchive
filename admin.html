@@ -157,7 +157,7 @@
     members: {
       label: "会員", order: "createdAt", noCreate: true,
       fields: [
-        { key: "type", label: "会員種別", type: "select", options: { regular: "正会員", student: "学生会員" }, required: true },
+        { key: "type", label: "会員種別", type: "select", options: { regular: "正会員", associate: "準会員", student: "学生会員" }, required: true },
         { key: "memberNo", label: "会員番号", type: "text" },
         { key: "validUntil", label: "有効期限（通常は空欄＝期限なし）", type: "date" },
         { key: "name", label: "お名前", type: "text", required: true },
@@ -191,7 +191,7 @@
     }
   };
 
-  const MEMBER_TYPE = { regular: "正会員", student: "学生会員" };
+  const MEMBER_TYPE = { regular: "正会員", associate: "準会員", student: "学生会員" };
   // ★ 会員の状態は「承認」「否認」「停止」「再開」ボタンでのみ変更します（委員会承認制）
   const MEMBER_STATUS = { pending: "審査中", active: "有効", suspended: "停止中", rejected: "否認" };
 

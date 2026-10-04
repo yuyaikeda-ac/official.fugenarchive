@@ -56,7 +56,8 @@ h1, h2, h3, h4 { line-height: 1.4; }
 .global-nav li { flex: 1 1 auto; }
 .global-nav .sp-only { display: none; }
 .global-nav a { display: block; padding: 14px 10px; white-space: nowrap; text-align: center; color: #fff; text-decoration: none; font-size: 14px; font-weight: 500; border-left: 1px solid rgba(255,255,255,.15); }
-.global-nav li:last-child a { border-right: 1px solid rgba(255,255,255,.15); }
+/* 右端の区切り線：最後に「見えている」項目に付ける（スマホ専用の項目は除く） */
+.global-nav li:last-child a, .global-nav li:has(+ .sp-only) a { border-right: 1px solid rgba(255,255,255,.15); }
 .global-nav a:hover, .global-nav a.is-current { background: var(--main-dark); color: #fff; box-shadow: inset 0 -4px 0 var(--accent); }
 
 /* ---------- スライダー（トップ） ---------- */
