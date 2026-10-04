@@ -10,7 +10,20 @@
       "README.md",
       "**/.*",
       "**/.*/**",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "functions/**"
     ]
-  }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "test-mails.js",
+        "*.local"
+      ]
+    }
+  ]
 }
