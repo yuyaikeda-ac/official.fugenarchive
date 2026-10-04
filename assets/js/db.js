@@ -156,14 +156,34 @@ export function fmtDate(d) {
   return String(d).replace(/-/g, ".");
 }
 
-export const CATEGORY_LABEL = { topics: "トピックス", kaikoku: "会告" };
+// ============================================================
+//  ★ お知らせの区分（ホームのタブ・お知らせ一覧の絞り込み・管理画面の選択肢に共通）
+//    追加・名前変更・並べ替えはここだけで OK。key は Firestore に保存される値なので、
+//    使用中の key は変更しないでください。color はラベルの色です。
+// ============================================================
+export const NEWS_CATEGORIES = [
+  { key: "topics",  label: "トピックス",     color: "#0b3a6e" },
+  { key: "kaikoku", label: "会告",           color: "#2e7d6b" },
+  { key: "event",   label: "行事・イベント", color: "#b8862b" },
+  { key: "archive", label: "アーカイブ更新", color: "#3a6ea5" },
+  { key: "recruit", label: "募集",           color: "#a0522d" },
+  { key: "report",  label: "活動報告",       color: "#5b6b7d" }
+];
+export const CATEGORY_LABEL = Object.fromEntries(NEWS_CATEGORIES.map(c => [c.key, c.label]));
+const CATEGORY_COLOR = Object.fromEntries(NEWS_CATEGORIES.map(c => [c.key, c.color]));
+
+/** 区分ラベル（色付き）の HTML */
+export function categoryBadge(key) {
+  const color = CATEGORY_COLOR[key];
+  return `<span class="cat"${color ? ` style="background:${color}"` : ""}>${esc(CATEGORY_LABEL[key] || key || "その他")}</span>`;
+}
 
 /** お知らせ1件分の <li> を作る（トップ・一覧ページ共通） */
 export function newsItemHtml(n) {
   const href = n.url ? esc(n.url) : `news.html?id=${encodeURIComponent(n.id)}`;
   return `<li class="news-item">
     <time>${esc(fmtDate(n.date))}</time>
-    <span class="cat cat-${esc(n.category)}">${esc(CATEGORY_LABEL[n.category] || n.category)}</span>
+    ${categoryBadge(n.category)}
     ${n.important ? '<span class="cat cat-important">重要</span>' : ""}
     <a href="${href}">${esc(n.title)}</a>
   </li>`;

@@ -55,23 +55,14 @@
       <div class="news-box">
         <div class="news-box-head">
           <h2>News</h2>
-          <ul class="tabs" data-group="news">
-            <li><button class="is-active" data-tab="tab-all">すべて</button></li>
-            <li><button data-tab="tab-topics">トピックス</button></li>
-            <li><button data-tab="tab-kaikoku">会　告</button></li>
-          </ul>
+          <a class="news-more" href="news.html">お知らせ一覧 ›</a>
         </div>
-        <div class="tab-panel is-show" id="tab-all" data-tab-group="news">
-          <ul class="news-list" id="news-all"><li class="loading">読み込み中…</li></ul>
-          <div class="btn-wrap"><a class="btn" href="news.html">お知らせ一覧 ›</a></div>
-        </div>
-        <div class="tab-panel" id="tab-topics" data-tab-group="news">
-          <ul class="news-list" id="news-topics"><li class="loading">読み込み中…</li></ul>
-          <div class="btn-wrap"><a class="btn" href="news.html?cat=topics">トピックス一覧 ›</a></div>
-        </div>
-        <div class="tab-panel" id="tab-kaikoku" data-tab-group="news">
-          <ul class="news-list" id="news-kaikoku"><li class="loading">読み込み中…</li></ul>
-          <div class="btn-wrap"><a class="btn" href="news.html?cat=kaikoku">会告一覧 ›</a></div>
+        <!-- ★ タブは assets/js/db.js の NEWS_CATEGORIES から自動で作られます。
+             右側のリンク型タブ（行事一覧など）は下の NEWS_LINK_TABS で変更できます。 -->
+        <div class="news-tabs" role="tablist" aria-label="お知らせの区分" id="news-tabs"></div>
+        <div class="tab-panel is-show" role="tabpanel" id="news-panel">
+          <ul class="news-list" id="news-list"><li class="loading">読み込み中…</li></ul>
+          <div class="btn-wrap"><a class="btn" id="news-panel-more" href="news.html">お知らせ一覧 ›</a></div>
         </div>
       </div>
 
@@ -133,7 +124,7 @@
 <footer id="site-footer"></footer>
 
 <script type="module">
-  import { getNews, getEvents, newsItemHtml, isDemo } from "./assets/js/db.js";
+  import { getNews, getEvents, newsItemHtml, esc, isDemo, NEWS_CATEGORIES } from "./assets/js/db.js";
   import { eventItemHtml, showDemoBanner } from "./assets/js/render.js";
 
   if (isDemo) showDemoBanner();
@@ -142,15 +133,62 @@
     document.getElementById(id).innerHTML = rows.length ? rows.map(fn).join("") : `<li class="empty">${emptyMsg}</li>`;
   };
 
+  // ============================================================
+  //  News のタブ（学会サイトのように区分ごとに切り替え）
+  //  ★ 右側に並ぶリンク型のタブはここで追加・変更できます
+  // ============================================================
+  const NEWS_LINK_TABS = [
+    { label: "行事一覧", href: "events.html" },
+    { label: "お問い合わせ", href: "contact.html" }
+  ];
+  const TABS = [{ key: "", label: "すべて" }, ...NEWS_CATEGORIES];
+  const tabsEl = document.getElementById("news-tabs");
+  const listEl = document.getElementById("news-list");
+  const moreEl = document.getElementById("news-panel-more");
+  let news = null, current = "";
+
+  tabsEl.innerHTML =
+    TABS.map((t, i) => `<button role="tab" id="ntab-${i}" data-key="${esc(t.key)}" aria-controls="news-panel" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" class="${i === 0 ? "is-active" : ""}">${esc(t.label)}<span class="cnt"></span></button>`).join("") +
+    `<span class="tab-spacer"></span>` +
+    NEWS_LINK_TABS.map(t => `<a class="link-tab" href="${esc(t.href)}">${esc(t.label)} ›</a>`).join("");
+  const tabBtns = [...tabsEl.querySelectorAll("[role=tab]")];
+
+  function showTab(key) {
+    current = key;
+    tabBtns.forEach(b => {
+      const on = b.dataset.key === key;
+      b.classList.toggle("is-active", on);
+      b.setAttribute("aria-selected", on);
+      b.tabIndex = on ? 0 : -1;
+    });
+    const label = TABS.find(t => t.key === key)?.label || "お知らせ";
+    moreEl.href = key ? `news.html?cat=${encodeURIComponent(key)}` : "news.html";
+    moreEl.textContent = key ? `${label}の一覧 ›` : "お知らせ一覧 ›";
+    if (!news) return;
+    const rows = (key ? news.filter(n => n.category === key) : news).slice(0, 6);
+    listEl.innerHTML = rows.length ? rows.map(newsItemHtml).join("") : `<li class="empty">「${esc(label)}」のお知らせは現在ありません。</li>`;
+  }
+  tabsEl.addEventListener("click", e => { const b = e.target.closest("[role=tab]"); if (b) showTab(b.dataset.key); });
+  // ← → キーでタブ移動
+  tabsEl.addEventListener("keydown", e => {
+    const i = tabBtns.indexOf(document.activeElement);
+    if (i < 0 || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    e.preventDefault();
+    const n = e.key === "Home" ? 0 : e.key === "End" ? tabBtns.length - 1 : (i + (e.key === "ArrowRight" ? 1 : -1) + tabBtns.length) % tabBtns.length;
+    tabBtns[n].focus(); showTab(tabBtns[n].dataset.key);
+  });
+
   try {
-    const news = await getNews();
-    fill("news-all", news.slice(0, 6), newsItemHtml);
-    fill("news-topics", news.filter(n => n.category === "topics").slice(0, 6), newsItemHtml);
-    fill("news-kaikoku", news.filter(n => n.category === "kaikoku").slice(0, 6), newsItemHtml);
+    news = await getNews();
+    // 件数を表示
+    tabBtns.forEach(b => {
+      const n = b.dataset.key ? news.filter(x => x.category === b.dataset.key).length : news.length;
+      b.querySelector(".cnt").textContent = n ? n : "";
+    });
+    showTab(current);
   } catch (e) {
     console.error(e);
-    ["news-all", "news-topics", "news-kaikoku"].forEach(id =>
-      document.getElementById(id).innerHTML = '<li class="empty">お知らせを読み込めませんでした。</li>');
+    listEl.innerHTML = '<li class="empty">お知らせを読み込めませんでした。</li>';
   }
 
   getEvents()

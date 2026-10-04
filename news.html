@@ -29,9 +29,7 @@
     <!-- 一覧表示 -->
     <div id="list-view">
       <div class="filter-bar">
-        <button class="chip" data-cat="">すべて</button>
-        <button class="chip" data-cat="topics">トピックス</button>
-        <button class="chip" data-cat="kaikoku">会告</button>
+        <!-- 区分ボタンは assets/js/db.js の NEWS_CATEGORIES から自動で作られます -->
       </div>
       <ul class="news-list" id="news-list"><li class="loading">読み込み中…</li></ul>
     </div>
@@ -51,7 +49,7 @@
 <footer id="site-footer"></footer>
 
 <script type="module">
-  import { getNews, getNewsById, newsItemHtml, esc, fmtDate, CATEGORY_LABEL, isDemo } from "./assets/js/db.js";
+  import { getNews, getNewsById, newsItemHtml, esc, fmtDate, categoryBadge, NEWS_CATEGORIES, isDemo } from "./assets/js/db.js";
   import { showDemoBanner } from "./assets/js/render.js";
   if (isDemo) showDemoBanner();
 
@@ -68,7 +66,7 @@
     } else {
       document.title = `${n.title}｜普賢アーカイブ運営委員会`;
       document.getElementById("detail-meta").innerHTML =
-        `<time>${esc(fmtDate(n.date))}</time> <span class="cat cat-${esc(n.category)}">${esc(CATEGORY_LABEL[n.category] || n.category)}</span>`
+        `<time>${esc(fmtDate(n.date))}</time> ${categoryBadge(n.category)}`
         + (n.important ? ' <span class="cat cat-important">重要</span>' : "");
       document.getElementById("detail-title").textContent = n.title;
       document.getElementById("detail-body").textContent = n.body || "";
@@ -78,6 +76,8 @@
   } else {
     // ---- 一覧 ----
     const listEl = document.getElementById("news-list");
+    document.querySelector(".filter-bar").innerHTML = [{ key: "", label: "すべて" }, ...NEWS_CATEGORIES]
+      .map(c => `<button class="chip" data-cat="${esc(c.key)}">${esc(c.label)}</button>`).join("");
     const chips = document.querySelectorAll(".chip");
     let all = [];
     const render = (cat) => {

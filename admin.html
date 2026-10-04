@@ -123,7 +123,7 @@
 <footer id="site-footer"></footer>
 
 <script type="module">
-  import { adminApi, esc, fmtDate, isDemo } from "./assets/js/db.js";
+  import { adminApi, esc, fmtDate, isDemo, NEWS_CATEGORIES } from "./assets/js/db.js";
 
   // ============================================================
   //  コレクションごとの入力項目
@@ -135,7 +135,7 @@
       label: "お知らせ", order: "date",
       fields: [
         { key: "date", label: "日付", type: "date", required: true, list: true },
-        { key: "category", label: "区分", type: "select", options: { topics: "トピックス", kaikoku: "会告" }, required: true, list: true },
+        { key: "category", label: "区分", type: "select", options: Object.fromEntries(NEWS_CATEGORIES.map(c => [c.key, c.label])), required: true, list: true },
         { key: "title", label: "タイトル", type: "text", required: true, list: true },
         { key: "important", label: "「重要」ラベルを付ける", type: "checkbox" },
         { key: "body", label: "本文", type: "textarea" },
