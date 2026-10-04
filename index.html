@@ -57,8 +57,7 @@
           <h2>News</h2>
           <a class="news-more" href="news.html">お知らせ一覧 ›</a>
         </div>
-        <!-- ★ タブは assets/js/db.js の NEWS_CATEGORIES から自動で作られます。
-             右側のリンク型タブ（行事一覧など）は下の NEWS_LINK_TABS で変更できます。 -->
+        <!-- ★ タブは assets/js/db.js の NEWS_CATEGORIES から自動で作られます -->
         <div class="news-tabs" role="tablist" aria-label="お知らせの区分" id="news-tabs"></div>
         <div class="tab-panel is-show" role="tabpanel" id="news-panel">
           <ul class="news-list" id="news-list"><li class="loading">読み込み中…</li></ul>
@@ -135,12 +134,7 @@
 
   // ============================================================
   //  News のタブ（学会サイトのように区分ごとに切り替え）
-  //  ★ 右側に並ぶリンク型のタブはここで追加・変更できます
   // ============================================================
-  const NEWS_LINK_TABS = [
-    { label: "行事一覧", href: "events.html" },
-    { label: "お問い合わせ", href: "contact.html" }
-  ];
   const TABS = [{ key: "", label: "すべて" }, ...NEWS_CATEGORIES];
   const tabsEl = document.getElementById("news-tabs");
   const listEl = document.getElementById("news-list");
@@ -148,9 +142,7 @@
   let news = null, current = "";
 
   tabsEl.innerHTML =
-    TABS.map((t, i) => `<button role="tab" id="ntab-${i}" data-key="${esc(t.key)}" aria-controls="news-panel" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" class="${i === 0 ? "is-active" : ""}">${esc(t.label)}<span class="cnt"></span></button>`).join("") +
-    `<span class="tab-spacer"></span>` +
-    NEWS_LINK_TABS.map(t => `<a class="link-tab" href="${esc(t.href)}">${esc(t.label)} ›</a>`).join("");
+    TABS.map((t, i) => `<button role="tab" id="ntab-${i}" data-key="${esc(t.key)}" aria-controls="news-panel" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" class="${i === 0 ? "is-active" : ""}">${esc(t.label)}<span class="cnt"></span></button>`).join("");
   const tabBtns = [...tabsEl.querySelectorAll("[role=tab]")];
 
   function showTab(key) {
