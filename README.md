@@ -59,6 +59,16 @@ firebase.json                Firebase Hosting 設定
 
 > `admins` に登録されていないアカウントでは、ログインしても書き込めません（apiKey は公開されるため、この仕組みで守っています）。
 
+## 管理者・オーナー
+
+- **オーナー**：yuya.ikr@gmail.com（`admins` の role が `owner`）。管理画面の「管理者（オーナー専用）」タブで、管理者の **招待** と **解除** ができます。オーナーは解除できません。
+- **管理者の追加方法**：オーナーがメールアドレスとお名前を入力して「招待する」→ 招待された方に管理画面のURLを伝える → その方が招待されたメールアドレスで登録・ログイン（Google ログインなら即完了、メールとパスワードの場合は確認メールのリンクを開く）→ 自動で管理者になります。
+- 管理者を増やせるのはオーナーだけです（セキュリティルールで制限）。
+
+## Google ログイン
+
+会員ログイン・管理画面・入会申込で「Googleでログイン」が使えます。**Firebase コンソール > Authentication > ログイン方法 で「Google」を有効にしてください。** 独自ドメインで公開する場合は、Authentication > 設定 > 承認済みドメイン にそのドメインを追加してください。
+
 ## Firestore のデータ形式
 
 | コレクション | フィールド |
@@ -70,6 +80,8 @@ firebase.json                Firebase Hosting 設定
 | `member_news` | `title`, `date`, `body`, `important` |
 | `member_docs` | `title`, `date`, `category`, `description`, `url` |
 | `rsvps` | 行事の参加登録。ID = 行事ID_会員UID |
+| `admins` | 管理者。ID = UID。`role`（owner/admin）, `email`, `name`, `invitedBy`, `createdAt` |
+| `admin_invites` | 管理者への招待。ID = 小文字のメールアドレス |
 
 ## 会員機能の流れ
 

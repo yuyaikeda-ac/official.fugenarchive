@@ -8,7 +8,7 @@ import {
   createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
   onAuthStateChanged, sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { db, auth, isDemo } from "./db.js";
+import { db, auth, isDemo, signInWithGoogle } from "./db.js";
 
 // ★ 会員種別（入会金・年会費は無料）。変える場合はここと join.html の「会員種別」、
 //    firestore.rules の type の一覧も合わせて編集してください。
@@ -29,6 +29,7 @@ function requireFirebase() {
 // ---------- 認証 ----------
 export const onAuth = (cb) => isDemo ? cb(null) : onAuthStateChanged(auth, cb);
 export const login = (email, pw) => (requireFirebase(), signInWithEmailAndPassword(auth, email, pw));
+export const loginWithGoogle = () => (requireFirebase(), signInWithGoogle());
 export const logout = () => signOut(auth);
 export const resetPassword = (email) => (requireFirebase(), sendPasswordResetEmail(auth, email));
 
@@ -36,13 +37,28 @@ export const resetPassword = (email) => (requireFirebase(), sendPasswordResetEma
 export async function apply(form) {
   requireFirebase();
   const cred = await createUserWithEmailAndPassword(auth, form.email, form.password);
-  await setDoc(doc(db, "members", cred.user.uid), {
-    name: form.name, kana: form.kana, email: form.email, type: form.type,
+  await saveApplication(cred.user.uid, form, form.email);
+  return cred.user;
+}
+
+/** Google アカウントで入会申込（メールアドレスは Google アカウントのものを登録） */
+export async function applyWithGoogle(form) {
+  requireFirebase();
+  const cred = await signInWithGoogle();
+  if (await getMember(cred.user.uid)) {
+    const err = new Error("already"); err.code = "member/exists"; throw err;
+  }
+  await saveApplication(cred.user.uid, form, cred.user.email);
+  return cred.user;
+}
+
+async function saveApplication(uid, form, email) {
+  await setDoc(doc(db, "members", uid), {
+    name: form.name, kana: form.kana, email, type: form.type,
     affiliation: form.affiliation || "", phone: form.phone || "", address: form.address || "",
     message: form.message || "", newsletter: !!form.newsletter,
     status: "pending", createdAt: serverTimestamp()
   });
-  return cred.user;
 }
 
 // ---------- 会員情報 ----------
@@ -87,7 +103,11 @@ export function errorMessage(e) {
     "auth/user-not-found": "メールアドレスまたはパスワードが正しくありません。",
     "auth/too-many-requests": "試行回数が多すぎます。しばらく時間をおいてからお試しください。",
     "auth/network-request-failed": "ネットワークに接続できません。通信環境をご確認ください。",
-    "permission-denied": "アクセス権限がありません。"
+    "permission-denied": "アクセス権限がありません。",
+    "member/exists": "この Google アカウントは既にお申込み済みです。会員ログインから状況をご確認ください。",
+    "auth/operation-not-allowed": "このログイン方法は現在ご利用いただけません。委員会までお問い合わせください。",
+    "auth/popup-blocked": "ポップアップがブロックされました。ブラウザの設定でポップアップを許可してください。",
+    "auth/account-exists-with-different-credential": "このメールアドレスは別の方法で登録されています。メールアドレスとパスワードでログインしてください。"
   };
   return map[e?.code] || e?.message || "エラーが発生しました。";
 }

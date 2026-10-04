@@ -181,7 +181,7 @@
               <div class="field"><label for="f-name">お名前<span class="req">必須</span></label><input id="f-name" name="name" autocomplete="name" placeholder="普賢 太郎" required maxlength="100"><p class="err">お名前を入力してください</p></div>
               <div class="field"><label for="f-kana">フリガナ<span class="req">必須</span></label><input id="f-kana" name="kana" placeholder="フゲン タロウ" required maxlength="100" data-kana><p class="err">カタカナで入力してください</p></div>
             </div>
-            <div class="field"><label for="f-email">メールアドレス<span class="req">必須</span></label><input id="f-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required maxlength="200"><p class="hint">ログインIDとして使用します</p><p class="err">正しいメールアドレスを入力してください</p></div>
+            <div class="field"><label for="f-email">メールアドレス<span class="req">必須</span></label><input id="f-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required maxlength="200"><p class="hint">ご連絡先・ログインIDとして使用します（Google で申し込む場合は Google アカウントのアドレスになります）</p><p class="err">正しいメールアドレスを入力してください</p></div>
             <div class="field"><label for="f-aff">ご所属（勤務先・学校名など）</label><input id="f-aff" name="affiliation" autocomplete="organization" maxlength="200"></div>
             <div class="grid-2">
               <div class="field"><label for="f-phone">電話番号</label><input id="f-phone" name="phone" type="tel" autocomplete="tel" placeholder="090-0000-0000" maxlength="30"></div>
@@ -192,7 +192,13 @@
           <!-- STEP 3 -->
           <div class="step-panel" data-step="3">
             <h3 class="step-title">アカウント設定</h3>
-            <p class="step-sub">会員サイトへのログインに使うパスワードを設定してください。</p>
+            <p class="step-sub">会員サイトへのログイン方法を選んでください。</p>
+            <div class="login-method" role="radiogroup" aria-label="ログイン方法">
+              <label><input type="radio" name="method" value="password" checked> メールアドレスとパスワード</label>
+              <label><input type="radio" name="method" value="google"> <svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg> Googleアカウント</label>
+            </div>
+            <p class="hint" id="google-note" hidden style="margin:-8px 0 22px;font-size:13px;color:var(--muted)">「申込を確定する」を押すと Google のログイン画面が開きます。会員登録には Google アカウントのメールアドレスが使われます。</p>
+            <div id="pw-fields">
             <div class="field">
               <label for="f-pw">パスワード<span class="req">必須</span></label>
               <div class="pw-wrap"><input id="f-pw" name="password" type="password" autocomplete="new-password" minlength="8" required><button type="button" class="pw-toggle" data-pw="f-pw">表示</button></div>
@@ -204,6 +210,7 @@
               <label for="f-pw2">パスワード（確認）<span class="req">必須</span></label>
               <div class="pw-wrap"><input id="f-pw2" name="password2" type="password" autocomplete="new-password" required><button type="button" class="pw-toggle" data-pw="f-pw2">表示</button></div>
               <p class="err">パスワードが一致しません</p>
+            </div>
             </div>
             <div class="field"><label for="f-msg">入会の動機・メッセージ（任意）</label><textarea id="f-msg" name="message" maxlength="2000" placeholder="普賢との関わりや、活動への想いなどをお聞かせください"></textarea></div>
             <div class="field"><label class="check"><input type="checkbox" name="newsletter" checked> 会員向けのお知らせをメールで受け取る</label></div>
@@ -256,7 +263,7 @@
 <footer id="site-footer"></footer>
 
 <script type="module">
-  import { apply, errorMessage, MEMBER_TYPES } from "./assets/js/member-api.js";
+  import { apply, applyWithGoogle, errorMessage, MEMBER_TYPES } from "./assets/js/member-api.js";
   import { esc } from "./assets/js/db.js";
 
   // ---------- スクロールで出現 ----------
@@ -293,13 +300,20 @@
     if (first && document.activeElement !== document.body) setTimeout(() => first.focus({ preventScroll: true }), 50);
   }
 
+  // ---------- ログイン方法（パスワード / Google） ----------
+  const useGoogle = () => F.method.value === "google";
+  form.querySelectorAll("input[name=method]").forEach(r => r.addEventListener("change", () => {
+    document.getElementById("pw-fields").hidden = useGoogle();
+    document.getElementById("google-note").hidden = !useGoogle();
+  }));
+
   // ---------- 入力チェック ----------
   const rules = {
     name: v => v.trim().length > 0,
     kana: v => /^[ァ-ヶーぁ-ゖ\s　]+$/.test(v.trim()),
     email: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()),
-    password: v => v.length >= 8,
-    password2: v => v === F.password.value && v.length > 0,
+    password: v => useGoogle() || v.length >= 8,
+    password2: v => useGoogle() || (v === F.password.value && v.length > 0),
     agree: (_, el) => el.checked
   };
   function check(el) {
@@ -362,7 +376,8 @@
       ["会員種別", `${MEMBER_TYPES[F.type.value].label}（入会金・年会費 無料）`],
       ["お名前", F.name.value], ["フリガナ", F.kana.value], ["メールアドレス", F.email.value],
       ["ご所属", F.affiliation.value || "—"], ["電話番号", F.phone.value || "—"], ["ご住所", F.address.value || "—"],
-      ["メッセージ", F.message.value || "—"], ["お知らせメール", F.newsletter.checked ? "受け取る" : "受け取らない"]
+      ["メッセージ", F.message.value || "—"], ["お知らせメール", F.newsletter.checked ? "受け取る" : "受け取らない"],
+      ["ログイン方法", useGoogle() ? "Googleアカウント（確定時にGoogleのログイン画面が開きます）" : "メールアドレスとパスワード"]
     ];
     document.getElementById("confirm").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
   }
@@ -375,11 +390,12 @@
     nextBtn.disabled = true; prevBtn.disabled = true;
     nextBtn.innerHTML = '<span class="spinner"></span> 送信中…';
     try {
-      await apply({
+      const data = {
         type: F.type.value, name: F.name.value.trim(), kana: F.kana.value.trim(), email: F.email.value.trim(),
         affiliation: F.affiliation.value.trim(), phone: F.phone.value.trim(), address: F.address.value.trim(),
         message: F.message.value.trim(), newsletter: F.newsletter.checked, password: F.password.value
-      });
+      };
+      await (useGoogle() ? applyWithGoogle(data) : apply(data));
       try { sessionStorage.removeItem(DRAFT_KEY); } catch {}
       form.hidden = true;
       document.querySelector(".steps").hidden = true;
@@ -387,6 +403,9 @@
       document.getElementById("wizard").scrollIntoView({ behavior: "smooth", block: "center" });
     } catch (err) {
       console.error(err);
+      if (err.code === "auth/popup-closed-by-user" || err.code === "auth/cancelled-popup-request") {
+        nextBtn.disabled = false; prevBtn.disabled = false; nextBtn.innerHTML = "申込を確定する"; return;
+      }
       alertBox.innerHTML = `<div class="alert error">${esc(errorMessage(err))}</div>`;
       nextBtn.disabled = false; prevBtn.disabled = false;
       nextBtn.innerHTML = "申込を確定する";

@@ -38,10 +38,43 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
-    // ---------- 管理者 ----------
+    // ---------- 管理者（role: owner = オーナー / admin = 管理者） ----------
+    function isOwner() {
+      return signedIn()
+        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'owner';
+    }
+    // 本人あての招待があり、メールアドレスが確認済み（Google ログインは常に確認済み）
+    function hasVerifiedInvite() {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/admin_invites/$(request.auth.token.email.lower()));
+    }
+
     match /admins/{uid} {
-      allow read: if signedIn() && request.auth.uid == uid;
-      allow write: if false;
+      allow read: if (signedIn() && request.auth.uid == uid) || isAdmin();
+      // 招待された本人が、自分を「管理者」として登録する（オーナーにはなれない）
+      allow create: if hasVerifiedInvite()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['role', 'email', 'name', 'invitedBy', 'createdAt'])
+        && request.resource.data.role == 'admin'
+        && request.resource.data.email == request.auth.token.email.lower()
+        && request.resource.data.createdAt == request.time;
+      // 役割の変更は不可。削除（管理者の解除）はオーナーのみ、オーナー自身は削除不可
+      allow update: if false;
+      allow delete: if isOwner() && resource.data.role != 'owner';
+    }
+
+    // ---------- 管理者への招待（ID = 小文字のメールアドレス） ----------
+    match /admin_invites/{email} {
+      allow read: if isOwner() || (signedIn() && request.auth.token.email.lower() == email);
+      allow create: if isOwner()
+        && request.resource.data.keys().hasOnly(['email', 'name', 'invitedBy', 'createdAt'])
+        && request.resource.data.email == email
+        && request.resource.data.invitedBy == request.auth.uid
+        && str(request.resource.data.name, 100)
+        && request.resource.data.createdAt == request.time;
+      allow delete: if isOwner() || hasVerifiedInvite() && request.auth.token.email.lower() == email;
+      allow update: if false;
     }
 
     // ---------- 会員 ----------

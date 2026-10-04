@@ -7,7 +7,8 @@
 //                important(true/false), body, url）
 //    events   : 行事（title, date, place, description, url）
 //    contacts : お問い合わせ（name, email, subject, message, createdAt）※書き込みのみ
-//    admins   : 管理者（ドキュメントID = 管理者ユーザーの UID）
+//    admins   : 管理者（ドキュメントID = UID。role: "owner"（オーナー） | "admin"（管理者））
+//    admin_invites : 管理者への招待（ドキュメントID = 小文字のメールアドレス）※オーナーのみ作成可
 //
 //  会員機能（assets/js/member-api.js で使用）
 //    members     : 会員（ドキュメントID = 会員の UID）
@@ -17,11 +18,12 @@
 // ============================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getFirestore, collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
+  getFirestore, collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
   query, orderBy, limit as qLimit, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
-  getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail
+  getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail,
+  createUserWithEmailAndPassword, sendEmailVerification, GoogleAuthProvider, signInWithPopup
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { firebaseConfig } from "./firebase-config.js";
 import { sampleData } from "./sample-data.js";
@@ -35,6 +37,13 @@ if (!isDemo) {
   const app = initializeApp(firebaseConfig);
   db = getFirestore(app);
   auth = getAuth(app);
+}
+
+/** Google アカウントでログイン（ポップアップ）。会員ページ・管理画面で共通 */
+export function signInWithGoogle() {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  return signInWithPopup(auth, provider);
 }
 
 // ---------- 読み込み ----------
@@ -84,11 +93,52 @@ export const adminApi = {
     if (isDemo) throw new Error("デモモードでは削除できません。");
     await deleteDoc(doc(db, name, id));
   },
-  async isAdmin(uid) {
+  /** 管理者情報（role: "owner" | "admin"）。管理者でなければ null */
+  async getAdmin(uid) {
     const snap = await getDoc(doc(db, "admins", uid));
-    return snap.exists();
+    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+  },
+  /** 並び順を指定せずに全件取得（管理者・招待の一覧用） */
+  async listAll(name) {
+    const snap = await getDocs(collection(db, name));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  },
+
+  // ---- 管理者の招待（オーナーのみ） ----
+  async invite(email, name, ownerUid) {
+    const key = email.trim().toLowerCase();
+    await setDoc(doc(db, "admin_invites", key), { email: key, name, invitedBy: ownerUid, createdAt: serverTimestamp() });
+  },
+  /** ログイン中の本人あての招待（なければ null） */
+  async getMyInvite(user) {
+    try {
+      const snap = await getDoc(doc(db, "admin_invites", (user.email || "").toLowerCase()));
+      return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+    } catch { return null; }
+  },
+  /** 招待を受けて管理者になる（メール確認済みが条件） */
+  async acceptInvite(user, invite) {
+    await setDoc(doc(db, "admins", user.uid), {
+      role: "admin", email: invite.email, name: invite.name || "", invitedBy: invite.invitedBy, createdAt: serverTimestamp()
+    });
+    await deleteDoc(doc(db, "admin_invites", invite.id));
+  },
+  /** 招待された人のアカウント作成 → 確認メール送信 */
+  async register(email, password) {
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    await sendEmailVerification(cred.user);
+    return cred.user;
+  },
+  sendVerification: (user) => sendEmailVerification(user),
+  /** メール確認の状態を最新にする */
+  async refresh(user) {
+    await user.reload();
+    await auth.currentUser.getIdToken(true);
+    return auth.currentUser;
   },
   login: (email, password) => signInWithEmailAndPassword(auth, email, password),
+  loginWithGoogle: () => signInWithGoogle(),
+  currentUser: () => auth.currentUser,
   logout: () => signOut(auth),
   resetPassword: (email) => sendPasswordResetEmail(auth, email),
   onAuth: (cb) => isDemo ? cb(null) : onAuthStateChanged(auth, cb)
