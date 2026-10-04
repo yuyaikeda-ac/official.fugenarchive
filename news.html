@@ -28,8 +28,18 @@
   <div class="inner content">
     <!-- 一覧表示 -->
     <div id="list-view">
-      <div class="filter-bar">
-        <!-- 区分ボタンは assets/js/db.js の NEWS_CATEGORIES から自動で作られます -->
+      <!-- ★ お知らせのタブ
+           ・タブの名前はここを書き換えてください
+           ・data-key はお知らせの「区分」の値です（assets/js/db.js の NEWS_CATEGORIES の key と同じにしてください）
+           ・タブを増やすときは <button> を1行コピーして、data-key と名前を変えます -->
+      <div class="news-tabs" role="tablist" aria-label="お知らせの区分" id="news-tabs">
+        <button role="tab" data-key=""        class="is-active" aria-selected="true">すべて<span class="cnt"></span></button>
+        <button role="tab" data-key="topics"  aria-selected="false" tabindex="-1">トピックス<span class="cnt"></span></button>
+        <button role="tab" data-key="kaikoku" aria-selected="false" tabindex="-1">会告<span class="cnt"></span></button>
+        <button role="tab" data-key="event"   aria-selected="false" tabindex="-1">行事・イベント<span class="cnt"></span></button>
+        <button role="tab" data-key="archive" aria-selected="false" tabindex="-1">アーカイブ更新<span class="cnt"></span></button>
+        <button role="tab" data-key="recruit" aria-selected="false" tabindex="-1">募集<span class="cnt"></span></button>
+        <button role="tab" data-key="report"  aria-selected="false" tabindex="-1">活動報告<span class="cnt"></span></button>
       </div>
       <ul class="news-list" id="news-list"><li class="loading">読み込み中…</li></ul>
     </div>
@@ -49,7 +59,7 @@
 <footer id="site-footer"></footer>
 
 <script type="module">
-  import { getNews, getNewsById, newsItemHtml, esc, fmtDate, categoryBadge, NEWS_CATEGORIES, isDemo } from "./assets/js/db.js";
+  import { getNews, getNewsById, newsItemHtml, esc, fmtDate, categoryBadge, isDemo } from "./assets/js/db.js";
   import { showDemoBanner } from "./assets/js/render.js";
   if (isDemo) showDemoBanner();
 
@@ -76,21 +86,41 @@
   } else {
     // ---- 一覧 ----
     const listEl = document.getElementById("news-list");
-    document.querySelector(".filter-bar").innerHTML = [{ key: "", label: "すべて" }, ...NEWS_CATEGORIES]
-      .map(c => `<button class="chip" data-cat="${esc(c.key)}">${esc(c.label)}</button>`).join("");
-    const chips = document.querySelectorAll(".chip");
-    let all = [];
+    // タブは HTML（上の news-tabs）に書いてあるものを使います
+    const tabBtns = [...document.querySelectorAll("#news-tabs [role=tab]")];
+    let all = null;
     const render = (cat) => {
-      chips.forEach(c => c.classList.toggle("is-active", c.dataset.cat === cat));
+      if (!tabBtns.some(b => b.dataset.key === cat)) cat = "";
+      tabBtns.forEach(b => {
+        const on = b.dataset.key === cat;
+        b.classList.toggle("is-active", on);
+        b.setAttribute("aria-selected", on);
+        b.tabIndex = on ? 0 : -1;
+      });
+      if (!all) return;
       const rows = cat ? all.filter(n => n.category === cat) : all;
       listEl.innerHTML = rows.length ? rows.map(newsItemHtml).join("") : '<li class="empty">お知らせはありません。</li>';
     };
-    chips.forEach(c => c.addEventListener("click", () => {
-      history.replaceState(null, "", c.dataset.cat ? `?cat=${c.dataset.cat}` : "news.html");
-      render(c.dataset.cat);
-    }));
+    const select = (b) => {
+      history.replaceState(null, "", b.dataset.key ? `?cat=${encodeURIComponent(b.dataset.key)}` : "news.html");
+      render(b.dataset.key);
+    };
+    tabBtns.forEach(b => b.addEventListener("click", () => select(b)));
+    // ← → キーでタブ移動
+    document.getElementById("news-tabs").addEventListener("keydown", e => {
+      const i = tabBtns.indexOf(document.activeElement);
+      if (i < 0 || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+      e.preventDefault();
+      const n = e.key === "Home" ? 0 : e.key === "End" ? tabBtns.length - 1 : (i + (e.key === "ArrowRight" ? 1 : -1) + tabBtns.length) % tabBtns.length;
+      tabBtns[n].focus(); select(tabBtns[n]);
+    });
+    render(params.get("cat") || "");
     try {
       all = await getNews();
+      tabBtns.forEach(b => {
+        const n = b.dataset.key ? all.filter(x => x.category === b.dataset.key).length : all.length;
+        b.querySelector(".cnt").textContent = n ? n : "";
+      });
       render(params.get("cat") || "");
     } catch (e) {
       console.error(e);

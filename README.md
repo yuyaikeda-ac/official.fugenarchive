@@ -47,7 +47,8 @@ firebase.json                Firebase Hosting 設定
 | 委員名簿・規程などの文章 | `about.html` を直接編集 |
 | お知らせ・行事の追加 | `admin.html`（管理画面）から。Firebase コンソールで直接追加することもできます |
 | 管理画面の入力項目を増やす | `admin.html` の `SCHEMA` |
-| お知らせの区分（ホームのタブ） | `assets/js/db.js` の `NEWS_CATEGORIES`（タブ・一覧の絞り込み・管理画面の選択肢に一括反映） |
+| お知らせのタブ | `index.html`・`news.html` の `news-tabs` に HTML で書いてあります（名前を書き換える／`<button>` をコピーして追加） |
+| お知らせの区分（ラベルの色・管理画面の選択肢） | `assets/js/db.js` の `NEWS_CATEGORIES`（タブを増やしたらここにも同じ key を追加） |
 | 会員種別（入会金・年会費は無料） | `join.html` の「会員種別」、`assets/js/member-api.js` の `MEMBER_TYPES`、`firestore.rules` の type 一覧 |
 | 会員サイトのメニュー | `assets/js/member.js` の `ROUTES` |
 

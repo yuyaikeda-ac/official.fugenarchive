@@ -56,8 +56,19 @@
         <div class="news-box-head">
           <h2>News</h2>
         </div>
-        <!-- ★ タブは assets/js/db.js の NEWS_CATEGORIES から自動で作られます -->
-        <div class="news-tabs" role="tablist" aria-label="お知らせの区分" id="news-tabs"></div>
+        <!-- ★ お知らせのタブ
+             ・タブの名前はここを書き換えてください
+             ・data-key はお知らせの「区分」の値です（assets/js/db.js の NEWS_CATEGORIES の key と同じにしてください）
+             ・タブを増やすときは <button> を1行コピーして、data-key と名前を変えます -->
+        <div class="news-tabs" role="tablist" aria-label="お知らせの区分" id="news-tabs">
+          <button role="tab" data-key=""        class="is-active" aria-selected="true">すべて<span class="cnt"></span></button>
+          <button role="tab" data-key="topics"  aria-selected="false" tabindex="-1">トピックス<span class="cnt"></span></button>
+          <button role="tab" data-key="kaikoku" aria-selected="false" tabindex="-1">会告<span class="cnt"></span></button>
+          <button role="tab" data-key="event"   aria-selected="false" tabindex="-1">行事・イベント<span class="cnt"></span></button>
+          <button role="tab" data-key="archive" aria-selected="false" tabindex="-1">アーカイブ更新<span class="cnt"></span></button>
+          <button role="tab" data-key="recruit" aria-selected="false" tabindex="-1">募集<span class="cnt"></span></button>
+          <button role="tab" data-key="report"  aria-selected="false" tabindex="-1">活動報告<span class="cnt"></span></button>
+        </div>
         <div class="tab-panel is-show" role="tabpanel" id="news-panel">
           <ul class="news-list" id="news-list"><li class="loading">読み込み中…</li></ul>
           <div class="btn-wrap"><a class="btn" id="news-panel-more" href="news.html">お知らせ一覧 ›</a></div>
@@ -122,7 +133,7 @@
 <footer id="site-footer"></footer>
 
 <script type="module">
-  import { getNews, getEvents, newsItemHtml, esc, isDemo, NEWS_CATEGORIES } from "./assets/js/db.js";
+  import { getNews, getEvents, newsItemHtml, esc, isDemo } from "./assets/js/db.js";
   import { eventItemHtml, showDemoBanner } from "./assets/js/render.js";
 
   if (isDemo) showDemoBanner();
@@ -134,15 +145,14 @@
   // ============================================================
   //  News のタブ（学会サイトのように区分ごとに切り替え）
   // ============================================================
-  const TABS = [{ key: "", label: "すべて" }, ...NEWS_CATEGORIES];
+  // タブは HTML（上の news-tabs）に書いてあるものを使います
   const tabsEl = document.getElementById("news-tabs");
   const listEl = document.getElementById("news-list");
   const moreEl = document.getElementById("news-panel-more");
   let news = null, current = "";
 
-  tabsEl.innerHTML =
-    TABS.map((t, i) => `<button role="tab" id="ntab-${i}" data-key="${esc(t.key)}" aria-controls="news-panel" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" class="${i === 0 ? "is-active" : ""}">${esc(t.label)}<span class="cnt"></span></button>`).join("");
   const tabBtns = [...tabsEl.querySelectorAll("[role=tab]")];
+  const tabLabel = (b) => b.firstChild.textContent.trim();
 
   function showTab(key) {
     current = key;
@@ -152,7 +162,7 @@
       b.setAttribute("aria-selected", on);
       b.tabIndex = on ? 0 : -1;
     });
-    const label = TABS.find(t => t.key === key)?.label || "お知らせ";
+    const label = tabLabel(tabBtns.find(b => b.dataset.key === key)) || "お知らせ";
     moreEl.href = key ? `news.html?cat=${encodeURIComponent(key)}` : "news.html";
     moreEl.textContent = key ? `${label}の一覧 ›` : "お知らせ一覧 ›";
     if (!news) return;
