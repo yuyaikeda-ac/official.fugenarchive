@@ -393,7 +393,7 @@
       (sorted.length ? sorted.map(r => `<tr>
         <td><strong style="color:${statusColor[r.status] || "inherit"}">${esc(MEMBER_STATUS[r.status] || r.status)}</strong></td>
         <td>${esc(r.name)}（${esc(r.kana || "")}）<br><a href="mailto:${esc(r.email)}">${esc(r.email)}</a>${r.affiliation ? `<br><small>${esc(r.affiliation)}</small>` : ""}</td>
-        <td>${esc(MEMBER_TYPE[r.type] || r.type)}<br><small>${esc(r.memberNo || "—")}</small></td>
+        <td>${esc(MEMBER_TYPE[r.type] || r.type)}<br><small>${r.memberNo ? esc(r.memberNo) : r.status === "pending" ? '<span style="color:var(--text-sub)">承認時に自動付与</span>' : "—"}</small></td>
         <td>${esc(r.createdAt?.toDate ? r.createdAt.toDate().toLocaleDateString("ja-JP") : "")}<br><small>${esc(r.approvedAt?.toDate ? r.approvedAt.toDate().toLocaleDateString("ja-JP") : "—")}</small></td>
         <td>
           ${r.status === "pending" ? `<button class="btn btn-primary" data-approve="${esc(r.id)}">承認</button> <button class="btn btn-danger" data-reject="${esc(r.id)}">否認</button>` : ""}

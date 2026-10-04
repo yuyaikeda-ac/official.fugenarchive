@@ -6,6 +6,7 @@ import {
   getEvents, getMyRsvps, rsvp, errorMessage, MEMBER_TYPES, STATUS_LABEL
 } from "./member-api.js";
 import { esc, isDemo } from "./db.js";
+import { memberCardHtml, bindCard } from "./card.js";
 
 // ---------- アイコン ----------
 const I = {
@@ -398,48 +399,10 @@ function renderDocs() {
 // ============================================================
 //  画面：デジタル会員証
 // ============================================================
-function cardHtml(mini = false) {
-  const m = state.member;
-  const no = m.memberNo || "—";
-  return `<div class="mcard"${mini ? "" : ' id="mcard" tabindex="0" role="button" aria-label="会員証（クリックで裏面）"'}>
-    <div class="mcard-tilt">
-      <div class="mcard-face mcard-front">
-        <div class="mcard-sheen"></div>
-        <div class="mcard-head">
-          <div class="mcard-org">普賢アーカイブ運営委員会<small>MEMBERSHIP CARD</small></div>
-          <img class="mcard-logo" src="LOGO.png" alt="">
-        </div>
-        <div class="mcard-chip"></div>
-        <div class="mcard-no">${esc(no)}</div>
-        <div class="mcard-foot">
-          <div><div class="lbl">Member</div><div class="val">${esc(m.name)}</div></div>
-          <div style="text-align:right"><div class="lbl">${m.validUntil ? `Valid thru ${ymd(m.validUntil).slice(0, 7).replace(".", "/")}` : `Since ${ymd(m.approvedAt).slice(0, 7).replace(".", "/")}`}</div><span class="type">${esc(MEMBER_TYPES[m.type]?.label || "")}</span></div>
-        </div>
-      </div>
-      ${mini ? "" : `<div class="mcard-face mcard-back">
-        <div class="stripe"></div>
-        <div class="sig"><div>${esc(m.name)}</div><img src="LOGO.png" alt="" style="width:40px;height:40px;border-radius:50%"></div>
-        <p>本カードは普賢アーカイブ運営委員会の会員であることを証明するものです。<br>会員番号 ${esc(m.memberNo || "—")}　／　入会日 ${ymd(m.approvedAt)}<br>本カードの譲渡・貸与はできません。</p>
-      </div>`}
-    </div>
-  </div>`;
-}
+// 会員証のデザインは assets/js/card.js と assets/css/member.css の「会員証」で変更できます
+const cardHtml = (mini = false) => memberCardHtml(state.member, { mini });
 ROUTES[4].after = () => {
-  const card = $("mcard");
-  if (!card) return;
-  const tilt = card.querySelector(".mcard-tilt");
-  const sheen = card.querySelector(".mcard-sheen");
-  const flip = () => card.classList.toggle("is-flipped");
-  card.addEventListener("click", flip);
-  card.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(); } });
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  card.addEventListener("pointermove", e => {
-    const r = card.getBoundingClientRect();
-    const x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
-    tilt.style.transform = `rotateY(${x * 16}deg) rotateX(${-y * 16}deg)`;
-    sheen.style.setProperty("--sx", `${x * 60}%`);
-  });
-  card.addEventListener("pointerleave", () => { tilt.style.transform = ""; sheen.style.setProperty("--sx", "-30%"); });
+  bindCard($("mcard"));
   $("print-card")?.addEventListener("click", () => window.print());
 };
 function renderCard() {
@@ -447,7 +410,7 @@ function renderCard() {
   const left = daysLeft(m.validUntil);
   return `<div class="card-stage">
     ${cardHtml()}
-    <p style="color:var(--muted);font-size:13px;margin:-8px 0 0">カードをクリックすると裏面を表示します</p>
+    <p class="card-hint">カードを押すと裏面を表示します。表面のQRコードを読み取ると、会員資格を確認できます。</p>
     <dl class="card-info">
       <div><dt>会員番号</dt><dd>${esc(m.memberNo || "—")}</dd></div>
       <div><dt>会員種別</dt><dd>${esc(MEMBER_TYPES[m.type]?.label || "")}</dd></div>

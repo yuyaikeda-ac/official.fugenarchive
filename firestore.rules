@@ -64,6 +64,13 @@ service cloud.firestore {
       allow delete: if isOwner() && resource.data.role != 'owner';
     }
 
+    // ---------- 会員証の確認ページ用（QRコードの番号を知っている人だけが1件ずつ読める） ----------
+    // 書き込みは Cloud Functions（syncMemberCard）のみ
+    match /cards/{token} {
+      allow get: if true;
+      allow list, write: if false;
+    }
+
     // ---------- 会員番号の連番カウンター（管理者のみ） ----------
     match /counters/{id} {
       allow read, write: if isAdmin();

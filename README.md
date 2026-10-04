@@ -16,6 +16,7 @@ contact.html      資料提供・お問い合わせフォーム（Firestore の 
 join.html         入会案内（会員特典・会員種別・入会の流れ・FAQ）
 apply.html        入会お申込みフォーム（4ステップ。apply.html?type=student で種別を選択済みにできる）
 apply-done.html   お申込み完了ページ
+verify.html       会員証のQRコードから開く確認ページ（有効／停止中などを表示）
 functions/        Cloud Functions（申請時のメール送信。文面は mails.js）
 apps-script/      メール送信用 Google Apps Script（Gmail アカウントに設置）
 member-login.html 会員ログイン（パスワード再設定つき）
@@ -31,6 +32,7 @@ assets/js/render.js          行事などの表示パーツ
 assets/css/member.css        入会案内・会員サイトのデザイン（黒×金。先頭の :root で色を変更可能）
 assets/js/member-api.js      会員機能のデータ処理（会員種別 MEMBER_TYPES もここ）
 assets/js/member.js          会員サイトの画面（メニューは ROUTES）
+assets/js/card.js            デジタル会員証（表・裏・QRコード）。デザインは member.css の「会員証」
 LOGO.png                     ロゴ（ヘッダー・ファビコン・紹介ブロックで使用）
 assets/js/sample-data.js     Firebase 未設定時のサンプルデータ
 firestore.rules              Firestore セキュリティルール
@@ -98,6 +100,11 @@ firebase.json                Firebase Hosting 設定
      ```
   5. `firebase deploy --only functions`
 - Apps Script のコードを変更したときは「デプロイを管理」→ 編集 → バージョン「新バージョン」で更新します（URL は変わりません）。
+
+## 会員番号と会員証のQRコード
+
+- **会員番号**：承認すると自動で付きます（例：FA-2026-0001）。審査中の会員にはまだ付きません。管理画面で付け忘れても、有効な会員に番号が無ければサーバー（Cloud Functions）が自動で付けます。連番は `counters/memberNo` で管理し、重複しません。形式は `admin.html` と `functions/index.js` の `MEMBER_NO`。
+- **QRコード**：会員証の表面に印字。読み取ると `verify.html` で「有効な会員です」などを表示します。QRコードには会員ごとの推測できない番号（cardToken）が入り、確認ページには会員証に書かれている情報（会員番号・氏名・種別・入会日）だけが表示されます。
 
 ## Firestore のデータ形式
 

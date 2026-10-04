@@ -9,11 +9,16 @@
 //      MAIL_TOKEN      … Apps Script の setup で表示された TOKEN
 //  ・メールの文面は mails.js で編集できます
 // ============================================================
-const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated, onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { defineSecret } = require("firebase-functions/params");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const logger = require("firebase-functions/logger");
+const { initializeApp } = require("firebase-admin/app");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const crypto = require("node:crypto");
 const mails = require("./mails");
+
+initializeApp();
 
 const MAIL_WEBAPP_URL = defineSecret("MAIL_WEBAPP_URL");
 const MAIL_TOKEN = defineSecret("MAIL_TOKEN");
@@ -62,9 +67,20 @@ exports.mailOnMemberApplied = onDocumentCreated({ document: "members/{uid}", ...
 // ---------- 審査結果 → 申込者へ承認／否認の通知 ----------
 exports.mailOnMemberReviewed = onDocumentUpdated({ document: "members/{uid}", ...opts }, async (event) => {
   const before = event.data?.before.data(), after = event.data?.after.data();
-  if (!before || !after || before.status !== "pending") return;
-  if (after.status === "active") await sendAll(mails.memberApproved(after), "入会承認");
-  else if (after.status === "rejected") await sendAll(mails.memberRejected(after), "入会否認");
+  if (!before || !after) return;
+  // 否認
+  if (before.status === "pending" && after.status === "rejected") {
+    await sendAll(mails.memberRejected(after), "入会否認");
+    return;
+  }
+  // 承認：会員番号が付いた時点で送る
+  //  ・管理画面で番号付きで承認した場合 … 審査中 → 有効 の更新で送信
+  //  ・番号なしで承認され、サーバーが番号を付けた場合 … 番号が付いた更新で送信
+  const approvedNow = before.status === "pending" && after.status === "active" && after.memberNo;
+  const numberedAfterApproval = before.status === "active" && after.status === "active" && !before.memberNo && after.memberNo;
+  if (approvedNow || numberedAfterApproval) {
+    await sendAll(mails.memberApproved(after), "入会承認");
+  }
 });
 
 // ---------- お問い合わせ → 委員会へ通知 ＋ 送信者へ自動返信 ----------
@@ -80,3 +96,72 @@ exports.mailOnAdminInvite = onDocumentCreated({ document: "admin_invites/{email}
   if (!inv) return;
   await sendAll(mails.adminInvited(inv), "管理者招待");
 });
+
+// ============================================================
+//  会員証のQRコード用：確認ページ（verify.html）に表示する情報を作る
+//  ・会員番号が付くと、推測できない番号（cardToken）を発行して会員データに保存
+//  ・cards/{cardToken} に、会員証に書かれている範囲の情報だけを保存（メール・電話などは含めない）
+//  ・状態（有効／停止など）や名前が変われば自動で更新、会員が削除されたら削除
+// ============================================================
+exports.syncMemberCard = onDocumentWritten({ document: "members/{uid}", retry: false }, async (event) => {
+  const db = getFirestore();
+  const before = event.data?.before?.exists ? event.data.before.data() : null;
+  const after = event.data?.after?.exists ? event.data.after.data() : null;
+
+  // 会員が削除された
+  if (!after) {
+    if (before?.cardToken) await db.doc(`cards/${before.cardToken}`).delete();
+    return;
+  }
+  // 有効な会員なのに会員番号がない → サーバーで自動採番（管理画面と同じカウンターを使うので重複しない）
+  if (after.status === "active" && !after.memberNo) {
+    const memberNo = await issueMemberNo(db);
+    await event.data.after.ref.update({ memberNo });
+    logger.info("会員番号を自動付与", { memberNo });
+    return; // この更新で関数がもう一度呼ばれ、会員証の情報が作られる
+  }
+  // 会員番号がまだない（審査中など）
+  if (!after.memberNo) return;
+
+  // 初回：cardToken を発行（この更新で関数がもう一度呼ばれ、下の処理でカード情報が作られる）
+  if (!after.cardToken) {
+    const token = crypto.randomBytes(16).toString("hex");
+    await event.data.after.ref.update({ cardToken: token });
+    logger.info("会員証トークンを発行", { memberNo: after.memberNo });
+    return;
+  }
+
+  const card = {
+    memberNo: after.memberNo,
+    name: after.name || "",
+    type: after.type || "",
+    status: after.status || "",
+    approvedAt: after.approvedAt || null,
+    validUntil: after.validUntil || "",
+    updatedAt: FieldValue.serverTimestamp()
+  };
+  await db.doc(`cards/${after.cardToken}`).set(card);
+});
+
+// ============================================================
+//  会員番号の採番（例：FA-2026-0001）
+//  ★ 形式は admin.html の MEMBER_NO と揃えてください
+// ============================================================
+const MEMBER_NO = { prefix: "FA", digits: 4 };
+async function issueMemberNo(db) {
+  const ref = db.doc("counters/memberNo");
+  const seq = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    let current = snap.exists ? Number(snap.get("seq")) || 0 : 0;
+    // カウンターがまだ無いときは、既存の会員番号の最大値から続ける
+    if (!snap.exists) {
+      const all = await tx.get(db.collection("members"));
+      all.forEach(d => { const m = /-(\d+)$/.exec(d.get("memberNo") || ""); if (m) current = Math.max(current, +m[1]); });
+    }
+    const next = current + 1;
+    tx.set(ref, { seq: next, updatedAt: FieldValue.serverTimestamp() });
+    return next;
+  });
+  const year = new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo", year: "numeric" });
+  return `${MEMBER_NO.prefix}-${year}-${String(seq).padStart(MEMBER_NO.digits, "0")}`;
+}
