@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>お知らせ｜普賢アーカイブ運営委員会</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="icon" href="LOGO.png">
+<script src="assets/js/common.js" defer></script>
+</head>
+<body>
+<header id="site-header"></header>
+
+<main>
+  <div class="page-head">
+    <div class="inner">
+      <h1>お知らせ</h1>
+      <p>NEWS</p>
+    </div>
+  </div>
+  <div class="inner">
+    <ol class="breadcrumb"><li><a href="index.html">ホーム</a></li><li><a href="news.html">お知らせ</a></li><li id="crumb-current" hidden></li></ol>
+  </div>
+
+  <div class="inner content">
+    <!-- 一覧表示 -->
+    <div id="list-view">
+      <div class="filter-bar">
+        <button class="chip" data-cat="">すべて</button>
+        <button class="chip" data-cat="topics">トピックス</button>
+        <button class="chip" data-cat="kaikoku">会告</button>
+      </div>
+      <ul class="news-list" id="news-list"><li class="loading">読み込み中…</li></ul>
+    </div>
+
+    <!-- 詳細表示（news.html?id=xxx のとき） -->
+    <article id="detail-view" hidden>
+      <div class="article-head">
+        <div id="detail-meta"></div>
+        <h1 id="detail-title"></h1>
+      </div>
+      <div class="article-body" id="detail-body"></div>
+      <div class="btn-wrap center" style="margin-top:48px"><a class="btn" href="news.html">お知らせ一覧へ戻る</a></div>
+    </article>
+  </div>
+</main>
+
+<footer id="site-footer"></footer>
+
+<script type="module">
+  import { getNews, getNewsById, newsItemHtml, esc, fmtDate, CATEGORY_LABEL, isDemo } from "./assets/js/db.js";
+  import { showDemoBanner } from "./assets/js/render.js";
+  if (isDemo) showDemoBanner();
+
+  const params = new URLSearchParams(location.search);
+  const id = params.get("id");
+
+  if (id) {
+    // ---- 詳細 ----
+    document.getElementById("list-view").hidden = true;
+    document.getElementById("detail-view").hidden = false;
+    const n = await getNewsById(id).catch(e => (console.error(e), null));
+    if (!n) {
+      document.getElementById("detail-title").textContent = "お知らせが見つかりませんでした。";
+    } else {
+      document.title = `${n.title}｜普賢アーカイブ運営委員会`;
+      document.getElementById("detail-meta").innerHTML =
+        `<time>${esc(fmtDate(n.date))}</time> <span class="cat cat-${esc(n.category)}">${esc(CATEGORY_LABEL[n.category] || n.category)}</span>`
+        + (n.important ? ' <span class="cat cat-important">重要</span>' : "");
+      document.getElementById("detail-title").textContent = n.title;
+      document.getElementById("detail-body").textContent = n.body || "";
+      const crumb = document.getElementById("crumb-current");
+      crumb.textContent = n.title; crumb.hidden = false;
+    }
+  } else {
+    // ---- 一覧 ----
+    const listEl = document.getElementById("news-list");
+    const chips = document.querySelectorAll(".chip");
+    let all = [];
+    const render = (cat) => {
+      chips.forEach(c => c.classList.toggle("is-active", c.dataset.cat === cat));
+      const rows = cat ? all.filter(n => n.category === cat) : all;
+      listEl.innerHTML = rows.length ? rows.map(newsItemHtml).join("") : '<li class="empty">お知らせはありません。</li>';
+    };
+    chips.forEach(c => c.addEventListener("click", () => {
+      history.replaceState(null, "", c.dataset.cat ? `?cat=${c.dataset.cat}` : "news.html");
+      render(c.dataset.cat);
+    }));
+    try {
+      all = await getNews();
+      render(params.get("cat") || "");
+    } catch (e) {
+      console.error(e);
+      listEl.innerHTML = '<li class="empty">お知らせを読み込めませんでした。</li>';
+    }
+  }
+</script>
+</body>
+</html>

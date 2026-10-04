@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>普賢アーカイブ運営委員会</title>
+<meta name="description" content="普賢アーカイブ運営委員会の公式ウェブサイト。委員会の活動、お知らせ、アーカイブ資料の公開情報を掲載しています。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="icon" href="LOGO.png">
+<script src="assets/js/common.js" defer></script>
+</head>
+<body>
+<header id="site-header"></header>
+
+<main>
+  <!-- ===== メインビジュアル（スライダー） =====
+       スライドを増やす場合は <a class="slide slide-1"> ～ </a> をコピーしてください。
+       背景画像を使う場合は style="background-image:url('assets/img/xxx.jpg')" を追加します。 -->
+  <section class="hero">
+    <div class="inner">
+      <div class="slider">
+        <a class="slide slide-1" href="about.html">
+          <div class="slide-body">
+            <span class="slide-label">ABOUT</span>
+            <h2>記録を未来へつなぐ</h2>
+            <p>普賢アーカイブ運営委員会は、普賢に関わる記録・資料を収集・保存し、「普賢アーカイブ」として広く公開することで、次世代へ継承します。</p>
+          </div>
+        </a>
+        <a class="slide slide-2" data-archive-link>
+          <div class="slide-body">
+            <span class="slide-label">ARCHIVE</span>
+            <h2>普賢アーカイブ公開中</h2>
+            <p>本委員会が運営する「普賢アーカイブ」で、写真・文書・映像などの資料をご覧いただけます。</p>
+          </div>
+        </a>
+        <a class="slide slide-3" href="contact.html">
+          <div class="slide-body">
+            <span class="slide-label">CALL FOR MATERIALS</span>
+            <h2>資料提供のお願い</h2>
+            <p>普賢に関する写真・資料・証言をお持ちの方は、ぜひ委員会までご連絡ください。</p>
+          </div>
+        </a>
+        <button class="slider-prev" aria-label="前へ">‹</button>
+        <button class="slider-next" aria-label="次へ">›</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== News（Firebase から自動表示） ===== -->
+  <section class="section">
+    <div class="inner news-area">
+      <div class="news-box">
+        <div class="news-box-head">
+          <h2>News</h2>
+          <ul class="tabs" data-group="news">
+            <li><button class="is-active" data-tab="tab-all">すべて</button></li>
+            <li><button data-tab="tab-topics">トピックス</button></li>
+            <li><button data-tab="tab-kaikoku">会　告</button></li>
+          </ul>
+        </div>
+        <div class="tab-panel is-show" id="tab-all" data-tab-group="news">
+          <ul class="news-list" id="news-all"><li class="loading">読み込み中…</li></ul>
+          <div class="btn-wrap"><a class="btn" href="news.html">お知らせ一覧 ›</a></div>
+        </div>
+        <div class="tab-panel" id="tab-topics" data-tab-group="news">
+          <ul class="news-list" id="news-topics"><li class="loading">読み込み中…</li></ul>
+          <div class="btn-wrap"><a class="btn" href="news.html?cat=topics">トピックス一覧 ›</a></div>
+        </div>
+        <div class="tab-panel" id="tab-kaikoku" data-tab-group="news">
+          <ul class="news-list" id="news-kaikoku"><li class="loading">読み込み中…</li></ul>
+          <div class="btn-wrap"><a class="btn" href="news.html?cat=kaikoku">会告一覧 ›</a></div>
+        </div>
+      </div>
+
+      <!-- サイドバナー -->
+      <aside class="side-banners">
+        <a class="side-banner" data-archive-link><strong>普賢アーカイブ ↗</strong><small>資料を閲覧する（外部サイト）</small></a>
+        <a class="side-banner gold" href="events.html"><strong>行事・イベント</strong><small>委員会・講演会の予定</small></a>
+        <a class="side-banner member" href="join.html"><strong>会員募集中</strong><small>入会案内・オンライン申込</small></a>
+        <a class="side-banner teal" href="contact.html"><strong>資料提供のお願い</strong><small>写真・文書・証言を募集中</small></a>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ===== Discover（クイックリンク） ===== -->
+  <section class="section gray">
+    <div class="inner">
+      <h2 class="sec-title">Discover<span>普賢アーカイブを知る</span></h2>
+      <ul class="quick-links">
+        <li><a href="about.html">委員会概要</a></li>
+        <li><a href="about.html#members">委員名簿</a></li>
+        <li><a href="archive.html">普賢アーカイブについて</a></li>
+        <li><a href="news.html?cat=kaikoku">会　告</a></li>
+        <li><a href="events.html">行事・イベント</a></li>
+        <li><a href="join.html">入会案内</a></li>
+        <li><a href="member-login.html">会員ログイン</a></li>
+        <li><a href="contact.html">資料提供・お問い合わせ</a></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== 普賢アーカイブ（別サイト）の紹介 ===== -->
+  <section class="section">
+    <div class="inner">
+      <h2 class="sec-title">ARCHIVE<span>普賢アーカイブ</span></h2>
+      <div class="archive-promo">
+        <img src="LOGO.png" alt="普賢アーカイブ" class="archive-promo-img" loading="lazy">
+        <div class="archive-promo-body">
+          <h3>普賢アーカイブ</h3>
+          <p>本委員会が運営する「普賢アーカイブ」では、収集・整理した写真・文書・映像などの資料を公開しています。</p>
+          <p>
+            <a class="btn btn-primary" data-archive-link>普賢アーカイブを見る ↗</a>
+            <a class="btn" href="archive.html">アーカイブについて ›</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 今後の行事 ===== -->
+  <section class="section gray">
+    <div class="inner">
+      <h2 class="sec-title">Events<span>行事・イベント</span></h2>
+      <ul class="event-list" id="top-events"><li class="loading">読み込み中…</li></ul>
+      <div class="btn-wrap"><a class="btn" href="events.html">行事一覧 ›</a></div>
+    </div>
+  </section>
+</main>
+
+<footer id="site-footer"></footer>
+
+<script type="module">
+  import { getNews, getEvents, newsItemHtml, isDemo } from "./assets/js/db.js";
+  import { eventItemHtml, showDemoBanner } from "./assets/js/render.js";
+
+  if (isDemo) showDemoBanner();
+
+  const fill = (id, rows, fn, emptyMsg = "現在お知らせはありません。") => {
+    document.getElementById(id).innerHTML = rows.length ? rows.map(fn).join("") : `<li class="empty">${emptyMsg}</li>`;
+  };
+
+  try {
+    const news = await getNews();
+    fill("news-all", news.slice(0, 6), newsItemHtml);
+    fill("news-topics", news.filter(n => n.category === "topics").slice(0, 6), newsItemHtml);
+    fill("news-kaikoku", news.filter(n => n.category === "kaikoku").slice(0, 6), newsItemHtml);
+  } catch (e) {
+    console.error(e);
+    ["news-all", "news-topics", "news-kaikoku"].forEach(id =>
+      document.getElementById(id).innerHTML = '<li class="empty">お知らせを読み込めませんでした。</li>');
+  }
+
+  getEvents()
+    .then(rows => {
+      const today = new Date().toISOString().slice(0, 10);
+      const upcoming = rows.filter(r => r.date >= today).reverse().slice(0, 3);
+      fill("top-events", upcoming, eventItemHtml, "現在予定されている行事はありません。");
+    })
+    .catch(e => { console.error(e); fill("top-events", [], null, "行事を読み込めませんでした。"); });
+</script>
+</body>
+</html>

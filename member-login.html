@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>会員ログイン｜普賢アーカイブ運営委員会</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/member.css">
+<link rel="icon" href="LOGO.png">
+<style>body { margin: 0; }</style>
+</head>
+<body class="lux">
+<div class="auth-page">
+  <aside class="auth-visual">
+    <a class="auth-brand" href="index.html"><img src="LOGO.png" alt="">普賢アーカイブ運営委員会</a>
+    <div>
+      <p class="eyebrow">Members Only</p>
+      <h1>おかえりなさい。<br><span class="gold-text">記録をつなぐ場所</span>へ。</h1>
+    </div>
+    <p class="quote">FUGEN ARCHIVE STEERING COMMITTEE — MEMBERS' PORTAL</p>
+  </aside>
+
+  <main class="auth-form-side">
+    <!-- ログイン -->
+    <div class="auth-card" id="login-card">
+      <p class="eyebrow">Sign in</p>
+      <h2>会員ログイン</h2>
+      <p class="sub">ご登録のメールアドレスとパスワードを入力してください。</p>
+      <div id="login-alert"></div>
+      <form id="login-form" novalidate>
+        <div class="field"><label for="email">メールアドレス</label><input id="email" type="email" autocomplete="username" required autofocus></div>
+        <div class="field">
+          <label for="pw">パスワード</label>
+          <div class="pw-wrap"><input id="pw" type="password" autocomplete="current-password" required><button type="button" class="pw-toggle" id="pw-toggle">表示</button></div>
+        </div>
+        <div class="row">
+          <span></span>
+          <button type="button" class="link-btn" id="to-reset">パスワードをお忘れの方</button>
+        </div>
+        <button class="lux-btn" type="submit" id="login-btn">ログイン</button>
+      </form>
+      <div class="auth-foot">まだ会員でない方は <a href="join.html">入会案内へ</a><br><a href="index.html" style="color:var(--muted);font-size:13px">← 公式サイトへ戻る</a></div>
+    </div>
+
+    <!-- パスワード再設定 -->
+    <div class="auth-card" id="reset-card" hidden>
+      <p class="eyebrow">Reset password</p>
+      <h2>パスワード再設定</h2>
+      <p class="sub">ご登録のメールアドレスに、再設定用のリンクをお送りします。</p>
+      <div id="reset-alert"></div>
+      <form id="reset-form" novalidate>
+        <div class="field"><label for="reset-email">メールアドレス</label><input id="reset-email" type="email" autocomplete="email" required></div>
+        <button class="lux-btn" type="submit" id="reset-btn">再設定メールを送信</button>
+      </form>
+      <div class="auth-foot"><button class="link-btn" id="to-login">← ログインに戻る</button></div>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+  import { login, onAuth, resetPassword, errorMessage } from "./assets/js/member-api.js";
+  import { esc } from "./assets/js/db.js";
+
+  const $ = id => document.getElementById(id);
+  const show = (el, type, msg) => $(el).innerHTML = msg ? `<div class="alert ${type}">${esc(msg)}</div>` : "";
+
+  // ログイン済みならそのまま会員サイトへ
+  let submitting = false;
+  onAuth(user => { if (user && !submitting) location.replace("member.html"); });
+
+  $("pw-toggle").addEventListener("click", e => {
+    const s = $("pw").type === "password";
+    $("pw").type = s ? "text" : "password";
+    e.target.textContent = s ? "隠す" : "表示";
+  });
+
+  $("login-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const email = $("email").value.trim(), pw = $("pw").value;
+    if (!email || !pw) return show("login-alert", "error", "メールアドレスとパスワードを入力してください。");
+    submitting = true;
+    const btn = $("login-btn");
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> ログイン中…';
+    try {
+      await login(email, pw);
+      location.replace("member.html");
+    } catch (err) {
+      console.error(err);
+      submitting = false;
+      show("login-alert", "error", errorMessage(err));
+      btn.disabled = false; btn.textContent = "ログイン";
+      $("pw").select();
+    }
+  });
+
+  // パスワード再設定の切り替え
+  const swap = (toReset) => {
+    $("login-card").hidden = toReset; $("reset-card").hidden = !toReset;
+    if (toReset) { $("reset-email").value = $("email").value; $("reset-email").focus(); } else $("email").focus();
+  };
+  $("to-reset").addEventListener("click", () => swap(true));
+  $("to-login").addEventListener("click", () => swap(false));
+
+  $("reset-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const btn = $("reset-btn");
+    btn.disabled = true;
+    try {
+      await resetPassword($("reset-email").value.trim());
+      show("reset-alert", "ok", "再設定メールを送信しました。メールをご確認ください。");
+    } catch (err) {
+      console.error(err);
+      show("reset-alert", "error", errorMessage(err));
+    } finally { btn.disabled = false; }
+  });
+</script>
+</body>
+</html>

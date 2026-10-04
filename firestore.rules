@@ -1,0 +1,89 @@
+rules_version = '2';
+// ============================================================
+//  Firestore セキュリティルール
+//  - news / events  : 誰でも閲覧可、管理者のみ書き込み可
+//  - contacts       : 誰でも送信（作成）可、閲覧・削除は管理者のみ
+//  - admins         : 管理者の UID を登録（コンソールから手動で追加）
+//  - members        : 本人が「審査中」で申込、本人は一部項目のみ編集可、承認は管理者
+//  - member_news / member_docs : 有効な会員のみ閲覧、管理者のみ書き込み
+//  - rsvps          : 有効な会員が自分の参加登録のみ作成・取消
+// ============================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+
+    function isAdmin() {
+      return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isActiveMember() {
+      return signedIn()
+        && get(/databases/$(database)/documents/members/$(request.auth.uid)).data.status == 'active';
+    }
+
+    function str(v, max) { return v is string && v.size() <= max; }
+
+    // ---------- 公開コンテンツ ----------
+    match /news/{id}   { allow read: if true; allow write: if isAdmin(); }
+    match /events/{id} { allow read: if true; allow write: if isAdmin(); }
+
+    // ---------- お問い合わせ ----------
+    match /contacts/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['subject', 'name', 'email', 'message', 'createdAt'])
+        && str(request.resource.data.name, 100)
+        && str(request.resource.data.email, 200)
+        && str(request.resource.data.message, 5000)
+        && request.resource.data.createdAt == request.time;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ---------- 管理者 ----------
+    match /admins/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // ---------- 会員 ----------
+    match /members/{uid} {
+      allow read: if (signedIn() && request.auth.uid == uid) || isAdmin();
+
+      // 入会申込（本人・審査中のみ）
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'kana', 'email', 'type', 'affiliation', 'phone',
+             'address', 'message', 'newsletter', 'status', 'createdAt'])
+        && request.resource.data.status == 'pending'
+        && request.resource.data.type in ['regular', 'student']
+        && str(request.resource.data.name, 100)
+        && str(request.resource.data.kana, 100)
+        && str(request.resource.data.email, 200)
+        && str(request.resource.data.message, 2000)
+        && request.resource.data.createdAt == request.time;
+
+      // 委員会承認制：状態（status）を変えられるのは管理者のみ。
+      // 「有効」にするときは承認した管理者（approvedBy）の記録を必須にする。
+      // 本人は名前・連絡先などのプロフィールだけ編集可（状態・会員番号などは変更不可）
+      allow update: if (isAdmin()
+          && (request.resource.data.status != 'active' || request.resource.data.approvedBy is string))
+        || (signedIn() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['name', 'kana', 'affiliation', 'phone', 'address', 'newsletter'])
+        && str(request.resource.data.name, 100));
+
+      allow delete: if isAdmin();
+    }
+
+    match /member_news/{id} { allow read: if isActiveMember() || isAdmin(); allow write: if isAdmin(); }
+    match /member_docs/{id} { allow read: if isActiveMember() || isAdmin(); allow write: if isAdmin(); }
+
+    // ---------- 行事の参加登録（ID = 行事ID_UID） ----------
+    match /rsvps/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if isActiveMember()
+        && request.resource.data.uid == request.auth.uid
+        && id == request.resource.data.eventId + '_' + request.auth.uid
+        && request.resource.data.keys().hasOnly(['eventId', 'uid', 'name', 'createdAt']);
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+    }
+  }
+}

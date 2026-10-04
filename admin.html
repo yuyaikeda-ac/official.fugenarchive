@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>管理画面｜普賢アーカイブ運営委員会</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="icon" href="LOGO.png">
+<script src="assets/js/common.js" defer></script>
+<style>
+  .admin-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .admin-bar .tabs { flex-wrap: wrap; }
+  .admin-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .admin-table th, .admin-table td { border-bottom: 1px solid var(--border); padding: 10px 8px; text-align: left; vertical-align: top; }
+  .admin-table th { background: var(--bg-gray); font-weight: 500; }
+  .admin-table td:last-child { white-space: nowrap; text-align: right; }
+  .admin-table .btn { padding: 4px 14px; font-size: 12px; }
+  .btn-danger { border-color: var(--important); color: var(--important); }
+  .btn-danger:hover { background: var(--important); color: #fff; }
+  .editor { background: var(--bg-gray); padding: 24px; border-radius: 6px; margin: 24px 0; }
+  .editor .form { max-width: none; }
+  .msg-cell { white-space: pre-wrap; max-width: 480px; }
+  @media (max-width: 768px) { .admin-table th:nth-child(n+3), .admin-table td:nth-child(n+3):not(:last-child) { display: none; } }
+</style>
+</head>
+<body>
+<header id="site-header"></header>
+
+<main>
+  <div class="page-head">
+    <div class="inner"><h1>管理画面</h1><p>ADMIN</p></div>
+  </div>
+
+  <div class="inner content">
+    <!-- ログイン -->
+    <section id="login-view" hidden>
+      <h2>管理者ログイン</h2>
+      <form class="form" id="login-form" style="max-width:420px">
+        <div class="form-row"><label for="login-email">メールアドレス</label><input type="email" id="login-email" required autocomplete="username"></div>
+        <div class="form-row"><label for="login-pass">パスワード</label><input type="password" id="login-pass" required autocomplete="current-password"></div>
+        <div id="login-msg"></div>
+        <button class="btn btn-primary" type="submit">ログイン</button>
+      </form>
+    </section>
+
+    <!-- 管理メイン -->
+    <section id="admin-view" hidden>
+      <div class="admin-bar">
+        <ul class="tabs" data-group="admin">
+          <li><button class="is-active" data-col="news">お知らせ</button></li>
+          <li><button data-col="events">行事</button></li>
+          <li><button data-col="contacts">お問い合わせ</button></li>
+          <li><button data-col="members">会員<span id="pending-badge"></span></button></li>
+          <li><button data-col="member_news">会員向けお知らせ</button></li>
+          <li><button data-col="member_docs">会員限定資料</button></li>
+        </ul>
+        <div><span id="user-email" style="font-size:13px;color:var(--text-sub)"></span> <button class="btn" id="logout">ログアウト</button></div>
+      </div>
+      <div id="admin-msg"></div>
+      <div class="btn-wrap" id="new-wrap" style="text-align:left"><button class="btn btn-primary" id="new-btn">＋ 新規作成</button></div>
+      <div class="editor" id="editor" hidden>
+        <form class="form" id="edit-form"></form>
+      </div>
+      <table class="admin-table" id="admin-table"></table>
+    </section>
+  </div>
+</main>
+
+<footer id="site-footer"></footer>
+
+<script type="module">
+  import { adminApi, esc, fmtDate, isDemo } from "./assets/js/db.js";
+
+  // ============================================================
+  //  コレクションごとの入力項目
+  //  ★ 項目を追加したい場合はここに1行追加するだけで、フォームと一覧に反映されます。
+  //    type: text | date | textarea | select | checkbox | url
+  // ============================================================
+  const SCHEMA = {
+    news: {
+      label: "お知らせ", order: "date",
+      fields: [
+        { key: "date", label: "日付", type: "date", required: true, list: true },
+        { key: "category", label: "区分", type: "select", options: { topics: "トピックス", kaikoku: "会告" }, required: true, list: true },
+        { key: "title", label: "タイトル", type: "text", required: true, list: true },
+        { key: "important", label: "「重要」ラベルを付ける", type: "checkbox" },
+        { key: "body", label: "本文", type: "textarea" },
+        { key: "url", label: "リンク先URL（入力すると本文ではなくこのURLへ移動）", type: "url" }
+      ]
+    },
+    events: {
+      label: "行事", order: "date",
+      fields: [
+        { key: "date", label: "開催日", type: "date", required: true, list: true },
+        { key: "title", label: "行事名", type: "text", required: true, list: true },
+        { key: "place", label: "会場", type: "text", list: true },
+        { key: "description", label: "説明", type: "textarea" },
+        { key: "url", label: "詳細ページURL", type: "url" }
+      ]
+    },
+    contacts: { label: "お問い合わせ", order: "createdAt", readonly: true },
+    // ---- 会員機能 ----
+    members: {
+      label: "会員", order: "createdAt", noCreate: true,
+      fields: [
+        { key: "type", label: "会員種別", type: "select", options: { regular: "正会員", student: "学生会員" }, required: true },
+        { key: "memberNo", label: "会員番号", type: "text" },
+        { key: "validUntil", label: "有効期限（通常は空欄＝期限なし）", type: "date" },
+        { key: "name", label: "お名前", type: "text", required: true },
+        { key: "kana", label: "フリガナ", type: "text" },
+        { key: "email", label: "メールアドレス", type: "text" },
+        { key: "affiliation", label: "所属", type: "text" },
+        { key: "phone", label: "電話番号", type: "text" },
+        { key: "address", label: "住所", type: "text" },
+        { key: "message", label: "入会時のメッセージ", type: "textarea" },
+        { key: "newsletter", label: "お知らせメールを受け取る", type: "checkbox" }
+      ]
+    },
+    member_news: {
+      label: "会員向けお知らせ", order: "date",
+      fields: [
+        { key: "date", label: "日付", type: "date", required: true, list: true },
+        { key: "title", label: "タイトル", type: "text", required: true, list: true },
+        { key: "important", label: "「重要」ラベルを付ける", type: "checkbox" },
+        { key: "body", label: "本文", type: "textarea" }
+      ]
+    },
+    member_docs: {
+      label: "会員限定資料", order: "date",
+      fields: [
+        { key: "date", label: "掲載日", type: "date", required: true, list: true },
+        { key: "title", label: "資料名", type: "text", required: true, list: true },
+        { key: "category", label: "分類（会議資料・活動報告 など）", type: "text", list: true },
+        { key: "description", label: "説明", type: "textarea" },
+        { key: "url", label: "資料のURL（Google ドライブ・PDF など）", type: "url", required: true }
+      ]
+    }
+  };
+
+  const MEMBER_TYPE = { regular: "正会員", student: "学生会員" };
+  // ★ 会員の状態は「承認」「否認」「停止」「再開」ボタンでのみ変更します（委員会承認制）
+  const MEMBER_STATUS = { pending: "審査中", active: "有効", suspended: "停止中", rejected: "否認" };
+
+  // 会員番号を自動採番（例：FA-2026-0001）
+  function nextMemberNo() {
+    const y = new Date().getFullYear();
+    const nums = rows.map(r => /^FA-\d{4}-(\d+)$/.exec(r.memberNo || "")).filter(Boolean).map(m => +m[1]);
+    return `FA-${y}-${String((nums.length ? Math.max(...nums) : 0) + 1).padStart(4, "0")}`;
+  }
+
+  const $ = (id) => document.getElementById(id);
+  let current = "news";
+  let rows = [];
+  let currentAdmin = null;
+
+  const notice = (el, type, text) => $(el).innerHTML = text ? `<div class="notice ${type}">${esc(text)}</div>` : "";
+
+  // ---------- 認証 ----------
+  if (isDemo) {
+    $("login-view").hidden = false;
+    notice("login-msg", "info", "Firebase が未設定のため、ログインできません。assets/js/firebase-config.js を設定してください。");
+  }
+
+  adminApi.onAuth(async (user) => {
+    if (isDemo) return;
+    if (!user) { $("login-view").hidden = false; $("admin-view").hidden = true; return; }
+    let ok = false;
+    try { ok = await adminApi.isAdmin(user.uid); } catch (e) { console.error(e); }
+    if (!ok) {
+      await adminApi.logout();
+      notice("login-msg", "error", `このアカウントには管理者権限がありません（UID: ${user.uid}）。Firestore の admins コレクションに UID を登録してください。`);
+      return;
+    }
+    $("login-view").hidden = true; $("admin-view").hidden = false;
+    $("user-email").textContent = user.email;
+    currentAdmin = user;
+    load();
+  });
+
+  $("login-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (isDemo) return;
+    notice("login-msg", "", "");
+    try { await adminApi.login($("login-email").value, $("login-pass").value); }
+    catch (err) { console.error(err); notice("login-msg", "error", "ログインに失敗しました。メールアドレスとパスワードをご確認ください。"); }
+  });
+  $("logout").addEventListener("click", () => adminApi.logout());
+
+  // ---------- タブ ----------
+  document.querySelectorAll("[data-col]").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll("[data-col]").forEach(x => x.classList.toggle("is-active", x === b));
+    current = b.dataset.col;
+    closeEditor(); load();
+  }));
+
+  // ---------- 一覧 ----------
+  async function load() {
+    const s = SCHEMA[current];
+    $("new-wrap").hidden = !!(s.readonly || s.noCreate);
+    $("admin-table").innerHTML = '<tr><td class="loading">読み込み中…</td></tr>';
+    try {
+      rows = await adminApi.list(current, { order: s.order });
+    } catch (e) {
+      console.error(e);
+      $("admin-table").innerHTML = `<tr><td class="empty">読み込みに失敗しました：${esc(e.message)}</td></tr>`;
+      return;
+    }
+    if (current === "contacts") return renderContacts();
+    if (current === "members") return renderMembers();
+
+    // 行事タブでは参加登録数も表示
+    let rsvpBy = null;
+    if (current === "events") {
+      rsvpBy = {};
+      try {
+        (await adminApi.list("rsvps", { order: "createdAt" })).forEach(r => (rsvpBy[r.eventId] ||= []).push(r.name));
+      } catch (e) { console.error(e); }
+    }
+
+    const cols = s.fields.filter(f => f.list);
+    $("admin-table").innerHTML =
+      `<tr>${cols.map(c => `<th>${esc(c.label.replace(/（.*）/, ""))}</th>`).join("")}${rsvpBy ? "<th>参加登録</th>" : ""}<th></th></tr>` +
+      (rows.length ? rows.map(r => `<tr>${cols.map(c => `<td>${esc(c.options ? c.options[r[c.key]] : c.type === "date" ? fmtDate(r[c.key]) : r[c.key])}</td>`).join("")}
+        ${rsvpBy ? `<td title="${esc((rsvpBy[r.id] || []).join("、"))}">${(rsvpBy[r.id] || []).length} 名${(rsvpBy[r.id] || []).length ? `<br><small style="color:var(--text-sub)">${esc((rsvpBy[r.id] || []).join("、"))}</small>` : ""}</td>` : ""}
+        <td><button class="btn" data-edit="${esc(r.id)}">編集</button> <button class="btn btn-danger" data-del="${esc(r.id)}">削除</button></td></tr>`).join("")
+        : `<tr><td colspan="${cols.length + 2}" class="empty">データがありません。</td></tr>`);
+  }
+
+  function renderMembers() {
+    const pending = rows.filter(r => r.status === "pending").length;
+    $("pending-badge").textContent = pending ? `（審査待ち ${pending}）` : "";
+    // 審査中を先頭に
+    const sorted = [...rows].sort((a, b) => (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1));
+    const statusColor = { pending: "#b8862b", active: "#1e6b3a", suspended: "#9b1c1c", rejected: "#777" };
+    $("admin-table").innerHTML = `<tr><th>状態</th><th>お名前 / メール</th><th>種別・会員番号</th><th>申込日 / 承認日</th><th></th></tr>` +
+      (sorted.length ? sorted.map(r => `<tr>
+        <td><strong style="color:${statusColor[r.status] || "inherit"}">${esc(MEMBER_STATUS[r.status] || r.status)}</strong></td>
+        <td>${esc(r.name)}（${esc(r.kana || "")}）<br><a href="mailto:${esc(r.email)}">${esc(r.email)}</a>${r.affiliation ? `<br><small>${esc(r.affiliation)}</small>` : ""}</td>
+        <td>${esc(MEMBER_TYPE[r.type] || r.type)}<br><small>${esc(r.memberNo || "—")}</small></td>
+        <td>${esc(r.createdAt?.toDate ? r.createdAt.toDate().toLocaleDateString("ja-JP") : "")}<br><small>${esc(r.approvedAt?.toDate ? r.approvedAt.toDate().toLocaleDateString("ja-JP") : "—")}</small></td>
+        <td>
+          ${r.status === "pending" ? `<button class="btn btn-primary" data-approve="${esc(r.id)}">承認</button> <button class="btn btn-danger" data-reject="${esc(r.id)}">否認</button>` : ""}
+          ${r.status === "active" ? `<button class="btn" data-suspend="${esc(r.id)}">停止</button>` : ""}
+          ${r.status === "suspended" ? `<button class="btn" data-activate="${esc(r.id)}">再開</button>` : ""}
+          <button class="btn" data-edit="${esc(r.id)}">編集</button>
+          <button class="btn btn-danger" data-del="${esc(r.id)}">削除</button>
+        </td></tr>`).join("")
+        : '<tr><td colspan="5" class="empty">会員・申込はまだありません。</td></tr>');
+  }
+
+  async function setMember(id, data, msg) {
+    try { await adminApi.save("members", id, data); notice("admin-msg", "success", msg); load(); }
+    catch (err) { console.error(err); notice("admin-msg", "error", "更新に失敗しました：" + err.message); }
+  }
+
+  function renderContacts() {
+    $("admin-table").innerHTML = `<tr><th>受信日時</th><th>種別</th><th>お名前 / メール</th><th>内容</th><th></th></tr>` +
+      (rows.length ? rows.map(r => `<tr>
+        <td>${esc(r.createdAt?.toDate ? r.createdAt.toDate().toLocaleString("ja-JP") : "")}</td>
+        <td>${esc(r.subject)}</td>
+        <td>${esc(r.name)}<br><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></td>
+        <td class="msg-cell">${esc(r.message)}</td>
+        <td><button class="btn btn-danger" data-del="${esc(r.id)}">削除</button></td></tr>`).join("")
+        : '<tr><td colspan="5" class="empty">お問い合わせはありません。</td></tr>');
+  }
+
+  $("admin-table").addEventListener("click", async (e) => {
+    const { edit: editId, del: delId, approve, reject, suspend, activate } = e.target.dataset;
+    if (editId) openEditor(rows.find(r => r.id === editId));
+    if (approve) {
+      const r = rows.find(x => x.id === approve);
+      const no = r.memberNo || nextMemberNo();
+      if (!window.confirm(`${r.name} さんを委員会承認として登録します。\n会員番号：${no}`)) return;
+      return setMember(approve, { status: "active", memberNo: no, approvedAt: new Date(), approvedBy: currentAdmin.uid }, `${r.name} さんを承認しました（${no}）。`);
+    }
+    if (reject) {
+      const r = rows.find(x => x.id === reject);
+      if (!window.confirm(`${r.name} さんの入会申込を否認します。よろしいですか？`)) return;
+      return setMember(reject, { status: "rejected", rejectedAt: new Date(), rejectedBy: currentAdmin.uid }, `${r.name} さんの申込を否認しました。`);
+    }
+    if (suspend && window.confirm("この会員の資格を停止しますか？")) return setMember(suspend, { status: "suspended" }, "会員資格を停止しました。");
+    if (activate) return setMember(activate, { status: "active" }, "会員資格を再開しました。");
+    if (delId) {
+      const r = rows.find(x => x.id === delId);
+      if (!window.confirm(`「${r.title || r.name || delId}」を削除します。よろしいですか？`)) return;
+      try { await adminApi.remove(current, delId); notice("admin-msg", "success", "削除しました。"); load(); }
+      catch (err) { console.error(err); notice("admin-msg", "error", "削除に失敗しました：" + err.message); }
+    }
+  });
+
+  // ---------- 編集フォーム ----------
+  $("new-btn").addEventListener("click", () => openEditor(null));
+
+  function openEditor(row) {
+    const s = SCHEMA[current];
+    const v = (k) => esc(row?.[k] ?? "");
+    $("edit-form").innerHTML = `<h3 style="margin-top:0">${esc(s.label)}を${row ? "編集" : "新規作成"}</h3>` +
+      s.fields.map(f => {
+        const req = f.required ? " required" : "";
+        const reqMark = f.required ? '<span class="req">必須</span>' : "";
+        if (f.type === "checkbox")
+          return `<div class="form-row"><label><input type="checkbox" name="${f.key}"${row?.[f.key] ? " checked" : ""}> ${esc(f.label)}</label></div>`;
+        let input;
+        if (f.type === "textarea") input = `<textarea name="${f.key}"${req}>${v(f.key)}</textarea>`;
+        else if (f.type === "select") input = `<select name="${f.key}"${req}>${Object.entries(f.options).map(([k, l]) =>
+          `<option value="${esc(k)}"${row?.[f.key] === k ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
+        else input = `<input type="${f.type === "url" ? "text" : f.type}" name="${f.key}" value="${v(f.key)}"${req}>`;
+        return `<div class="form-row"><label>${esc(f.label)}${reqMark}</label>${input}</div>`;
+      }).join("") +
+      `<button type="submit" class="btn btn-primary">保存</button> <button type="button" class="btn" id="cancel">キャンセル</button>`;
+    $("edit-form").dataset.id = row?.id || "";
+    $("editor").hidden = false;
+    $("cancel").addEventListener("click", closeEditor);
+    $("editor").scrollIntoView({ behavior: "smooth" });
+  }
+
+  function closeEditor() { $("editor").hidden = true; $("edit-form").innerHTML = ""; }
+
+  $("edit-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = e.target, data = {};
+    SCHEMA[current].fields.forEach(f => {
+      const el = form.elements[f.key];
+      data[f.key] = f.type === "checkbox" ? el.checked : el.value.trim();
+    });
+    try {
+      await adminApi.save(current, form.dataset.id || null, data);
+      notice("admin-msg", "success", "保存しました。");
+      closeEditor(); load();
+    } catch (err) {
+      console.error(err);
+      notice("admin-msg", "error", "保存に失敗しました：" + err.message);
+    }
+  });
+</script>
+</body>
+</html>
