@@ -573,7 +573,13 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
 .mini-card .mcard { width: 100%; cursor: pointer; }
 .mini-card .mcard-face { box-shadow: 0 16px 32px -14px rgba(0,0,0,.5); }
 
-.card-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+/* 会員証の下のボタン：メイン（スキャン用表示）は横いっぱい、ほかは同じ幅で 2 列 */
+.card-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; width: min(520px, 100%); }
+.card-actions .lux-btn { width: 100%; min-height: 50px; padding: 0 14px; gap: 8px; font-size: 14px; letter-spacing: .04em; white-space: nowrap; }
+.card-actions .lux-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+.card-actions .ca-main { grid-column: 1 / -1; min-height: 54px; font-size: 15px; }
+.card-actions > .lux-btn:last-child:nth-child(2) { grid-column: 1 / -1; }  /* 2 つだけのときは横いっぱい */
+@media (max-width: 380px) { .card-actions .lux-btn { font-size: 12.5px; padding: 0 8px; } }
 .card-hint { color: var(--muted); font-size: 13px; margin: -6px 0 0; text-align: center; }
 .card-info { width: min(520px, 100%); display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0; }
 .card-info div { padding: 14px 18px; border-radius: 12px; background: #fff; border: 1px solid var(--line-soft); }
@@ -905,7 +911,6 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
    ・どの画面サイズでもスクロールせずに 1 画面に収まるよう、縦方向は画面の高さ（dvh）で配分
    ・QRコードは「残りの高さ」と「画面の幅」の小さい方に合わせて最大化
    ・団体名は 1 行（画面幅に合わせて文字サイズを調整） */
-.card-actions .lux-btn svg { margin-right: 2px; }
 body.scan-open { overflow: hidden; }
 .scan-view { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center;
   padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
@@ -968,7 +973,7 @@ body.scan-open { overflow: hidden; }
 .sig-dialog p { margin: 0 0 14px; font-size: 13px; color: var(--muted); }
 .sig-dialog .sig-err { margin: 8px 0 0; color: var(--danger); font-weight: 500; }
 .sig-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
-.sig-pending { display: inline-flex; align-items: center; padding: 8px 14px; border-radius: 999px; background: var(--gold-soft); border: 1px solid #ecdcb2; color: var(--gold-dark); font-size: 12.5px; font-weight: 500; }
+.sig-pending { width: min(520px, 100%); margin: -6px 0 0; padding: 10px 14px; border-radius: 12px; background: var(--gold-soft); border: 1px solid #ecdcb2; color: var(--gold-dark); font-size: 13px; font-weight: 500; text-align: center; }
 .email-row { display: flex; gap: 8px; align-items: center; }
 .email-row input { flex: 1; min-width: 0; }
 .email-row .lux-btn { flex-shrink: 0; }

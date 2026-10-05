@@ -578,12 +578,13 @@ function renderCard() {
       <div><dt>有効期限</dt><dd>${m.validUntil ? ymd(m.validUntil) : "期限なし"}${left !== null ? `　<span class="pill ${left <= 60 ? "imp" : "ok"}">${left >= 0 ? `あと${left}日` : "期限切れ"}</span>` : ""}</dd></div>
     </dl>
     <div class="card-actions">
-      <button class="lux-btn sm" id="scan-card"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg>スキャン用表示</button>
-      <button class="lux-btn ghost sm" id="print-card">印刷する</button>
-      ${!m.cardSignature ? ""
-        : m.signatureRewrite === "allowed" ? '<button class="lux-btn ghost sm" type="button" data-card-sign>署名を書き直す</button>'
-        : m.signatureRewrite === "requested" ? '<span class="sig-pending">署名の書き直しを申請中（管理者の承認待ち）</span>'
-        : '<button class="lux-btn ghost sm" type="button" data-sign-request>署名の書き直しを申請</button>'}
+      <button class="lux-btn ca-main" id="scan-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg>スキャン用表示</button>
+      <button class="lux-btn ghost" id="print-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6z"/></svg>印刷する</button>
+      ${!m.cardSignature || m.signatureRewrite === "requested" ? ""
+        : m.signatureRewrite === "allowed" ? '<button class="lux-btn ghost" type="button" data-card-sign><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>署名を書き直す</button>'
+        : '<button class="lux-btn ghost" type="button" data-sign-request><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>署名変更を申請</button>'}
+    </div>
+    ${m.cardSignature && m.signatureRewrite === "requested" ? '<p class="sig-pending">署名の書き直しを申請中です（管理者の承認待ち）</p>' : ""}
     </div>
   </div>`;
 }
