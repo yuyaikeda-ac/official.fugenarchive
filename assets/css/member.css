@@ -1039,3 +1039,23 @@ button.doc { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 .ev-foot { display: none; }
 @media (max-width: 380px) { .ev-tabs button { font-size: 12px; gap: 4px; } }
 .ev-pad { height: 20px; }
+
+/* ============ 会員向けお知らせ（整理版） ============ */
+.news-acc summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "meta chev" "ttl chev"; align-items: center; gap: 6px 14px; padding: 16px 18px 16px 22px; }
+.news-acc summary::after { display: none; }
+.news-acc .na-meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.news-acc .na-meta time { width: auto; font-size: 12.5px; }
+.news-acc .na-meta .pill { margin: 0; }
+.news-acc summary .ttl { grid-area: ttl; flex: none; order: 0; font-size: 15px; font-weight: 600; line-height: 1.6; overflow-wrap: anywhere; }
+.news-acc .na-chev { grid-area: chev; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--ink-3); transition: background .2s, transform .3s; }
+.news-acc .na-chev::before { content: ""; width: 7px; height: 7px; margin-top: -3px; border-right: 2px solid var(--navy); border-bottom: 2px solid var(--navy); transform: rotate(45deg); }
+.news-acc details[open] .na-chev { transform: rotate(180deg); background: var(--navy); }
+.news-acc details[open] .na-chev::before { border-color: #fff; }
+.news-acc summary:hover .na-chev { background: #dfe7f2; }
+.news-acc details[open] summary:hover .na-chev { background: var(--navy-2); }
+.news-acc .body { padding-left: 0; margin: 0 22px; }
+@media (max-width: 860px) {
+  .news-acc summary { flex-wrap: nowrap; padding: 14px 14px 14px 18px; gap: 6px 10px; }
+  .news-acc summary .ttl { flex-basis: auto; order: 0; }
+  .news-acc .body { margin: 0 18px; }
+}

@@ -282,31 +282,46 @@ routeOf("news").after = () => {
   });
   const q = $("news-q");
   const target = location.hash.split("/")[1];
+  // 絞り込み（すべて／重要／新着）と検索
   const apply = () => {
-    const v = q.value.trim().toLowerCase();
+    const v = (q?.value || "").trim().toLowerCase();
     let shown = 0;
     document.querySelectorAll(".news-acc details").forEach(d => {
-      const hit = !v || d.dataset.text.includes(v);
+      const hit = (!v || d.dataset.text.includes(v)) && (newsFilter === "all" || d.dataset[newsFilter] === "1");
       d.hidden = !hit; if (hit) shown++;
     });
-    $("news-none").hidden = shown > 0 || !state.news?.length;
+    const none = $("news-none");
+    if (none) none.hidden = shown > 0 || !state.news?.length;
   };
   q?.addEventListener("input", apply);
+  document.querySelectorAll("[data-nf]").forEach(b => b.addEventListener("click", () => {
+    newsFilter = b.dataset.nf;
+    document.querySelectorAll("[data-nf]").forEach(x => { x.classList.toggle("is-active", x === b); x.setAttribute("aria-selected", x === b); });
+    apply();
+  }));
+  apply();
   if (target) {
     const d = document.querySelector(`details[data-id="${CSS.escape(target)}"]`);
     if (d) { d.open = true; setTimeout(() => d.scrollIntoView({ behavior: "smooth", block: "center" }), 80); }
   }
 };
+let newsFilter = "all";
 function renderNews() {
   if (!state.news) return `<div class="news-acc">${Array.from({ length: 4 }, () => '<div class="skel" style="height:64px;margin-bottom:12px;border-radius:16px"></div>').join("")}</div>`;
   if (state.errors.news) return emptyState(state.errors.news);
   if (!state.news.length) return emptyState("会員向けのお知らせはまだありません", "bell");
+  const count = { all: state.news.length, imp: state.news.filter(n => n.important).length, new: state.news.filter(n => isNew(n.date)).length };
+  const tab = (k, l) => `<button type="button" role="tab" data-nf="${k}" aria-selected="${newsFilter === k}" class="${newsFilter === k ? "is-active" : ""}">${l}<span>${count[k]}</span></button>`;
   return `
+  <div class="ev-tabs" role="tablist" aria-label="お知らせの絞り込み">${tab("all", "すべて")}${tab("imp", "重要")}${tab("new", "新着")}</div>
   <div class="toolbar"><label class="search">${icon("search", 2)}<input id="news-q" type="search" placeholder="お知らせを検索（/ キーで移動）" aria-label="お知らせを検索"></label></div>
   <div class="news-acc">${state.news.map((n, i) => `
-    <details data-id="${esc(n.id)}" data-text="${esc(`${n.title} ${n.body || htmlToText(n.bodyHtml)}`.toLowerCase())}"${i === 0 ? " open" : ""}>
-      <summary><time>${ymd(n.date)}</time><span class="ttl">${esc(n.title)}
-        ${n.important ? '<span class="pill imp">重要</span>' : ""}${isNew(n.date) ? '<span class="pill new">NEW</span>' : ""}</span></summary>
+    <details data-id="${esc(n.id)}" data-imp="${n.important ? 1 : 0}" data-new="${isNew(n.date) ? 1 : 0}" data-text="${esc(`${n.title} ${n.body || htmlToText(n.bodyHtml)}`.toLowerCase())}"${i === 0 ? " open" : ""}>
+      <summary>
+        <span class="na-meta"><time>${ymd(n.date)}</time>${n.important ? '<span class="pill imp">重要</span>' : ""}${isNew(n.date) ? '<span class="pill new">NEW</span>' : ""}</span>
+        <span class="ttl">${esc(n.title)}</span>
+        <span class="na-chev" aria-hidden="true"></span>
+      </summary>
       <div class="body" data-body="${esc(n.id)}"></div>
     </details>`).join("")}</div>
   <div id="news-none" hidden>${emptyState("該当するお知らせはありません", "search")}</div>`;
