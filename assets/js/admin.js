@@ -184,7 +184,10 @@ function toast(msg, type = "success") {
   const el = document.createElement("div");
   el.className = `toast ${type}`;
   el.textContent = msg;
-  $("toasts").appendChild(el);
+  // パネル・モーダル（<dialog>）を開いているときは、その中に出さないと裏に隠れて見えない
+  const box = $("toasts"), host = [...document.querySelectorAll("dialog[open]")].pop() || document.body;
+  if (box.parentElement !== host) host.appendChild(box);
+  box.appendChild(el);
   setTimeout(() => el.remove(), type === "error" ? 8000 : 4000);
 }
 const fail = (prefix) => (err) => { console.error(err); toast(`${prefix}：${err.message || err}`, "error"); };
@@ -227,6 +230,11 @@ const confirmDiscard = () => {
 // パネルを閉じたら、リアルタイム更新（チケット）を止める
 let drawerStop = null;
 $("drawer").addEventListener("close", () => { drawerStop?.(); drawerStop = null; });
+// パネル・モーダルを閉じたら、通知（トースト）を画面本体に戻す（閉じた直後の「保存しました」なども見えるように）
+for (const d of ["drawer", "modal"]) $(d).addEventListener("close", () => {
+  const box = $("toasts");
+  if (box.parentElement === $(d)) ([...document.querySelectorAll("dialog[open]")].pop() || document.body).appendChild(box);
+});
 // 画面を切り替えたら、その画面のリアルタイム更新を止める
 let pageStop = null;
 $("drawer").addEventListener("click", e => { if (e.target.closest("[data-close]") && confirmDiscard()) closeDrawer(); });
