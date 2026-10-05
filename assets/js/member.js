@@ -454,29 +454,31 @@ async function openScan() {
   const expired = left !== null && left < 0;
   box.innerHTML = `
     <div class="scan-card">
-      <button class="scan-close" type="button" aria-label="閉じる">×</button>
-      <div class="scan-head">
+      <div class="scan-top">
         <img src="LOGO.png" alt="">
-        <div><b>普賢アーカイブ運営委員会</b><span>MEMBERSHIP CARD</span></div>
+        <div class="scan-org"><b>普賢アーカイブ運営委員会</b><span>MEMBERSHIP CARD</span></div>
+        <button class="scan-close" type="button" aria-label="閉じる">×</button>
       </div>
-      <div class="scan-status ${expired ? "ng" : "ok"}">${expired ? "有効期限切れ" : "✓ 有効な会員"}</div>
-      <div class="scan-qr">${qr || '<p class="scan-wait">QRコードを準備中です。<br>しばらくしてから開き直してください。</p>'}</div>
-      <p class="scan-hint">このQRコードを読み取ると、会員資格を確認できます</p>
-      <div class="scan-name">${esc(m.name)}<small> 様</small></div>
-      <dl class="scan-info">
-        <div><dt>会員番号</dt><dd>${esc(m.memberNo || "—")}</dd></div>
-        <div><dt>会員種別</dt><dd>${esc(MEMBER_TYPES[m.type]?.label || "")}</dd></div>
-        <div><dt>入会日</dt><dd>${ymd(m.approvedAt)}</dd></div>
-        <div><dt>有効期限</dt><dd>${m.validUntil ? ymd(m.validUntil) : "期限なし"}</dd></div>
-      </dl>
-      <div class="scan-clock" aria-live="off"><span class="dot"></span><span id="scan-time"></span></div>
+      <div class="scan-qr-area"><div class="scan-qr">${qr || '<p class="scan-wait">QRコードを準備中です。<br>しばらくしてから開き直してください。</p>'}</div></div>
+      <div class="scan-side">
+        <div class="scan-status ${expired ? "ng" : "ok"}">${expired ? "有効期限切れ" : "✓ 有効な会員"}</div>
+        <div class="scan-name">${esc(m.name)}<small> 様</small></div>
+        <dl class="scan-info">
+          <div><dt>会員番号</dt><dd>${esc(m.memberNo || "—")}</dd></div>
+          <div><dt>会員種別</dt><dd>${esc(MEMBER_TYPES[m.type]?.label || "")}</dd></div>
+          <div><dt>入会日</dt><dd>${ymd(m.approvedAt)}</dd></div>
+          <div><dt>有効期限</dt><dd>${m.validUntil ? ymd(m.validUntil) : "期限なし"}</dd></div>
+        </dl>
+        <p class="scan-hint">QRコードを読み取ると会員資格を確認できます</p>
+        <div class="scan-clock" aria-live="off"><span class="dot"></span><span id="scan-time"></span></div>
+      </div>
     </div>`;
   box.hidden = false;
   document.body.classList.add("scan-open");
   const tick = () => { const t = $("scan-time"); if (t) t.textContent = new Date().toLocaleString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }); };
   tick(); clearInterval(scanTimer); scanTimer = setInterval(tick, 1000);
   try { wakeLock = await navigator.wakeLock?.request("screen"); } catch {}
-  box.querySelector(".scan-close").focus();
+  box.focus();
 }
 function closeScan() {
   const box = $("scan-view");

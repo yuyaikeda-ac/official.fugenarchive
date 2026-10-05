@@ -807,9 +807,6 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
   /* 実物大（クレジットカードと同じ 85.6mm × 54mm）。点線は切り取り線 */
   .ps-cut { padding: 2mm; border: .3mm dashed #9aa3b0; }
   .mcard.is-print { width: 85.6mm !important; height: 53.98mm !important; max-width: none !important; aspect-ratio: auto; text-align: left; cursor: default; }
-  /* 実物大の確認用の目盛り（5cm） */
-  .ps-ruler { display: flex; align-items: center; gap: 3mm; margin: -3mm 0 6mm; font-size: 8pt; color: #6b7686; }
-  .ps-ruler i { position: relative; display: block; width: 50mm; height: 2.4mm; border: .3mm solid #14233a; border-top: 0; background: repeating-linear-gradient(90deg, #14233a 0 .3mm, transparent .3mm 10mm); }
   .mcard.is-print .mcard-face { transform: none; visibility: visible; transition: none; box-shadow: none; }
   .mcard.is-print .mc-shine { display: none; }
   .ps-info { flex: 1 1 62mm; min-width: 62mm; }
@@ -901,37 +898,60 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
 .site-link:hover { border-color: var(--navy); background: var(--ink); }
 @media (max-width: 380px) { .site-link span { display: none; } .site-link { padding: 8px; } }
 
-/* ============ 会員証：スキャン用表示（全画面） ============ */
+/* ============ 会員証：スキャン用表示（全画面） ============
+   ・どの画面サイズでもスクロールせずに 1 画面に収まるよう、縦方向は画面の高さ（dvh）で配分
+   ・QRコードは「残りの高さ」と「画面の幅」の小さい方に合わせて最大化
+   ・団体名は 1 行（画面幅に合わせて文字サイズを調整） */
 .card-actions .lux-btn svg { margin-right: 2px; }
 body.scan-open { overflow: hidden; }
-.scan-view { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
-  background: radial-gradient(120% 80% at 50% 0%, #163d6b 0%, #0b2240 55%, #071629 100%); overflow-y: auto; animation: scan-in .25s ease-out; }
+.scan-view { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center;
+  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  background: radial-gradient(120% 80% at 50% 0%, #163d6b 0%, #0b2240 55%, #071629 100%); animation: scan-in .25s ease-out; }
 .scan-view[hidden] { display: none; }
 @keyframes scan-in { from { opacity: 0; } }
-.scan-card { position: relative; overflow: hidden; width: min(440px, 100%); padding: 26px 24px 20px; border-radius: 26px; background: #fff; text-align: center; color: #14233a;
-  box-shadow: 0 30px 80px -20px rgba(0,0,0,.6); }
-.scan-card::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 6px; border-radius: 26px 26px 0 0; background: var(--gold-grad); }
-.scan-close { position: absolute; right: 12px; top: 14px; width: 40px; height: 40px; border: 0; border-radius: 50%; background: #eef1f5; color: #3f4b5e; font-size: 24px; line-height: 1; cursor: pointer; }
+.scan-card { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center;
+  width: min(460px, 100%); max-height: 100%;
+  padding: clamp(14px, 2.4dvh, 26px) clamp(14px, 4vw, 26px) clamp(12px, 2dvh, 20px);
+  border-radius: 24px; background: #fff; text-align: center; color: #14233a; box-shadow: 0 30px 80px -20px rgba(0,0,0,.6); }
+.scan-card::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 6px; background: var(--gold-grad); }
+/* 上部：ロゴ・団体名（1 行）・閉じる */
+.scan-top { display: flex; align-items: center; gap: 10px; width: 100%; flex-shrink: 0; }
+.scan-top img { width: clamp(30px, 5dvh, 40px); height: clamp(30px, 5dvh, 40px); border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 2px #e9cf7f; }
+.scan-org { flex: 1; min-width: 0; text-align: left; }
+.scan-org b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--serif); font-size: clamp(13px, 4.1vw, 17px); letter-spacing: .04em; color: #0b2a4f; line-height: 1.3; }
+.scan-org span { display: block; white-space: nowrap; font-family: var(--display); font-size: clamp(9px, 2.6vw, 11px); font-weight: 700; letter-spacing: .26em; color: var(--gold); }
+.scan-view:focus { outline: none; }
+.scan-close:focus:not(:focus-visible) { outline: none; }
+.scan-close { flex-shrink: 0; width: 38px; height: 38px; border: 0; border-radius: 50%; background: #eef1f5; color: #3f4b5e; font-size: 22px; line-height: 1; cursor: pointer; }
 .scan-close:hover { background: #e2e7ee; }
-.scan-head { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 0 44px; }
-.scan-head img { width: 38px; height: 38px; border-radius: 50%; box-shadow: 0 0 0 2px #e9cf7f; }
-.scan-head b { display: block; font-family: var(--serif); font-size: 15px; letter-spacing: .08em; color: #0b2a4f; text-align: left; }
-.scan-head span { display: block; font-family: var(--display); font-size: 11px; font-weight: 700; letter-spacing: .3em; color: var(--gold); text-align: left; }
-.scan-status { display: inline-block; margin: 16px 0 12px; padding: 5px 16px; border-radius: 999px; font-size: 13px; font-weight: 700; letter-spacing: .1em; }
+.scan-status { flex-shrink: 0; margin: clamp(8px, 1.6dvh, 16px) 0 clamp(6px, 1.2dvh, 12px); padding: 4px 16px; border-radius: 999px; font-size: 13px; font-weight: 700; letter-spacing: .1em; }
 .scan-status.ok { background: #e3f2e8; color: #1e6b3a; }
 .scan-status.ng { background: #fde2e2; color: #9b1c1c; }
-.scan-qr { width: min(300px, 74vw, 46vh); aspect-ratio: 1; margin: 0 auto; padding: 14px; border-radius: 18px; background: #fff; box-shadow: 0 0 0 1px #e3e8ef, 0 10px 30px -14px rgba(16,36,70,.35); }
+/* QRコード：残りの高さいっぱい（正方形） */
+.scan-qr-area { flex: 0 1 auto; height: min(340px, calc(100vw - 72px)); min-height: 140px; width: 100%; margin-top: clamp(8px, 1.6dvh, 16px); display: flex; align-items: center; justify-content: center; container-type: size; }
+.scan-qr { width: min(100cqw, 100cqh, 340px); height: min(100cqw, 100cqh, 340px); padding: 3%; border-radius: 16px; background: #fff; box-shadow: 0 0 0 1px #e3e8ef, 0 10px 30px -14px rgba(16,36,70,.35); }
 .scan-qr svg { display: block; width: 100%; height: 100%; }
 .scan-wait { display: grid; place-items: center; height: 100%; margin: 0; color: var(--muted); font-size: 13px; }
-.scan-hint { margin: 10px 0 0; font-size: 12px; color: #6b7686; }
-.scan-name { margin-top: 14px; font-family: var(--serif); font-size: clamp(24px, 7vw, 30px); font-weight: 700; letter-spacing: .12em; color: #0b2a4f; overflow-wrap: anywhere; }
+.scan-hint { flex-shrink: 0; margin: clamp(4px, 1dvh, 10px) 0 0; font-size: 11.5px; color: #6b7686; }
+/* 下部：氏名・会員情報・時刻 */
+.scan-name { flex-shrink: 0; max-width: 100%; margin-top: clamp(6px, 1.4dvh, 14px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: var(--serif); font-size: clamp(20px, 3.4dvh, 30px); font-weight: 700; letter-spacing: .1em; color: #0b2a4f; line-height: 1.3; }
 .scan-name small { font-size: .55em; letter-spacing: .05em; color: #6b7686; }
-.scan-info { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0 0; text-align: left; }
-.scan-info div { padding: 9px 12px; border-radius: 12px; background: #f5f7fa; }
-.scan-info dt { font-size: 10.5px; letter-spacing: .1em; color: #6b7686; }
-.scan-info dd { margin: 2px 0 0; font-size: 14.5px; font-weight: 700; color: #14233a; font-variant-numeric: tabular-nums; }
-.scan-clock { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 12.5px; color: #3f4b5e; font-variant-numeric: tabular-nums; }
+.scan-info { flex-shrink: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; margin: clamp(6px, 1.2dvh, 12px) 0 0; text-align: left; }
+.scan-info div { min-width: 0; padding: clamp(5px, 1dvh, 9px) 10px; border-radius: 10px; background: #f5f7fa; }
+.scan-info dt { font-size: 10px; letter-spacing: .1em; color: #6b7686; line-height: 1.4; }
+.scan-info dd { margin: 1px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: clamp(12.5px, 2dvh, 15px); font-weight: 700; color: #14233a; font-variant-numeric: tabular-nums; }
+.scan-clock { flex-shrink: 0; display: inline-flex; align-items: center; gap: 8px; margin-top: clamp(6px, 1.2dvh, 12px); font-size: 12px; color: #3f4b5e; font-variant-numeric: tabular-nums; }
 .scan-clock .dot { width: 8px; height: 8px; border-radius: 50%; background: #2e9d5b; animation: scan-pulse 1s ease-in-out infinite; }
 @keyframes scan-pulse { 50% { opacity: .25; } }
-@media (max-height: 680px) { .scan-qr { width: min(240px, 60vw, 42vh); } .scan-info dd { font-size: 13px; } .scan-card { padding-top: 20px; } }
+/* 横向き・高さが低い画面：QR を左、情報を右に */
+@media (orientation: landscape) and (max-height: 560px) {
+  .scan-card { width: min(760px, 100%); display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto 1fr; column-gap: 20px; align-items: center; }
+  .scan-top { grid-column: 1 / -1; margin-bottom: 8px; }
+  .scan-card { height: 100%; }
+  .scan-qr-area { grid-row: 2; grid-column: 1; width: auto; height: 100%; min-height: 0; margin: 0; aspect-ratio: 1; }
+  .scan-side { grid-row: 2; grid-column: 2; }
+}
+.scan-side { display: contents; }
+@media (orientation: landscape) and (max-height: 560px) { .scan-side { display: flex; flex-direction: column; align-items: center; min-width: 0; } }
 @media print { .scan-view { display: none !important; } }
