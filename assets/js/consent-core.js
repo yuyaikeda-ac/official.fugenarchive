@@ -154,8 +154,16 @@ export class SignaturePad {
     new ResizeObserver(this.resize).observe(canvas);
     canvas.style.touchAction = "none";
     let cur = null;
+    // スマホで署名中にページの文字が選択されたり（青い範囲）、長押しメニュー・拡大鏡が出たりしないようにする
+    const stop = e => e.preventDefault();
+    canvas.addEventListener("touchstart", stop, { passive: false });
+    canvas.addEventListener("touchmove", stop, { passive: false });
+    canvas.addEventListener("contextmenu", stop);
+    canvas.addEventListener("selectstart", stop);
+    document.addEventListener("selectstart", e => { if (cur) e.preventDefault(); });
     canvas.addEventListener("pointerdown", e => {
       e.preventDefault();
+      window.getSelection()?.removeAllRanges();
       canvas.setPointerCapture(e.pointerId);
       cur = [this.point(e)];
       this.strokes.push(cur);

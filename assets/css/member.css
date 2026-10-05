@@ -683,7 +683,9 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
 .cdoc-hash code, .receipt code { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: 11.5px; color: var(--navy); word-break: break-all; letter-spacing: .02em; }
 
 /* 署名欄 */
-.sigpad { position: relative; border: 1.5px dashed #b8c4d6; border-radius: 14px; background: #fff; transition: border-color .2s; }
+.sigpad { position: relative; border: 1.5px dashed #b8c4d6; border-radius: 14px; background: #fff; transition: border-color .2s;
+  /* スマホで長押し・なぞったときに文字選択（青い範囲）やメニューが出ないように */
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 .sigpad:hover, .sigpad:focus-within { border-color: var(--navy); }
 .sigpad canvas { display: block; width: 100%; aspect-ratio: 3 / 1; min-height: 150px; border-radius: 14px; cursor: crosshair; touch-action: none; }
 .sigpad-ph { position: absolute; inset: 0 0 34px; display: grid; place-items: center; color: #9aa4b4; font-size: 15px; letter-spacing: .1em; pointer-events: none; transition: opacity .2s; }
