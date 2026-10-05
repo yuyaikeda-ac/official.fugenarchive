@@ -352,4 +352,96 @@ ${signature()}`
   }];
 }
 
-module.exports = { CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided };
+// ============================================================
+//  お問い合わせの AI オペレータ（ai-operator.js）
+// ============================================================
+const AI_NOTE = `※ このメールは、お問い合わせ窓口の AI オペレータが自動で作成・送信しました。
+　 内容に誤りやご不明な点がございましたら、このメールに返信せず、お問い合わせフォームからご連絡ください。
+　 担当者が確認いたします。`;
+
+// ---------- AI からの返信（送信者へ） ----------
+function contactAiReply({ to, subject, body, answered }) {
+  return [{
+    to,
+    subject: `【${CONFIG.orgName}】${subject}`,
+    text:
+`${body.trim()}
+
+${answered ? "" : "担当者が内容を確認のうえ、あらためてご連絡いたします。今しばらくお待ちください。\n\n"}${AI_NOTE}
+${signature()}`
+  }];
+}
+
+// ---------- AI が送るパスワード再設定メール ----------
+function passwordResetByAi({ to, name, link }) {
+  return [{
+    to,
+    subject: `【${CONFIG.orgName}】パスワード再設定のご案内`,
+    text:
+`${name ? name + " 様" : "会員の皆さま"}
+
+${CONFIG.orgName}です。
+お問い合わせいただいた内容にもとづき、会員サイトのパスワード再設定用のリンクをお送りします。
+下記のリンクを開き、新しいパスワードを設定してください（有効期限は 1 時間です）。
+
+▼ パスワード再設定
+${link}
+
+お心当たりのない場合は、このメールを破棄してください（パスワードは変更されません）。
+${signature()}`
+  }];
+}
+
+// ---------- 担当者の対応が必要なお問い合わせ（委員会へ） ----------
+function contactAiNotify(c, ai) {
+  const actions = (ai.actions || []).map(a => `・${a.tool}${a.result ? "：" + a.result : ""}`).join("\n") || "・なし";
+  return [{
+    to: CONFIG.notifyTo,
+    replyTo: c.email,
+    subject: `【お問い合わせ・要対応${ai.priority === "urgent" || ai.priority === "high" ? "（優先度：" + ai.priorityLabel + "）" : ""}】${ai.categoryLabel}：${c.name} 様`,
+    text:
+`お問い合わせに AI オペレータが 1 次対応しました。担当者の対応が必要です。
+このメールに返信すると、送信者（${c.email}）に届きます。管理画面から返信することもできます。
+
+■ AI の要約
+${ai.summary}
+
+■ 担当者がすべきこと
+${ai.humanReason || "—"}
+
+■ 分類：${ai.categoryLabel}　／　優先度：${ai.priorityLabel}
+■ AI が実行した操作
+${actions}
+
+■ AI が送信者へ送った返信
+${ai.replyBody}
+
+■ 担当者の返信の下書き（AI 作成）
+${ai.draftForStaff || "—"}
+
+――――――――――――――――――――
+■ 元のお問い合わせ
+■ 種別　：${c.subject}
+■ お名前：${c.name}
+■ メール：${c.email}
+■ 日時　：${fmtDate(c.createdAt)}
+
+${c.message}
+
+▼ 管理画面（お問い合わせ）
+${CONFIG.siteUrl}/admin.html#contacts
+`
+  }];
+}
+
+// ---------- 担当者からの返信（管理画面から送信） ----------
+function contactStaffReply({ to, subject, body }) {
+  return [{
+    to,
+    subject: `【${CONFIG.orgName}】${subject}`,
+    text: `${body.trim()}
+${signature()}`
+  }];
+}
+
+module.exports = { CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided , contactAiReply, passwordResetByAi, contactAiNotify, contactStaffReply };

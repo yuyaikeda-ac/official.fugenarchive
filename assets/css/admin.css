@@ -407,3 +407,17 @@ dialog::backdrop { background: rgba(10,18,32,.55); backdrop-filter: blur(2px); }
 .file-prog { position: relative; width: 100%; height: 22px; border-radius: 99px; background: #e6ebf2; overflow: hidden; }
 .file-prog i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #2e7d6b, #1e6b3a); transition: width .2s; }
 .file-prog b { position: relative; display: block; text-align: center; font-size: 12px; line-height: 22px; color: #0f1a2c; }
+
+/* お問い合わせの詳細（AI オペレータの対応） */
+.ct-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--muted); font-size: 13px; }
+.ct-h { margin: 22px 0 8px; font-size: 14px; }
+.ct-msg, .ct-ai pre, .ct-reply pre { margin: 0; padding: 12px 14px; border-radius: 10px; background: #f5f7fa; border: 1px solid var(--line); white-space: pre-wrap; word-break: break-word; font: 13.5px/1.8 var(--font); }
+.ct-ai { padding: 14px 16px; border-radius: 12px; border: 1px solid #c9d6ea; background: #f6f9ff; }
+.ct-ai p { margin: 0 0 8px; font-size: 13.5px; }
+.ct-ai ul { margin: 0 0 8px; padding-left: 20px; font-size: 13px; }
+.ct-ai-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.ct-ai details { margin-top: 8px; font-size: 13px; }
+.ct-ai summary { cursor: pointer; color: var(--accent-2, #2563eb); font-weight: 600; margin-bottom: 6px; }
+.ct-reply { margin-bottom: 10px; }
+.ct-reply small { display: block; color: var(--muted); }
+#ct-form textarea { min-height: 180px; }

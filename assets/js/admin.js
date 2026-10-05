@@ -138,7 +138,7 @@ const NAV = [
   { id: "consent", label: "電子同意書", icon: "sign" },
   { id: "board", label: "理事会", icon: "board" },
   { group: "受信" },
-  { id: "contacts", label: "お問い合わせ", icon: "mail" },
+  { id: "contacts", label: "お問い合わせ", icon: "mail", badge: "contacts" },
   { group: "設定", owner: true },
   { id: "admins", label: "管理者", icon: "shield", owner: true }
 ];
@@ -366,6 +366,9 @@ async function refreshBadges() {
     const rows = await getRows("members");
     const n = rows.filter(r => r.status === "pending" || r.signatureRewrite === "requested" || r.typeRequest).length;
     document.querySelectorAll('[data-badge="pending"]').forEach(b => { b.hidden = !n; b.textContent = n; });
+    const contacts = await getRows("contacts").catch(() => []);
+    const c = contacts.filter(r => contactStatusOf(r) === "open").length;
+    document.querySelectorAll('[data-badge="contacts"]').forEach(b => { b.hidden = !c; b.textContent = c; });
   } catch (e) { console.warn(e); }
 }
 
@@ -842,32 +845,122 @@ $("page").addEventListener("click", async (e) => {
 // ============================================================
 //  お問い合わせ
 // ============================================================
+// お問い合わせの状態（AI オペレータの 1 次対応の結果も含む）
+const CONTACT_STATUS = {
+  open: ["ng", "要対応"], ai_resolved: ["ok", "AIが解決"], replied: ["info", "返信済み"], closed: ["draft", "対応完了"]
+};
+const PRIORITY_PILL = { urgent: "ng", high: "pending", normal: "info", low: "draft" };
+let contactFilter = "open";
+const contactStatusOf = (r) => r.status || (r.ai?.status === "done" ? (r.ai.needsHuman ? "open" : "ai_resolved") : "open");
+
 async function renderContacts() {
   const rows = (await getRows("contacts", true)).slice().sort((a, b) => (toDate(b.createdAt) || 0) - (toDate(a.createdAt) || 0));
+  const count = (k) => k === "all" ? rows.length : rows.filter(r => contactStatusOf(r) === k).length;
   $("page").innerHTML = `
-    <div class="toolbar"><input class="search" id="q" type="search" placeholder="名前・メール・内容で検索"></div>
+    <p class="page-intro">お問い合わせには AI オペレータが 1 次対応します（個人情報は伏せ字にしてから AI に渡します）。AI が解決できないものは「要対応」に残ります。</p>
+    <div class="toolbar">
+      <div class="chips" id="cchips">${["open", "ai_resolved", "replied", "closed", "all"].map(k =>
+        `<button class="chip${contactFilter === k ? " is-active" : ""}" data-cf="${k}">${k === "all" ? "すべて" : CONTACT_STATUS[k][1]}<span class="n">${count(k)}</span></button>`).join("")}</div>
+      <span class="spacer"></span>
+      <input class="search" id="q" type="search" placeholder="名前・メール・内容で検索">
+    </div>
     <div class="card table-wrap"><table class="tbl cards" id="tbl">
-      <thead><tr><th>受信日時</th><th>種別</th><th>お名前 / メール</th><th>内容</th><th></th></tr></thead><tbody></tbody></table></div>`;
+      <thead><tr><th>状態</th><th>お名前 / 受信日時</th><th>AI の要約</th><th></th></tr></thead><tbody></tbody></table></div>`;
   const draw = () => {
     const q = $("q").value.trim().toLowerCase();
-    const list = rows.filter(r => !q || `${r.name} ${r.email} ${r.subject} ${r.message}`.toLowerCase().includes(q));
-    $("tbl").querySelector("tbody").innerHTML = list.length ? list.map(r => `<tr>
-      <td data-label="受信">${fmtDT(r.createdAt)}</td>
-      <td data-label="種別">${pill("info", r.subject || "")}</td>
-      <td class="main"><b>${esc(r.name)}</b><span class="sub"><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></span></td>
-      <td class="msg-cell">${esc(r.message)}</td>
-      <td class="act"><a class="btn btn-sm" href="mailto:${esc(r.email)}?subject=${encodeURIComponent("Re: " + (r.subject || "お問い合わせ"))}">返信</a><button class="btn btn-sm btn-danger" data-del="${esc(r.id)}">削除</button></td></tr>`).join("")
-      : '<tr><td colspan="5" class="empty">お問い合わせはありません。</td></tr>';
+    const list = rows
+      .filter(r => contactFilter === "all" || contactStatusOf(r) === contactFilter)
+      .filter(r => !q || `${r.name} ${r.email} ${r.subject} ${r.message} ${r.ai?.summary || ""}`.toLowerCase().includes(q));
+    $("tbl").querySelector("tbody").innerHTML = list.length ? list.map(r => {
+      const st = CONTACT_STATUS[contactStatusOf(r)] || CONTACT_STATUS.open;
+      const ai = r.ai;
+      return `<tr class="clickable" data-open="${esc(r.id)}">
+      <td class="st">${pill(st[0], st[1])}${ai?.status === "done" ? pill(PRIORITY_PILL[ai.priority] || "info", `優先度：${ai.priorityLabel}`) + pill("draft", ai.categoryLabel) : ai?.status === "fallback" ? pill("pending", "AI 未対応") : ""}</td>
+      <td class="main"><b>${esc(r.name)}</b><span class="sub">${esc(r.email)}</span><span class="sub">${fmtDT(r.createdAt)}・${esc(r.subject || "")}</span></td>
+      <td class="msg-cell">${esc(ai?.summary || r.message)}</td>
+      <td class="act"><button class="btn btn-sm" data-open="${esc(r.id)}">詳細・返信</button></td></tr>`;
+    }).join("")
+      : '<tr><td colspan="4" class="empty">該当するお問い合わせはありません。</td></tr>';
   };
   draw();
   $("q").addEventListener("input", draw);
-  $("tbl").addEventListener("click", async e => {
-    const id = e.target.dataset.del;
-    if (!id) return;
-    const r = rows.find(x => x.id === id);
+  $("cchips").addEventListener("click", e => {
+    const k = e.target.closest("[data-cf]")?.dataset.cf;
+    if (!k) return;
+    contactFilter = k;
+    $("cchips").querySelectorAll(".chip").forEach(c => c.classList.toggle("is-active", c.dataset.cf === k));
+    draw();
+  });
+  $("tbl").addEventListener("click", e => {
+    const id = e.target.closest("[data-open]")?.dataset.open;
+    if (id) openContact(rows.find(x => x.id === id));
+  });
+}
+
+/** お問い合わせの詳細（AI の対応内容・返信・状態の変更） */
+function openContact(r) {
+  const ai = r.ai || {};
+  const st = contactStatusOf(r);
+  const actions = (ai.actions || []).map(a => `<li>${esc({ get_my_account_status: "アカウントの状態を確認", send_password_reset: "パスワード再設定メール", get_upcoming_events: "今後の行事を確認", get_latest_news: "お知らせを確認" }[a.tool] || a.tool)}${a.result ? `：${esc(a.result)}` : ""}${a.ok ? "" : " ⚠"}</li>`).join("");
+  const replies = (r.replies || []).map(x => `<div class="ct-reply"><small>${esc(x.byEmail || "管理者")}・${fmtDT(x.at)}</small><b>${esc(x.subject)}</b><pre>${esc(x.body)}</pre></div>`).join("");
+  const draft = ai.draftForStaff || `${r.name} 様\n\nお問い合わせいただき、ありがとうございます。\n\n`;
+  const body = openDrawer(`お問い合わせ：${r.name} 様`, `
+    <div class="ct-head">${pill((CONTACT_STATUS[st] || CONTACT_STATUS.open)[0], (CONTACT_STATUS[st] || CONTACT_STATUS.open)[1])}
+      <span>${fmtDT(r.createdAt)}・${esc(r.subject || "")}</span></div>
+    <dl class="dl">
+      <dt>お名前</dt><dd>${esc(r.name)}</dd>
+      <dt>メール</dt><dd><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></dd>
+    </dl>
+    <h3 class="ct-h">お問い合わせ内容</h3>
+    <pre class="ct-msg">${esc(r.message)}</pre>
+    ${ai.status === "done" ? `
+      <h3 class="ct-h">AI オペレータの対応</h3>
+      <div class="ct-ai">
+        <p class="ct-ai-tags">${pill(PRIORITY_PILL[ai.priority] || "info", `優先度：${ai.priorityLabel}`)}${pill("draft", ai.categoryLabel)}${ai.needsHuman ? pill("ng", "担当者の対応が必要") : pill("ok", "AI が解決")}</p>
+        <p><b>要約：</b>${esc(ai.summary)}</p>
+        ${ai.needsHuman && ai.humanReason ? `<p><b>担当者がすべきこと：</b>${esc(ai.humanReason)}</p>` : ""}
+        ${actions ? `<p><b>実行した操作：</b></p><ul>${actions}</ul>` : ""}
+        <details><summary>AI が送信者へ送った返信</summary><b>${esc(ai.replySubject || "")}</b><pre>${esc(ai.replyBody || "")}</pre></details>
+        <details><summary>AI に渡した内容（個人情報は伏せ字）</summary><pre>${esc(ai.maskedMessage || "")}</pre>
+          <small class="muted">伏せた項目：${esc(Object.entries(ai.maskedCounts || {}).map(([k, v]) => `${k} ${v}件`).join("、") || "なし")}</small></details>
+      </div>`
+      : ai.status === "fallback" ? `<div class="note">AI オペレータは対応していません（${esc(ai.reason || "")}）。従来どおり受付メールを送信しました。</div>` : ""}
+    ${replies ? `<h3 class="ct-h">担当者の返信</h3>${replies}` : ""}
+    <h3 class="ct-h">返信する</h3>
+    <form id="ct-form">
+      <label class="fld"><span>件名</span><input name="subject" value="${esc(`Re: ${r.subject || "お問い合わせ"}`)}"></label>
+      <label class="fld"><span>本文（署名は自動で付きます）</span><textarea name="body" rows="9">${esc(draft)}</textarea></label>
+      <label class="check"><input type="checkbox" name="close" checked> 送信後に「対応完了」にする</label>
+      <div class="drawer-foot">
+        <button type="button" class="btn btn-danger" id="ct-del">削除</button>
+        <span style="flex:1"></span>
+        ${st !== "closed" ? '<button type="button" class="btn" id="ct-close">返信せずに対応完了</button>' : '<button type="button" class="btn" id="ct-reopen">要対応に戻す</button>'}
+        <button type="submit" class="btn btn-primary" id="ct-send">返信を送信</button>
+      </div>
+    </form>`);
+  const setStatus = async (status, msg) => {
+    try { await updateDoc(doc(db, "contacts", r.id), { status }); toast(msg); closeDrawer(); invalidate("contacts"); route(); }
+    catch (err) { fail("更新に失敗しました")(err); }
+  };
+  body.querySelector("#ct-close")?.addEventListener("click", () => setStatus("closed", "対応完了にしました。"));
+  body.querySelector("#ct-reopen")?.addEventListener("click", () => setStatus("open", "要対応に戻しました。"));
+  body.querySelector("#ct-del").addEventListener("click", async () => {
     if (!window.confirm(`${r.name} さんからのお問い合わせを削除します。よろしいですか？`)) return;
-    try { await adminApi.remove("contacts", id); toast("削除しました。"); invalidate("contacts"); route(); }
+    try { await adminApi.remove("contacts", r.id); toast("削除しました。"); closeDrawer(); invalidate("contacts"); route(); }
     catch (err) { fail("削除に失敗しました")(err); }
+  });
+  body.querySelector("#ct-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const text = f.elements.body.value.trim();
+    if (text.length < 5) return toast("返信の本文を入力してください。", "error");
+    if (!window.confirm(`${r.email} あてに返信を送信します。よろしいですか？`)) return;
+    const btn = f.querySelector("#ct-send");
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span> 送信中…';
+    try {
+      await httpsCallable(getFunctions(app, "asia-northeast1"), "replyContact")({ id: r.id, subject: f.elements.subject.value.trim(), body: text, close: f.elements.close.checked });
+      toast("返信を送信しました。"); closeDrawer(); invalidate("contacts"); route();
+    } catch (err) { fail("送信に失敗しました")(err); btn.disabled = false; btn.textContent = "返信を送信"; }
   });
 }
 

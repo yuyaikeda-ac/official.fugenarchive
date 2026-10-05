@@ -17,6 +17,7 @@ const { setGlobalOptions } = require("firebase-functions/v2");
 const logger = require("firebase-functions/logger");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getAuth } = require("firebase-admin/auth");
 const crypto = require("node:crypto");
 const mails = require("./mails");
 
@@ -113,11 +114,33 @@ exports.mailOnTypeChange = onDocumentUpdated({ document: "members/{uid}", ...opt
   if (before.typeRequest && !after.typeRequest && decided) await sendAll(mails.typeChangeDecided(after, before.type), "会員種別の変更結果");
 });
 
-// ---------- お問い合わせ → 委員会へ通知 ＋ 送信者へ自動返信 ----------
-exports.mailOnContact = onDocumentCreated({ document: "contacts/{id}", ...opts }, async (event) => {
-  const c = event.data?.data();
-  if (!c) return;
-  await sendAll(mails.contactReceived(withDates(c)), "お問い合わせ");
+// ---------- お問い合わせ → AI オペレータが 1 次対応（中身は ai-operator.js） ----------
+//  AI が使えないとき・失敗したときは、従来どおり委員会へ通知＋送信者へ受付の自動返信
+const aiOperator = require("./ai-operator")({ defineSecret, getFirestore, getAuth, FieldValue, logger, sendAll, mails });
+exports.mailOnContact = onDocumentCreated(
+  { document: "contacts/{id}", ...opts, secrets: [...opts.secrets, aiOperator.ANTHROPIC_API_KEY], timeoutSeconds: 300, memory: "512MiB" },
+  (event) => aiOperator.handleContact(event)
+);
+
+// ---------- 管理画面：お問い合わせへ担当者が返信 ----------
+exports.replyContact = onCall({ secrets: opts.secrets, maxInstances: 3 }, async (req) => {
+  const db = getFirestore();
+  const uid = req.auth?.uid;
+  if (!uid || !(await db.doc(`admins/${uid}`).get()).exists) throw new HttpsError("permission-denied", "管理者のみ実行できます。");
+  const { id, subject, body, close } = req.data || {};
+  if (typeof id !== "string" || !id) throw new HttpsError("invalid-argument", "お問い合わせを指定してください。");
+  if (typeof body !== "string" || body.trim().length < 5 || body.length > 10000) throw new HttpsError("invalid-argument", "返信の本文を入力してください。");
+  const ref = db.doc(`contacts/${id}`);
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError("not-found", "お問い合わせが見つかりません。");
+  const c = snap.data();
+  const subj = String(subject || `Re: ${c.subject || "お問い合わせ"}`).slice(0, 200);
+  await sendAll(mails.contactStaffReply({ to: c.email, subject: subj, body }), "お問い合わせ（担当者の返信）");
+  await ref.update({
+    status: close ? "closed" : "replied",
+    replies: FieldValue.arrayUnion({ by: uid, byEmail: req.auth.token.email || "", subject: subj, body, at: new Date().toISOString() })
+  });
+  return { ok: true };
 });
 
 // ---------- 管理者の招待 → 招待された人へ案内 ----------
