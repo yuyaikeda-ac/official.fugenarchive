@@ -233,6 +233,44 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
 .article-head { border-bottom: 2px solid var(--main); padding-bottom: 12px; margin-bottom: 24px; }
 .article-head h1 { font-size: 24px; margin: 8px 0 0; color: var(--main); }
 .article-body { white-space: pre-wrap; }
+/* ============ 装飾つき本文（管理画面のエディタで作成した HTML。assets/js/rich-view.js で表示） ============ */
+/* プレーンテキストのとき（子要素なし）は改行をそのまま表示、HTML のときは通常の折り返し */
+.rich-body:has(> *) { white-space: normal; }
+.rich-body { line-height: 1.95; overflow-wrap: anywhere; }
+.rich-body > :first-child { margin-top: 0; }
+.rich-body > :last-child { margin-bottom: 0; }
+.rich-body p { margin: 0 0 1em; }
+.rich-body p:empty, .rich-body p:has(> br:only-child) { margin: 0; }
+.rich-body h2, .rich-body h3, .rich-body h4 { line-height: 1.5; margin: 1.6em 0 .6em; color: var(--rb-head, #0b3a6e); }
+.rich-body h2 { font-size: 1.4em; padding-bottom: .3em; border-bottom: 2px solid currentColor; }
+.rich-body h3 { font-size: 1.2em; padding-left: .6em; border-left: 4px solid currentColor; }
+.rich-body h4 { font-size: 1.05em; }
+.rich-body a { color: var(--rb-link, #1d5590); text-decoration: underline; text-underline-offset: 3px; }
+.rich-body ul, .rich-body ol { margin: 0 0 1em; padding-left: 1.6em; }
+.rich-body li { margin: .25em 0; }
+.rich-body blockquote { margin: 1.2em 0; padding: .8em 1.2em; border-left: 4px solid var(--rb-accent, #b8862b); background: var(--rb-quote, #f7f5ef); color: #3f4b5e; border-radius: 0 8px 8px 0; }
+.rich-body img { max-width: 100%; height: auto; border-radius: 6px; vertical-align: middle; }
+.rich-body iframe { display: block; width: 100%; max-width: 760px; aspect-ratio: 16 / 9; height: auto; margin: 1.2em auto; border: 0; border-radius: 8px; background: #000; }
+.rich-body pre { padding: 1em; overflow-x: auto; border-radius: 8px; background: #1f2a3c; color: #f1f4f8; white-space: pre; }
+.rich-body .ql-align-center { text-align: center; }
+.rich-body .ql-align-right { text-align: right; }
+.rich-body .ql-align-justify { text-align: justify; }
+.rich-body .ql-size-small { font-size: .78em; }
+.rich-body .ql-size-large { font-size: 1.45em; }
+.rich-body .ql-size-huge { font-size: 2.2em; line-height: 1.4; }
+.rich-body .ql-indent-1 { padding-left: 2em; } .rich-body .ql-indent-2 { padding-left: 4em; }
+.rich-body .ql-indent-3 { padding-left: 6em; } .rich-body .ql-indent-4 { padding-left: 8em; }
+.rich-body .ql-indent-5 { padding-left: 10em; } .rich-body .ql-indent-6 { padding-left: 12em; }
+.rich-body .ql-indent-7 { padding-left: 14em; } .rich-body .ql-indent-8 { padding-left: 16em; }
+.rich-body li[class*="ql-indent-"] { padding-left: 0; }
+.rich-body li.ql-indent-1 { margin-left: 2em; } .rich-body li.ql-indent-2 { margin-left: 4em; } .rich-body li.ql-indent-3 { margin-left: 6em; }
+.rich-body li.ql-indent-4 { margin-left: 8em; } .rich-body li.ql-indent-5 { margin-left: 10em; } .rich-body li.ql-indent-6 { margin-left: 12em; }
+.rich-body li.ql-indent-7 { margin-left: 14em; } .rich-body li.ql-indent-8 { margin-left: 16em; }
+@media (max-width: 640px) {
+  .rich-body [class*="ql-indent-"] { padding-left: 1.2em; }
+  .rich-body li[class*="ql-indent-"] { margin-left: 1.2em; padding-left: 0; }
+}
+
 
 /* 行事 */
 .event-list { list-style: none; margin: 0; padding: 0; }

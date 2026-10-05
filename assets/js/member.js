@@ -7,6 +7,9 @@ import {
 } from "./member-api.js";
 import { esc, isDemo } from "./db.js";
 import { memberCardHtml, bindCard, printSheetHtml } from "./card.js";
+import { renderRich, htmlToText } from "./rich-view.js";
+import { listMemberForms, listMySignatures } from "./consent-core.js";
+import { docBoxHtml, fillDoc, signFormHtml, bindSignForm, receiptHtml, bindReceipt, isPastDeadline, fmtDateTime } from "./consent-ui.js";
 
 // ---------- アイコン ----------
 const I = {
@@ -22,6 +25,7 @@ const I = {
   grid: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
   list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
   out: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
+  sign: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
   inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>'
 };
 const icon = (name, sw = 1.6) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[name]}</svg>`;
@@ -32,13 +36,17 @@ const ROUTES = [
   { id: "news", label: "会員向けお知らせ", short: "お知らせ", icon: "bell", render: renderNews },
   { id: "events", label: "行事・参加登録", short: "行事", icon: "cal", render: renderEvents },
   { id: "docs", label: "会員限定資料室", short: "資料室", icon: "book", render: renderDocs },
+  { id: "consent", label: "同意書・電子署名", short: "同意書", icon: "sign", render: renderConsent },
   { id: "card", label: "デジタル会員証", short: "会員証", icon: "card", render: renderCard },
   { id: "profile", label: "プロフィール設定", short: "設定", icon: "user", render: renderProfile }
 ];
 
+/** ID でメニューの項目を取り出す（並べ替えても壊れないように） */
+const routeOf = (id) => ROUTES.find(r => r.id === id);
+
 // ---------- 状態 ----------
 const $ = (id) => document.getElementById(id);
-const state = { user: null, member: null, news: null, docs: null, events: null, rsvps: new Set(), route: "dashboard", errors: {} };
+const state = { user: null, member: null, news: null, docs: null, events: null, rsvps: new Set(), consentForms: null, mySigs: null, route: "dashboard", errors: {} };
 const today = () => new Date().toISOString().slice(0, 10);
 const store = {
   get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
@@ -124,7 +132,8 @@ async function startPortal() {
     load("news", getMemberNews),
     load("docs", getMemberDocs),
     load("events", getEvents),
-    getMyRsvps(m.id).then(s => state.rsvps = s).catch(console.error)
+    getMyRsvps(m.id).then(s => state.rsvps = s).catch(console.error),
+    loadConsent()
   ]);
   updateBadges();
   rerender();
@@ -177,6 +186,8 @@ function markNewsSeen() {
 function updateBadges() {
   const n = unreadCount();
   document.querySelectorAll('[data-badge="news"]').forEach(b => { b.hidden = !n; b.textContent = n; });
+  const c = todoForms().length;
+  document.querySelectorAll('[data-badge="consent"]').forEach(b => { b.hidden = !c; b.textContent = c; });
 }
 
 // ============================================================
@@ -205,6 +216,7 @@ function renderDashboard() {
     </div>
     <a class="mini-card" href="#card" aria-label="会員証を表示">${cardHtml(true)}</a>
   </section>
+  ${todoForms().length ? `<a class="notice-bar" href="#consent">${icon("sign")}<span>署名が必要な同意書が <b>${todoForms().length} 件</b> あります</span><span>確認する →</span></a>` : ""}
 
   <div class="quick">
     <a href="#news"><span class="ico">${icon("bell")}</span><strong>お知らせ</strong><small>${state.news ? (unread ? `未読 ${unread} 件` : "すべて既読") : "読み込み中…"}</small></a>
@@ -241,7 +253,12 @@ function renderDashboard() {
 // ============================================================
 //  画面：お知らせ
 // ============================================================
-ROUTES[1].after = () => {
+routeOf("news").after = () => {
+  // 本文（装飾つき HTML は安全な形にしてから）を表示
+  document.querySelectorAll(".news-acc [data-body]").forEach(el => {
+    const n = state.news.find(x => x.id === el.dataset.body);
+    if (n) renderRich(el, n);
+  });
   const q = $("news-q");
   const target = location.hash.split("/")[1];
   const apply = () => {
@@ -266,10 +283,10 @@ function renderNews() {
   return `
   <div class="toolbar"><label class="search">${icon("search", 2)}<input id="news-q" type="search" placeholder="お知らせを検索（/ キーで移動）" aria-label="お知らせを検索"></label></div>
   <div class="news-acc">${state.news.map((n, i) => `
-    <details data-id="${esc(n.id)}" data-text="${esc(`${n.title} ${n.body || ""}`.toLowerCase())}"${i === 0 ? " open" : ""}>
+    <details data-id="${esc(n.id)}" data-text="${esc(`${n.title} ${n.body || htmlToText(n.bodyHtml)}`.toLowerCase())}"${i === 0 ? " open" : ""}>
       <summary><time>${ymd(n.date)}</time><span class="ttl">${esc(n.title)}
         ${n.important ? '<span class="pill imp">重要</span>' : ""}${isNew(n.date) ? '<span class="pill new">NEW</span>' : ""}</span></summary>
-      <div class="body">${esc(n.body || "")}</div>
+      <div class="body" data-body="${esc(n.id)}"></div>
     </details>`).join("")}</div>
   <div id="news-none" hidden>${emptyState("該当するお知らせはありません", "search")}</div>`;
 }
@@ -278,7 +295,7 @@ function renderNews() {
 //  画面：行事・参加登録
 // ============================================================
 let evFilter = "upcoming";
-ROUTES[2].after = () => {
+routeOf("events").after = () => {
   document.querySelectorAll("[data-evf]").forEach(b => b.addEventListener("click", () => { evFilter = b.dataset.evf; rerender(); }));
   document.querySelectorAll("[data-rsvp]").forEach(b => b.addEventListener("click", () => toggleRsvp(b)));
 };
@@ -338,7 +355,7 @@ async function toggleRsvp(btn) {
 //  画面：資料室
 // ============================================================
 let docCat = "";
-ROUTES[3].after = () => {
+routeOf("docs").after = () => {
   const q = $("doc-q");
   const draw = () => {
     const v = (q?.value || "").trim().toLowerCase();
@@ -401,7 +418,7 @@ function renderDocs() {
 // ============================================================
 // 会員証のデザインは assets/js/card.js と assets/css/member.css の「会員証」で変更できます
 const cardHtml = (mini = false) => memberCardHtml(state.member, { mini });
-ROUTES[4].after = () => {
+routeOf("card").after = () => {
   bindCard($("mcard"));
   $("print-card")?.addEventListener("click", printCard);
 };
@@ -438,9 +455,93 @@ function renderCard() {
 }
 
 // ============================================================
+//  画面：同意書・電子署名
+//   #consent              … 一覧（未署名を先頭に）
+//   #consent/<同意書ID>     … 内容の確認と署名
+//   #consent/<同意書ID>/receipt … 署名の控え
+//  ※ 部品は consent-ui.js、ハッシュ計算・保存は consent-core.js
+// ============================================================
+async function loadConsent() {
+  try {
+    const [forms, sigs] = await Promise.all([listMemberForms(), listMySignatures(state.member.id)]);
+    state.consentForms = forms;
+    state.mySigs = Object.fromEntries(sigs.map(s => [s.formId, s]));
+  } catch (e) {
+    console.error(e);
+    state.consentForms = []; state.mySigs = {};
+    state.errors.consent = errorMessage(e);
+  }
+}
+/** 署名が必要な同意書（未署名・期限内） */
+const todoForms = () => (state.consentForms || []).filter(f => !state.mySigs?.[f.id] && !isPastDeadline(f));
+const sigTime = (s) => s.agreedAt || s.clientSignedAt;
+const memberSigner = () => ({ ...state.member, email: state.member.email || state.user.email });
+
+routeOf("consent").after = () => {
+  const [, formId, sub] = location.hash.slice(1).split("/");
+  const box = $("consent-box");
+  if (!box || !formId) return;
+  const form = (state.consentForms || []).find(f => f.id === formId);
+  const sig = state.mySigs?.[formId];
+  if ((sub === "receipt" || !form) && sig) return bindReceipt(box, { id: `${formId}_${state.member.id}`, ...sig });
+  if (form) {
+    fillDoc(box, form);
+    if (!sig && !isPastDeadline(form)) bindSignForm(box, form, {
+      mode: "member", member: memberSigner(),
+      onDone: (rec) => {
+        state.mySigs[formId] = rec;
+        updateBadges();
+        toast(`「${form.title}」に署名しました`);
+        location.hash = `consent/${formId}/receipt`;
+      }
+    });
+  }
+};
+function renderConsent() {
+  if (!state.consentForms) return `<div class="consent-list">${Array.from({ length: 3 }, () => '<div class="skel" style="height:84px;border-radius:16px"></div>').join("")}</div>`;
+  if (state.errors.consent) return emptyState(state.errors.consent);
+  const [, formId, sub] = location.hash.slice(1).split("/");
+  const back = `<a class="consent-back" href="#consent">← 同意書の一覧へ</a>`;
+
+  if (formId) {
+    const form = state.consentForms.find(f => f.id === formId);
+    const sig = state.mySigs[formId];
+    // 控え
+    if (sub === "receipt" || (sig && !form)) {
+      if (!sig) return back + emptyState("署名の記録が見つかりません");
+      return `<div class="consent-wrap" id="consent-box">${back}${receiptHtml({ id: `${formId}_${state.member.id}`, ...sig })}</div>`;
+    }
+    if (!form) return back + emptyState("この同意書は見つかりませんでした（受付が終了した可能性があります）");
+    // 署名済み → 内容と控えへの案内
+    if (sig) return `<div class="consent-wrap" id="consent-box">${back}<div class="alert ok">${esc(fmtDateTime(sigTime(sig)))} に署名済みです。<a href="#consent/${esc(formId)}/receipt">控えを見る →</a></div>${docBoxHtml(form)}</div>`;
+    if (isPastDeadline(form)) return `<div class="consent-wrap" id="consent-box">${back}<div class="alert error">署名期限（${esc(form.deadline.replace(/-/g, "."))}）を過ぎたため、署名できません。委員会までお問い合わせください。</div>${docBoxHtml(form)}</div>`;
+    return `<div class="consent-wrap" id="consent-box">${back}${docBoxHtml(form)}${signFormHtml(form, { mode: "member", member: memberSigner() })}</div>`;
+  }
+
+  // 一覧：公開中の同意書＋署名済みの記録（入会時の規約など、一覧に無いものも含む）
+  const items = state.consentForms.map(f => ({ id: f.id, title: f.title, version: f.version, deadline: f.deadline, form: f, sig: state.mySigs[f.id] }));
+  Object.values(state.mySigs).forEach(s => { if (!items.some(i => i.id === s.formId)) items.push({ id: s.formId, title: s.formTitle, version: s.formVersion, sig: s }); });
+  if (!items.length) return emptyState("署名が必要な同意書はありません", "sign");
+  const rank = (i) => i.sig ? 2 : i.form && isPastDeadline(i.form) ? 1 : 0;
+  items.sort((a, b) => rank(a) - rank(b) || (b.sig ? (sigTime(b)?.toMillis?.() || 0) - (sigTime(a)?.toMillis?.() || 0) : 0));
+  return `<p style="color:var(--muted);font-size:13px;margin:0 0 16px">委員会からの同意書です。内容をご確認のうえ、手書きで署名してください。署名は改ざんを検出できる形で記録され、控えはいつでもここから確認できます。</p>
+  <div class="consent-list">${items.map(i => {
+    const late = !i.sig && i.form && isPastDeadline(i.form);
+    return `<div class="cf-item${!i.sig && !late ? " is-todo" : ""}">
+      <span class="ico">${icon("sign")}</span>
+      <div class="t"><h4>${esc(i.title)}${i.sig ? '<span class="pill ok">署名済み</span>' : late ? '<span class="pill">期限切れ</span>' : '<span class="pill imp">未署名</span>'}</h4>
+        <p>第 ${esc(i.version || 1)} 版${i.sig ? `　／　${esc(fmtDateTime(sigTime(i.sig)))} 署名` : i.deadline ? `　／　署名期限 ${esc(i.deadline.replace(/-/g, "."))}` : ""}</p></div>
+      ${i.sig ? `<a class="lux-btn ghost sm" href="#consent/${esc(i.id)}/receipt">控えを見る</a>`
+        : late ? `<a class="lux-btn ghost sm" href="#consent/${esc(i.id)}">内容を見る</a>`
+        : `<a class="lux-btn sm" href="#consent/${esc(i.id)}">署名する</a>`}
+    </div>`;
+  }).join("")}</div>`;
+}
+
+// ============================================================
 //  画面：プロフィール
 // ============================================================
-ROUTES[5].after = () => {
+routeOf("profile").after = () => {
   const form = $("profile-form");
   const btn = $("save-btn");
   form.addEventListener("input", () => { btn.disabled = false; });
@@ -572,7 +673,7 @@ document.addEventListener("keydown", e => {
     e.preventDefault();
     const s = document.querySelector(".view input[type=search]");
     s ? s.focus() : openPalette();
-  } else if (/^[1-6]$/.test(e.key)) {
+  } else if (/^[1-9]$/.test(e.key) && ROUTES[+e.key - 1]) {
     location.hash = ROUTES[+e.key - 1].id;
   }
 });

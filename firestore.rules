@@ -8,6 +8,7 @@ rules_version = '2';
 //  - member_news / member_docs : 有効な会員のみ閲覧、管理者のみ書き込み
 //  - rsvps          : 有効な会員が自分の参加登録のみ作成・取消
 //  - student_ids    : 学生会員の学生証（表面）の画像。本人が申込時に登録、閲覧は本人と管理者
+//  - consent_forms / consent_signatures : 電子同意書と署名の記録（公開後の本文・署名は変更不可）
 // ============================================================
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -134,6 +135,66 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time;
       allow delete: if isAdmin();
     }
+
+    // ---------- 電子同意書 ----------
+    // 公開後は本文・版・ハッシュなどを変更できない（改ざん防止）。状態（公開中→受付終了）などは変更可
+    match /consent_forms/{id} {
+      allow read: if isAdmin()
+        || (resource.data.status == 'published'
+            && (resource.data.audience in ['public', 'both'] || isActiveMember()));
+      allow create: if isAdmin() && request.resource.data.status == 'draft';
+      allow update: if isAdmin()
+        && (resource.data.status == 'draft'
+            || !request.resource.data.diff(resource.data).affectedKeys()
+                 .hasAny(['title', 'bodyHtml', 'version', 'contentHash', 'audience', 'purpose', 'extraFields', 'publishedAt']))
+        && request.resource.data.status in ['draft', 'published', 'closed']
+        // 下書きに戻せるのは、まだ公開していないものだけ
+        && !(resource.data.status != 'draft' && request.resource.data.status == 'draft');
+      allow delete: if isAdmin() && (resource.data.status == 'draft' || isOwner());
+    }
+
+    // 署名の記録：作成のみ（変更不可）。封印（seal）は Cloud Functions が付ける
+    function consentForm(fid) { return get(/databases/$(database)/documents/consent_forms/$(fid)).data; }
+    function validSignature(d) {
+      return d.keys().hasOnly(['formId', 'formTitle', 'formVersion', 'formHash', 'signerType', 'uid', 'name', 'email',
+               'extra', 'signatureImage', 'signatureHash', 'clientSignedAt', 'userAgent', 'recordHash', 'agreedAt'])
+        && consentForm(d.formId).status == 'published'
+        && d.formHash == consentForm(d.formId).contentHash
+        && d.formVersion == consentForm(d.formId).version
+        && str(d.name, 100) && d.name.size() > 0
+        && str(d.email, 200) && d.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        && d.extra is map && d.extra.size() <= 5
+        && d.signatureImage is string && d.signatureImage.size() <= 300000
+        && d.signatureImage.matches('^data:image/png;base64,.*')
+        && str(d.signatureHash, 64) && d.signatureHash.size() == 64
+        && str(d.recordHash, 64) && d.recordHash.size() == 64
+        && str(d.clientSignedAt, 40) && str(d.userAgent, 300) && str(d.formTitle, 300)
+        && d.agreedAt == request.time;
+    }
+    match /consent_signatures/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if validSignature(request.resource.data) && (
+        // 会員：会員向けの同意書に、1 回だけ
+        (request.resource.data.signerType == 'member' && isActiveMember()
+          && request.resource.data.uid == request.auth.uid
+          && id == request.resource.data.formId + '_' + request.auth.uid
+          && consentForm(request.resource.data.formId).audience in ['members', 'both'])
+        // 外部の方：外部向けの同意書に、ログインなしで
+        || (request.resource.data.signerType == 'public' && request.resource.data.uid == null
+          && consentForm(request.resource.data.formId).audience in ['public', 'both'])
+        // 入会申込者：入会規約に、申込直後（審査中）に 1 回だけ
+        || (request.resource.data.signerType == 'applicant' && signedIn()
+          && request.resource.data.uid == request.auth.uid
+          && id == request.resource.data.formId + '_' + request.auth.uid
+          && consentForm(request.resource.data.formId).purpose == 'membership'
+          && get(/databases/$(database)/documents/members/$(request.auth.uid)).data.status == 'pending')
+      );
+      allow update: if false;
+      // 監査のため削除はオーナーのみ
+      allow delete: if isOwner();
+    }
+    // 封印の連鎖の先頭（Cloud Functions のみ）
+    match /consent_chain/{id} { allow read, write: if false; }
 
     match /member_news/{id} { allow read: if isActiveMember() || isAdmin(); allow write: if isAdmin(); }
     match /member_docs/{id} { allow read: if isActiveMember() || isAdmin(); allow write: if isAdmin(); }

@@ -3,587 +3,119 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>管理画面｜普賢アーカイブ運営委員会</title>
+<meta name="robots" content="noindex, nofollow">
+<title>管理コンソール｜普賢アーカイブ運営委員会</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/admin.css">
 <link rel="icon" href="LOGO.png">
-<script src="assets/js/common.js" defer></script>
-<style>
-  .admin-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
-  .admin-bar .tabs { flex-wrap: wrap; }
-  .admin-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  .admin-table th, .admin-table td { border-bottom: 1px solid var(--border); padding: 10px 8px; text-align: left; vertical-align: top; }
-  .admin-table th { background: var(--bg-gray); font-weight: 500; }
-  .admin-table td:last-child { white-space: nowrap; text-align: right; }
-  .admin-table .btn { padding: 4px 14px; font-size: 12px; }
-  .btn-danger { border-color: var(--important); color: var(--important); }
-  .btn-danger:hover { background: var(--important); color: #fff; }
-  .editor { background: var(--bg-gray); padding: 24px; border-radius: 6px; margin: 24px 0; }
-  .editor .form { max-width: none; }
-  .msg-cell { white-space: pre-wrap; max-width: 480px; }
-  .or-line { display: flex; align-items: center; gap: 12px; max-width: 420px; margin: 24px 0 16px; color: var(--text-sub); font-size: 12px; }
-  .or-line::before, .or-line::after { content: ""; flex: 1; height: 1px; background: var(--border); }
-  .google-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; max-width: 420px; border-color: #c9ced6; color: #333; font-weight: 500; }
-  .google-btn:hover { background: #f5f7fa; color: #111; }
-  .invite-box { margin-top: 32px; max-width: 520px; padding: 16px 20px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-gray); }
-  .invite-box summary { cursor: pointer; font-weight: 500; color: var(--main); }
-  .role-badge { display: inline-block; padding: 1px 10px; border-radius: 10px; font-size: 11px; color: #fff; background: var(--main); }
-  .role-badge.owner { background: var(--accent); }
-  .sid-dialog { max-width: min(720px, 94vw); padding: 20px; border: 0; border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
-  .sid-dialog::backdrop { background: rgba(10,20,40,.6); }
-  .sid-dialog h3 { margin: 0 0 12px; font-size: 16px; }
-  .sid-dialog img { display: block; max-width: 100%; max-height: 70vh; margin: 0 auto 14px; border-radius: 6px; }
-  .sid-dialog form { text-align: right; }
-  @media (max-width: 768px) { .admin-table th:nth-child(n+3), .admin-table td:nth-child(n+3):not(:last-child) { display: none; } }
-</style>
 </head>
-<body>
-<header id="site-header"></header>
+<body class="adm">
 
-<main>
-  <div class="page-head">
-    <div class="inner"><h1>管理画面</h1><p>ADMIN</p></div>
-  </div>
+<!-- =========================================================
+     ログイン（管理者専用）
+     ========================================================= -->
+<div class="auth" id="auth-view" hidden>
+  <div class="auth-card">
+    <div class="auth-brand">
+      <img src="LOGO.png" alt="">
+      <div><b>ADMIN CONSOLE</b><span>普賢アーカイブ運営委員会 管理コンソール</span></div>
+    </div>
+    <p class="auth-warn">このページは委員会の管理者専用です。権限のない方はログインできません。</p>
 
-  <div class="inner content">
-    <!-- ログイン -->
-    <section id="login-view" hidden>
-      <h2>管理者ログイン</h2>
-      <form class="form" id="login-form" style="max-width:420px">
-        <div class="form-row"><label for="login-email">メールアドレス</label><input type="email" id="login-email" required autocomplete="username"></div>
-        <div class="form-row"><label for="login-pass">パスワード</label><input type="password" id="login-pass" required autocomplete="current-password"></div>
-        <div id="login-msg"></div>
-        <button class="btn btn-primary" type="submit">ログイン</button>
-        <button class="btn" type="button" id="reset-btn" style="margin-left:8px">パスワードの設定・再設定</button>
-        <p style="font-size:13px;color:var(--text-sub);margin-top:12px">パスワードを忘れた場合は、メールアドレスを入力して「パスワードの設定・再設定」を押してください。設定用のメールが届きます。</p>
-        <div class="or-line">または</div>
-        <button class="btn google-btn" type="button" id="google-btn">
-          <svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
-          Googleでログイン
-        </button>
+    <form id="login-form" class="stack">
+      <label class="fld"><span>メールアドレス</span><input type="email" id="login-email" required autocomplete="username"></label>
+      <label class="fld"><span>パスワード</span><input type="password" id="login-pass" required autocomplete="current-password"></label>
+      <div id="login-msg"></div>
+      <button class="btn btn-primary btn-block" type="submit">ログイン</button>
+      <button class="btn btn-ghost btn-block" type="button" id="reset-btn">パスワードの設定・再設定</button>
+      <p class="muted small">パスワードを忘れた場合は、メールアドレスを入力して「パスワードの設定・再設定」を押してください。設定用のメールが届きます。</p>
+      <div class="or-line">または</div>
+      <button class="btn btn-google btn-block" type="button" id="google-btn">
+        <svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+        Googleでログイン
+      </button>
+    </form>
+
+    <!-- 招待された方の初回登録 -->
+    <details class="invite-box" id="register-box">
+      <summary>管理者として招待された方（初めての方）はこちら</summary>
+      <p class="muted small">オーナーから招待されたメールアドレスで登録してください。Google アカウントのメールアドレスに招待された場合は、上の「Googleでログイン」だけで登録が完了します。</p>
+      <form id="register-form" class="stack">
+        <label class="fld"><span>招待されたメールアドレス</span><input type="email" id="reg-email" required autocomplete="username"></label>
+        <label class="fld"><span>パスワード（8文字以上）</span><input type="password" id="reg-pass" required minlength="8" autocomplete="new-password"></label>
+        <div id="register-msg"></div>
+        <button class="btn btn-primary btn-block" type="submit">登録して確認メールを受け取る</button>
       </form>
+    </details>
 
-      <!-- 招待された方の初回登録 -->
-      <details class="invite-box" id="register-box">
-        <summary>管理者として招待された方（初めての方）はこちら</summary>
-        <p style="font-size:13px;color:var(--text-sub)">オーナーから招待されたメールアドレスで登録してください。Google アカウントのメールアドレスに招待された場合は、上の「Googleでログイン」だけで登録が完了します。</p>
-        <form class="form" id="register-form" style="max-width:420px">
-          <div class="form-row"><label for="reg-email">招待されたメールアドレス</label><input type="email" id="reg-email" required autocomplete="username"></div>
-          <div class="form-row"><label for="reg-pass">パスワード（8文字以上）</label><input type="password" id="reg-pass" required minlength="8" autocomplete="new-password"></div>
-          <div id="register-msg"></div>
-          <button class="btn btn-primary" type="submit">登録して確認メールを受け取る</button>
-        </form>
-      </details>
+    <!-- メール確認待ち -->
+    <div id="verify-box" class="stack" hidden>
+      <div class="note info">
+        <strong id="verify-email"></strong> あてに確認メールを送信しました。<br>
+        メール内のリンクを開いてから「確認しました」を押してください。管理者として登録されます。
+      </div>
+      <div id="verify-msg"></div>
+      <button class="btn btn-primary btn-block" id="verified-btn">確認しました</button>
+      <button class="btn btn-ghost btn-block" id="resend-btn">確認メールを再送する</button>
+      <button class="btn btn-ghost btn-block" id="verify-logout">ログアウト</button>
+    </div>
 
-      <!-- メール確認待ち -->
-      <div id="verify-box" hidden>
-        <div class="notice info">
-          <strong id="verify-email"></strong> あてに確認メールを送信しました。<br>
-          メール内のリンクを開いてから「確認しました」を押してください。管理者として登録されます。
-        </div>
-        <button class="btn btn-primary" id="verified-btn">確認しました</button>
-        <button class="btn" id="resend-btn">確認メールを再送する</button>
-        <button class="btn" id="verify-logout">ログアウト</button>
-      </div>
-    </section>
-
-    <!-- 管理メイン -->
-    <section id="admin-view" hidden>
-      <div class="admin-bar">
-        <ul class="tabs" data-group="admin">
-          <li><button class="is-active" data-col="news">お知らせ</button></li>
-          <li><button data-col="events">行事</button></li>
-          <li><button data-col="contacts">お問い合わせ</button></li>
-          <li><button data-col="members">会員<span id="pending-badge"></span></button></li>
-          <li><button data-col="member_news">会員向けお知らせ</button></li>
-          <li><button data-col="member_docs">会員限定資料</button></li>
-          <li id="owner-tab" hidden><button data-col="admins">管理者（オーナー専用）</button></li>
-        </ul>
-        <div><span id="user-email" style="font-size:13px;color:var(--text-sub)"></span> <span id="role-badge" class="role-badge"></span> <button class="btn" id="logout">ログアウト</button></div>
-      </div>
-      <div id="admin-msg"></div>
-
-      <!-- 管理者の招待（オーナーのみ表示） -->
-      <div class="editor" id="owner-panel" hidden>
-        <h3 style="margin-top:0">管理者を招待する</h3>
-        <p style="font-size:13px;color:var(--text-sub);margin-top:-4px">招待したメールアドレスで管理画面に登録・ログインすると、自動で管理者になります。<br>招待した方には、管理画面のURL（このページ）をお知らせください。</p>
-        <form class="form" id="invite-form" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;max-width:none">
-          <div class="form-row" style="flex:1 1 240px;margin:0"><label for="inv-email">メールアドレス</label><input type="email" id="inv-email" required></div>
-          <div class="form-row" style="flex:1 1 180px;margin:0"><label for="inv-name">お名前</label><input type="text" id="inv-name" maxlength="100" required></div>
-          <button class="btn btn-primary" type="submit">招待する</button>
-        </form>
-      </div>
-      <div class="btn-wrap" id="new-wrap" style="text-align:left"><button class="btn btn-primary" id="new-btn">＋ 新規作成</button></div>
-      <div class="editor" id="editor" hidden>
-        <form class="form" id="edit-form"></form>
-      </div>
-      <table class="admin-table" id="admin-table"></table>
-    </section>
+    <a class="auth-back" href="index.html">← 公開サイトへ戻る</a>
   </div>
-</main>
+</div>
 
-<footer id="site-footer"></footer>
+<!-- =========================================================
+     管理コンソール本体
+     ========================================================= -->
+<div class="shell" id="app" hidden>
+  <aside class="side" id="side" aria-label="管理メニュー">
+    <a class="side-brand" href="#dashboard">
+      <img src="LOGO.png" alt="">
+      <div><b>ADMIN CONSOLE</b><span>普賢アーカイブ運営委員会</span></div>
+    </a>
+    <nav class="side-nav" id="side-nav"></nav>
+    <div class="side-foot">
+      <a href="index.html" target="_blank" rel="noopener">公開サイトを見る ↗</a>
+      <a href="member.html" target="_blank" rel="noopener">会員サイトを見る ↗</a>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
 
-<!-- 学生証の確認（会員一覧の「学生証を見る」） -->
-<dialog class="sid-dialog" id="sid-dialog">
-  <h3 id="sid-title">学生証</h3>
-  <img id="sid-img" alt="学生証（表面）">
-  <form method="dialog"><button class="btn">閉じる</button></form>
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-btn" id="menu-btn" aria-label="メニューを開く">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <div class="tb-title"><small>ADMIN</small><h1 id="page-title">ダッシュボード</h1></div>
+      <div class="tb-right">
+        <a class="btn btn-ghost btn-sm hide-sm" href="index.html" target="_blank" rel="noopener">公開サイトを見る ↗</a>
+        <div class="who"><span id="user-email"></span><span id="role-badge" class="role"></span></div>
+        <button class="btn btn-sm" id="logout">ログアウト</button>
+      </div>
+    </header>
+    <main class="page" id="page" tabindex="-1"></main>
+  </div>
+</div>
+
+<!-- モーダル（詳細・確認） -->
+<dialog class="modal" id="modal">
+  <div class="modal-head"><h3 id="modal-title"></h3><button class="icon-btn" data-close aria-label="閉じる">✕</button></div>
+  <div class="modal-body" id="modal-body"></div>
 </dialog>
 
-<script type="module">
-  import { adminApi, esc, fmtDate, isDemo, NEWS_CATEGORIES } from "./assets/js/db.js";
-  import { getStudentId, OCCUPATIONS } from "./assets/js/member-api.js";
+<!-- 右から出る編集パネル -->
+<dialog class="drawer" id="drawer">
+  <div class="modal-head"><h3 id="drawer-title"></h3><button class="icon-btn" data-close aria-label="閉じる">✕</button></div>
+  <div class="drawer-body" id="drawer-body"></div>
+</dialog>
 
-  // ============================================================
-  //  コレクションごとの入力項目
-  //  ★ 項目を追加したい場合はここに1行追加するだけで、フォームと一覧に反映されます。
-  //    type: text | date | textarea | select | checkbox | url
-  // ============================================================
-  const SCHEMA = {
-    news: {
-      label: "お知らせ", order: "date",
-      fields: [
-        { key: "date", label: "日付", type: "date", required: true, list: true },
-        { key: "category", label: "区分", type: "select", options: Object.fromEntries(NEWS_CATEGORIES.map(c => [c.key, c.label])), required: true, list: true },
-        { key: "title", label: "タイトル", type: "text", required: true, list: true },
-        { key: "important", label: "「重要」ラベルを付ける", type: "checkbox" },
-        { key: "body", label: "本文", type: "textarea" },
-        { key: "url", label: "リンク先URL（入力すると本文ではなくこのURLへ移動）", type: "url" }
-      ]
-    },
-    events: {
-      label: "行事", order: "date",
-      fields: [
-        { key: "date", label: "開催日", type: "date", required: true, list: true },
-        { key: "title", label: "行事名", type: "text", required: true, list: true },
-        { key: "place", label: "会場", type: "text", list: true },
-        { key: "description", label: "説明", type: "textarea" },
-        { key: "url", label: "詳細ページURL", type: "url" }
-      ]
-    },
-    contacts: { label: "お問い合わせ", order: "createdAt", readonly: true },
-    // ---- 会員機能 ----
-    members: {
-      label: "会員", order: "createdAt", noCreate: true,
-      fields: [
-        { key: "type", label: "会員種別", type: "select", options: { regular: "正会員", associate: "準会員", student: "学生会員" }, required: true },
-        { key: "memberNo", label: "会員番号（有効な会員は空欄で保存すると自動で採番）", type: "text", generate: true },
-        { key: "validUntil", label: "有効期限（通常は空欄＝期限なし）", type: "date" },
-        { key: "name", label: "お名前", type: "text", required: true },
-        { key: "kana", label: "フリガナ", type: "text" },
-        { key: "email", label: "メールアドレス", type: "text" },
-        { key: "occupation", label: "職業", type: "select", options: Object.fromEntries([["", "（未選択）"], ...OCCUPATIONS.flatMap(g => g.items).map(v => [v, v])]) },
-        { key: "affiliation", label: "所属", type: "text" },
-        { key: "phone", label: "電話番号", type: "text" },
-        { key: "address", label: "住所", type: "text" },
-        { key: "message", label: "入会時のメッセージ", type: "textarea" },
-        { key: "newsletter", label: "お知らせメールを受け取る", type: "checkbox" }
-      ]
-    },
-    member_news: {
-      label: "会員向けお知らせ", order: "date",
-      fields: [
-        { key: "date", label: "日付", type: "date", required: true, list: true },
-        { key: "title", label: "タイトル", type: "text", required: true, list: true },
-        { key: "important", label: "「重要」ラベルを付ける", type: "checkbox" },
-        { key: "body", label: "本文", type: "textarea" }
-      ]
-    },
-    member_docs: {
-      label: "会員限定資料", order: "date",
-      fields: [
-        { key: "date", label: "掲載日", type: "date", required: true, list: true },
-        { key: "title", label: "資料名", type: "text", required: true, list: true },
-        { key: "category", label: "分類（会議資料・活動報告 など）", type: "text", list: true },
-        { key: "description", label: "説明", type: "textarea" },
-        { key: "url", label: "資料のURL（Google ドライブ・PDF など）", type: "url", required: true }
-      ]
-    }
-  };
+<!-- 印刷用（署名証明書） -->
+<div id="print-area"></div>
 
-  const MEMBER_TYPE = { regular: "正会員", associate: "準会員", student: "学生会員" };
-  // ★ 会員の状態は「承認」「否認」「停止」「再開」ボタンでのみ変更します（委員会承認制）
-  const MEMBER_STATUS = { pending: "審査中", active: "有効", suspended: "停止中", rejected: "否認" };
+<div class="toasts" id="toasts" aria-live="polite"></div>
 
-  // ============================================================
-  //  会員番号の自動採番（例：FA-2026-0001）
-  //  ★ 形式を変えるときは MEMBER_NO の prefix（頭の文字）と digits（連番の桁数）を変更
-  //    ・連番はデータベースのカウンター（counters/memberNo）で管理し、重複しません
-  //    ・年の部分は採番した年。連番は年をまたいでも通しで増えます
-  // ============================================================
-  const MEMBER_NO = { prefix: "FA", digits: 4 };
-  const memberNoSeq = (no) => { const m = /-(\d+)$/.exec(no || ""); return m ? +m[1] : 0; };
-  async function issueMemberNo() {
-    const maxUsed = Math.max(0, ...rows.map(r => memberNoSeq(r.memberNo)));
-    const seq = await adminApi.issueMemberSeq(maxUsed);
-    return `${MEMBER_NO.prefix}-${new Date().getFullYear()}-${String(seq).padStart(MEMBER_NO.digits, "0")}`;
-  }
-
-  const $ = (id) => document.getElementById(id);
-  let current = "news";
-  let rows = [];
-  let currentAdmin = null;
-
-  const notice = (el, type, text) => $(el).innerHTML = text ? `<div class="notice ${type}">${esc(text)}</div>` : "";
-
-  // ---------- 認証 ----------
-  if (isDemo) {
-    $("login-view").hidden = false;
-    notice("login-msg", "info", "Firebase が未設定のため、ログインできません。assets/js/firebase-config.js を設定してください。");
-  }
-
-  let currentRole = "";
-  adminApi.onAuth(user => { if (!isDemo) enter(user); });
-
-  // ログイン状態に応じて画面を切り替える
-  async function enter(user) {
-    $("verify-box").hidden = true;
-    if (!user) { $("login-view").hidden = false; $("admin-view").hidden = true; return; }
-    let admin = null;
-    try { admin = await adminApi.getAdmin(user.uid); } catch (e) { console.error(e); }
-
-    // 管理者でなければ、招待されているか確認
-    if (!admin) {
-      const invite = await adminApi.getMyInvite(user);
-      if (!invite) {
-        await adminApi.logout();
-        notice("login-msg", "error", `${user.email} には管理者権限がありません。管理者になるには、オーナーから招待を受けてください。`);
-        return;
-      }
-      if (!user.emailVerified) {
-        // メール確認待ち
-        $("login-view").hidden = false; $("admin-view").hidden = true;
-        $("login-form").hidden = true; $("register-box").hidden = true;
-        $("verify-email").textContent = user.email;
-        $("verify-box").hidden = false;
-        return;
-      }
-      try {
-        await adminApi.acceptInvite(user, invite);
-        admin = await adminApi.getAdmin(user.uid);
-      } catch (e) {
-        console.error(e);
-        notice("login-msg", "error", "管理者の登録に失敗しました：" + e.message);
-        return;
-      }
-    }
-
-    currentAdmin = user;
-    currentRole = admin.role || "admin";
-    $("login-view").hidden = true; $("admin-view").hidden = false;
-    $("login-form").hidden = false; $("register-box").hidden = false;
-    $("user-email").textContent = user.email;
-    $("role-badge").textContent = currentRole === "owner" ? "オーナー" : "管理者";
-    $("role-badge").className = `role-badge ${currentRole}`;
-    $("owner-tab").hidden = currentRole !== "owner";
-    load();
-  }
-
-  // ---------- Google ログイン ----------
-  $("google-btn").addEventListener("click", async () => {
-    if (isDemo) return;
-    notice("login-msg", "", "");
-    try { await adminApi.loginWithGoogle(); }
-    catch (err) {
-      console.error(err);
-      if (err.code === "auth/popup-closed-by-user" || err.code === "auth/cancelled-popup-request") return;
-      notice("login-msg", "error", err.code === "auth/operation-not-allowed"
-        ? "Google ログインが有効になっていません。Firebase コンソールの Authentication で Google を有効にしてください。"
-        : "Google ログインに失敗しました：" + err.message);
-    }
-  });
-
-  // ---------- 招待された方の初回登録 ----------
-  $("register-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    notice("register-msg", "", "");
-    try {
-      await adminApi.register($("reg-email").value.trim(), $("reg-pass").value);
-    } catch (err) {
-      console.error(err);
-      const msg = {
-        "auth/email-already-in-use": "このメールアドレスは登録済みです。上のフォームからログインしてください（パスワードが不明な場合は「パスワードの設定・再設定」）。",
-        "auth/weak-password": "パスワードは8文字以上で設定してください。",
-        "auth/invalid-email": "メールアドレスの形式が正しくありません。"
-      }[err.code] || "登録に失敗しました：" + err.message;
-      notice("register-msg", "error", msg);
-    }
-  });
-  $("verified-btn").addEventListener("click", async () => {
-    const user = await adminApi.refresh(currentUserFromAuth());
-    if (!user.emailVerified) { alertVerify("まだメールアドレスの確認が完了していません。メール内のリンクを開いてください。"); return; }
-    enter(user);
-  });
-  $("resend-btn").addEventListener("click", async () => {
-    try { await adminApi.sendVerification(currentUserFromAuth()); alertVerify("確認メールを再送しました。"); }
-    catch (err) { console.error(err); alertVerify("再送できませんでした。しばらく時間をおいてお試しください。"); }
-  });
-  $("verify-logout").addEventListener("click", () => { $("login-form").hidden = false; $("register-box").hidden = false; adminApi.logout(); });
-  const currentUserFromAuth = () => adminApi.currentUser();
-  const alertVerify = (msg) => { $("verify-box").querySelector(".notice").insertAdjacentHTML("afterend", `<p class="notice error" style="margin-top:8px">${esc(msg)}</p>`); };
-
-  // ---------- 管理者の招待（オーナー） ----------
-  $("invite-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const email = $("inv-email").value.trim().toLowerCase(), name = $("inv-name").value.trim();
-    try {
-      await adminApi.invite(email, name, currentAdmin.uid);
-      $("invite-form").reset();
-      notice("admin-msg", "success", `${email} を招待しました。管理画面のURLをお知らせください。`);
-      load();
-    } catch (err) { console.error(err); notice("admin-msg", "error", "招待に失敗しました：" + err.message); }
-  });
-
-  $("login-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    if (isDemo) return;
-    notice("login-msg", "", "");
-    try { await adminApi.login($("login-email").value, $("login-pass").value); }
-    catch (err) { console.error(err); notice("login-msg", "error", "ログインに失敗しました。メールアドレスとパスワードをご確認ください。"); }
-  });
-  $("logout").addEventListener("click", () => adminApi.logout());
-
-  // パスワードの設定・再設定メール
-  $("reset-btn").addEventListener("click", async () => {
-    const email = $("login-email").value.trim();
-    if (!email) { notice("login-msg", "error", "メールアドレスを入力してください。"); $("login-email").focus(); return; }
-    try { await adminApi.resetPassword(email); notice("login-msg", "success", `${email} にパスワード設定用のメールを送信しました。メール内のリンクからパスワードを設定してください。`); }
-    catch (err) { console.error(err); notice("login-msg", "error", "メールを送信できませんでした。メールアドレスをご確認ください。"); }
-  });
-
-  // ---------- タブ ----------
-  document.querySelectorAll("[data-col]").forEach(b => b.addEventListener("click", () => {
-    document.querySelectorAll("[data-col]").forEach(x => x.classList.toggle("is-active", x === b));
-    current = b.dataset.col;
-    closeEditor(); load();
-  }));
-
-  // ---------- 一覧 ----------
-  async function load() {
-    $("owner-panel").hidden = current !== "admins";
-    if (current === "admins") return renderAdmins();
-    const s = SCHEMA[current];
-    $("new-wrap").hidden = !!(s.readonly || s.noCreate);
-    $("admin-table").innerHTML = '<tr><td class="loading">読み込み中…</td></tr>';
-    try {
-      rows = await adminApi.list(current, { order: s.order });
-    } catch (e) {
-      console.error(e);
-      $("admin-table").innerHTML = `<tr><td class="empty">読み込みに失敗しました：${esc(e.message)}</td></tr>`;
-      return;
-    }
-    if (current === "contacts") return renderContacts();
-    if (current === "members") return renderMembers();
-
-    // 行事タブでは参加登録数も表示
-    let rsvpBy = null;
-    if (current === "events") {
-      rsvpBy = {};
-      try {
-        (await adminApi.list("rsvps", { order: "createdAt" })).forEach(r => (rsvpBy[r.eventId] ||= []).push(r.name));
-      } catch (e) { console.error(e); }
-    }
-
-    const cols = s.fields.filter(f => f.list);
-    $("admin-table").innerHTML =
-      `<tr>${cols.map(c => `<th>${esc(c.label.replace(/（.*）/, ""))}</th>`).join("")}${rsvpBy ? "<th>参加登録</th>" : ""}<th></th></tr>` +
-      (rows.length ? rows.map(r => `<tr>${cols.map(c => `<td>${esc(c.options ? c.options[r[c.key]] : c.type === "date" ? fmtDate(r[c.key]) : r[c.key])}</td>`).join("")}
-        ${rsvpBy ? `<td title="${esc((rsvpBy[r.id] || []).join("、"))}">${(rsvpBy[r.id] || []).length} 名${(rsvpBy[r.id] || []).length ? `<br><small style="color:var(--text-sub)">${esc((rsvpBy[r.id] || []).join("、"))}</small>` : ""}</td>` : ""}
-        <td><button class="btn" data-edit="${esc(r.id)}">編集</button> <button class="btn btn-danger" data-del="${esc(r.id)}">削除</button></td></tr>`).join("")
-        : `<tr><td colspan="${cols.length + 2}" class="empty">データがありません。</td></tr>`);
-  }
-
-  function renderMembers() {
-    const pending = rows.filter(r => r.status === "pending").length;
-    $("pending-badge").textContent = pending ? `（審査待ち ${pending}）` : "";
-    // 審査中を先頭に
-    const sorted = [...rows].sort((a, b) => (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1));
-    const statusColor = { pending: "#b8862b", active: "#1e6b3a", suspended: "#9b1c1c", rejected: "#777" };
-    $("admin-table").innerHTML = `<tr><th>状態</th><th>お名前 / メール</th><th>種別・会員番号</th><th>申込日 / 承認日</th><th></th></tr>` +
-      (sorted.length ? sorted.map(r => `<tr>
-        <td><strong style="color:${statusColor[r.status] || "inherit"}">${esc(MEMBER_STATUS[r.status] || r.status)}</strong></td>
-        <td>${esc(r.name)}（${esc(r.kana || "")}）<br><a href="mailto:${esc(r.email)}">${esc(r.email)}</a>${r.occupation || r.affiliation ? `<br><small>${esc([r.occupation, r.affiliation].filter(Boolean).join("／"))}</small>` : ""}</td>
-        <td>${esc(MEMBER_TYPE[r.type] || r.type)}<br><small>${r.memberNo ? esc(r.memberNo) : r.status === "pending" ? '<span style="color:var(--text-sub)">承認時に自動付与</span>' : "—"}</small>
-          ${r.type === "student" ? `<br><button class="btn" data-sid="${esc(r.id)}">学生証を見る</button>` : ""}</td>
-        <td>${esc(r.createdAt?.toDate ? r.createdAt.toDate().toLocaleDateString("ja-JP") : "")}<br><small>${esc(r.approvedAt?.toDate ? r.approvedAt.toDate().toLocaleDateString("ja-JP") : "—")}</small></td>
-        <td>
-          ${r.status === "pending" ? `<button class="btn btn-primary" data-approve="${esc(r.id)}">承認</button> <button class="btn btn-danger" data-reject="${esc(r.id)}">否認</button>` : ""}
-          ${r.status === "active" ? `<button class="btn" data-suspend="${esc(r.id)}">停止</button>` : ""}
-          ${r.status === "suspended" ? `<button class="btn" data-activate="${esc(r.id)}">再開</button>` : ""}
-          <button class="btn" data-edit="${esc(r.id)}">編集</button>
-          <button class="btn btn-danger" data-del="${esc(r.id)}">削除</button>
-        </td></tr>`).join("")
-        : '<tr><td colspan="5" class="empty">会員・申込はまだありません。</td></tr>');
-  }
-
-  // 管理者・招待の一覧（オーナー専用）
-  async function renderAdmins() {
-    $("new-wrap").hidden = true;
-    $("admin-table").innerHTML = '<tr><td class="loading">読み込み中…</td></tr>';
-    let admins = [], invites = [];
-    try { [admins, invites] = await Promise.all([adminApi.listAll("admins"), adminApi.listAll("admin_invites")]); }
-    catch (e) { console.error(e); $("admin-table").innerHTML = `<tr><td class="empty">読み込みに失敗しました：${esc(e.message)}</td></tr>`; return; }
-    rows = admins;
-    const date = (v) => esc(v?.toDate ? v.toDate().toLocaleDateString("ja-JP") : "—");
-    admins.sort((a, b) => (a.role === "owner" ? -1 : 1) - (b.role === "owner" ? -1 : 1));
-    $("admin-table").innerHTML = `<tr><th>役割</th><th>お名前 / メール</th><th>登録日</th><th></th></tr>` +
-      admins.map(a => `<tr>
-        <td><span class="role-badge ${a.role === "owner" ? "owner" : ""}">${a.role === "owner" ? "オーナー" : "管理者"}</span></td>
-        <td>${esc(a.name || "")}<br><small>${esc(a.email || a.id)}</small></td>
-        <td>${date(a.createdAt)}</td>
-        <td>${a.role === "owner" ? "" : `<button class="btn btn-danger" data-deladmin="${esc(a.id)}">管理者から外す</button>`}</td></tr>`).join("") +
-      `<tr><th colspan="4" style="background:var(--main-light)">招待中（未登録）</th></tr>` +
-      (invites.length ? invites.map(i => `<tr>
-        <td><span class="role-badge" style="background:#8a94a3">招待中</span></td>
-        <td>${esc(i.name || "")}<br><small>${esc(i.email)}</small></td>
-        <td>${date(i.createdAt)}</td>
-        <td><button class="btn" data-delinvite="${esc(i.id)}">招待を取り消す</button></td></tr>`).join("")
-        : '<tr><td colspan="4" class="empty">招待中の方はいません。</td></tr>');
-  }
-
-  async function setMember(id, data, msg) {
-    try { await adminApi.save("members", id, data); notice("admin-msg", "success", msg); load(); }
-    catch (err) { console.error(err); notice("admin-msg", "error", "更新に失敗しました：" + err.message); }
-  }
-
-  function renderContacts() {
-    $("admin-table").innerHTML = `<tr><th>受信日時</th><th>種別</th><th>お名前 / メール</th><th>内容</th><th></th></tr>` +
-      (rows.length ? rows.map(r => `<tr>
-        <td>${esc(r.createdAt?.toDate ? r.createdAt.toDate().toLocaleString("ja-JP") : "")}</td>
-        <td>${esc(r.subject)}</td>
-        <td>${esc(r.name)}<br><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></td>
-        <td class="msg-cell">${esc(r.message)}</td>
-        <td><button class="btn btn-danger" data-del="${esc(r.id)}">削除</button></td></tr>`).join("")
-        : '<tr><td colspan="5" class="empty">お問い合わせはありません。</td></tr>');
-  }
-
-  $("admin-table").addEventListener("click", async (e) => {
-    const { edit: editId, del: delId, approve, reject, suspend, activate, deladmin, delinvite, sid } = e.target.dataset;
-    if (sid) {
-      const r = rows.find(x => x.id === sid);
-      try {
-        const image = await getStudentId(sid);
-        if (!image) return notice("admin-msg", "error", `${r.name} さんの学生証の画像は登録されていません。`);
-        $("sid-title").textContent = `${r.name} さんの学生証（表面）`;
-        $("sid-img").src = image;
-        $("sid-dialog").showModal();
-      } catch (err) { console.error(err); notice("admin-msg", "error", "学生証の読み込みに失敗しました：" + err.message); }
-      return;
-    }
-    if (deladmin) {
-      const a = rows.find(x => x.id === deladmin);
-      if (!window.confirm(`${a.name || a.email} さんを管理者から外します。よろしいですか？`)) return;
-      try { await adminApi.remove("admins", deladmin); notice("admin-msg", "success", "管理者から外しました。"); load(); }
-      catch (err) { console.error(err); notice("admin-msg", "error", "失敗しました：" + err.message); }
-      return;
-    }
-    if (delinvite) {
-      try { await adminApi.remove("admin_invites", delinvite); notice("admin-msg", "success", "招待を取り消しました。"); load(); }
-      catch (err) { console.error(err); notice("admin-msg", "error", "失敗しました：" + err.message); }
-      return;
-    }
-    if (editId) openEditor(rows.find(r => r.id === editId));
-    if (approve) {
-      const r = rows.find(x => x.id === approve);
-      if (!window.confirm(`${r.name} さんを委員会承認として登録します。${r.memberNo ? `\n会員番号：${r.memberNo}` : "\n会員番号は自動で採番されます。"}`)) return;
-      let no = r.memberNo;
-      try { if (!no) no = await issueMemberNo(); }
-      catch (err) { console.error(err); notice("admin-msg", "error", "会員番号の採番に失敗しました：" + err.message); return; }
-      await setMember(approve, { status: "active", memberNo: no, approvedAt: new Date(), approvedBy: currentAdmin.uid }, `${r.name} さんを承認しました（${no}）。`);
-      // 承認後は学生証の画像は不要なので削除（審査にのみ使用）
-      if (r.type === "student") await adminApi.remove("student_ids", approve).catch(err => console.warn("学生証の削除に失敗", err));
-      return;
-    }
-    if (reject) {
-      const r = rows.find(x => x.id === reject);
-      if (!window.confirm(`${r.name} さんの入会申込を否認します。よろしいですか？`)) return;
-      return setMember(reject, { status: "rejected", rejectedAt: new Date(), rejectedBy: currentAdmin.uid }, `${r.name} さんの申込を否認しました。`);
-    }
-    if (suspend && window.confirm("この会員の資格を停止しますか？")) return setMember(suspend, { status: "suspended" }, "会員資格を停止しました。");
-    if (activate) return setMember(activate, { status: "active" }, "会員資格を再開しました。");
-    if (delId) {
-      const r = rows.find(x => x.id === delId);
-      if (!window.confirm(`「${r.title || r.name || delId}」を削除します。よろしいですか？`)) return;
-      try {
-        await adminApi.remove(current, delId);
-        // 学生会員は学生証の画像も一緒に削除
-        if (current === "members" && r.type === "student") await adminApi.remove("student_ids", delId).catch(() => {});
-        notice("admin-msg", "success", "削除しました。"); load();
-      }
-      catch (err) { console.error(err); notice("admin-msg", "error", "削除に失敗しました：" + err.message); }
-    }
-  });
-
-  // ---------- 編集フォーム ----------
-  $("new-btn").addEventListener("click", () => openEditor(null));
-
-  function openEditor(row) {
-    const s = SCHEMA[current];
-    const v = (k) => esc(row?.[k] ?? "");
-    $("edit-form").innerHTML = `<h3 style="margin-top:0">${esc(s.label)}を${row ? "編集" : "新規作成"}</h3>` +
-      s.fields.map(f => {
-        const req = f.required ? " required" : "";
-        const reqMark = f.required ? '<span class="req">必須</span>' : "";
-        if (f.type === "checkbox")
-          return `<div class="form-row"><label><input type="checkbox" name="${f.key}"${row?.[f.key] ? " checked" : ""}> ${esc(f.label)}</label></div>`;
-        let input;
-        if (f.type === "textarea") input = `<textarea name="${f.key}"${req}>${v(f.key)}</textarea>`;
-        else if (f.type === "select") input = `<select name="${f.key}"${req}>${Object.entries(f.options).map(([k, l]) =>
-          `<option value="${esc(k)}"${row?.[f.key] === k ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
-        else input = `<input type="${f.type === "url" ? "text" : f.type}" name="${f.key}" value="${v(f.key)}"${req}>`;
-        if (f.generate) input = `<div style="display:flex;gap:8px">${input}<button type="button" class="btn" data-generate="${f.key}" style="white-space:nowrap">自動生成</button></div>`;
-        return `<div class="form-row"><label>${esc(f.label)}${reqMark}</label>${input}</div>`;
-      }).join("") +
-      `<button type="submit" class="btn btn-primary">保存</button> <button type="button" class="btn" id="cancel">キャンセル</button>`;
-    $("edit-form").dataset.id = row?.id || "";
-    $("editor").hidden = false;
-    $("cancel").addEventListener("click", closeEditor);
-    $("editor").scrollIntoView({ behavior: "smooth" });
-  }
-
-  function closeEditor() { $("editor").hidden = true; $("edit-form").innerHTML = ""; }
-
-  // 「自動生成」ボタン：会員番号を新しく採番して入力欄に入れる
-  $("edit-form").addEventListener("click", async (e) => {
-    const key = e.target.dataset.generate;
-    if (!key) return;
-    const input = $("edit-form").elements[key];
-    if (input.value.trim() && !window.confirm(`現在の会員番号「${input.value.trim()}」を新しい番号に置き換えますか？`)) return;
-    e.target.disabled = true;
-    try { input.value = await issueMemberNo(); }
-    catch (err) { console.error(err); notice("admin-msg", "error", "会員番号の採番に失敗しました：" + err.message); }
-    finally { e.target.disabled = false; }
-  });
-
-  $("edit-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const form = e.target, data = {};
-    SCHEMA[current].fields.forEach(f => {
-      const el = form.elements[f.key];
-      data[f.key] = f.type === "checkbox" ? el.checked : el.value.trim();
-    });
-    try {
-      if (current === "members") {
-        const id = form.dataset.id;
-        const member = rows.find(r => r.id === id);
-        // 有効な会員で番号が空欄なら自動で採番
-        if (!data.memberNo && member?.status === "active") data.memberNo = await issueMemberNo();
-        // 他の会員と同じ番号は保存しない
-        const dup = data.memberNo && rows.find(r => r.id !== id && r.memberNo === data.memberNo);
-        if (dup) { notice("admin-msg", "error", `会員番号「${data.memberNo}」は ${dup.name} さんが使用しています。別の番号にするか「自動生成」を押してください。`); return; }
-      }
-      await adminApi.save(current, form.dataset.id || null, data);
-      notice("admin-msg", "success", "保存しました。");
-      closeEditor(); load();
-    } catch (err) {
-      console.error(err);
-      notice("admin-msg", "error", "保存に失敗しました：" + err.message);
-    }
-  });
-</script>
+<script type="module" src="assets/js/admin.js"></script>
 </body>
 </html>

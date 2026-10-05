@@ -1,0 +1,28 @@
+rules_version = '2';
+// ============================================================
+//  Firebase Storage セキュリティルール
+//  - content/  : お知らせ・会員向けお知らせ・同意書に載せる画像（誰でも閲覧可、管理者のみアップロード）
+//  ※ 管理者かどうかは Firestore の admins コレクションで判定します
+// ============================================================
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAdmin() {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/admins/$(request.auth.uid));
+    }
+
+    match /content/{file=**} {
+      allow read: if true;
+      // 画像のみ・10MB まで
+      allow create, update: if isAdmin()
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isAdmin();
+    }
+
+    // それ以外は誰も読み書きできない
+    match /{all=**} {
+      allow read, write: if false;
+    }
+  }
+}

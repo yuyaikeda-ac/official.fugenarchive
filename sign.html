@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>電子同意書｜普賢アーカイブ運営委員会</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/member.css">
+<link rel="icon" href="LOGO.png">
+<script src="assets/js/common.js" defer></script>
+</head>
+<body>
+<header id="site-header"></header>
+
+<main class="lux">
+  <section class="sub-hero">
+    <div class="inner">
+      <ol class="sub-crumb"><li><a href="index.html">ホーム</a></li><li>電子同意書</li></ol>
+      <p class="eyebrow">Electronic Consent</p>
+      <h1>電子同意書への署名</h1>
+      <p>内容をご確認のうえ、お名前・メールアドレスを入力し、署名欄に手書きで署名してください。署名は改ざんを検出できる形（SHA-256 のハッシュ値とサーバーの封印）で記録されます。</p>
+    </div>
+  </section>
+
+  <section class="lux-section alt" style="padding-top:56px">
+    <div class="inner">
+      <div class="wizard sign-box" id="sign-root">
+        <div class="sign-state"><p>読み込み中…</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer id="site-footer"></footer>
+
+<script type="module">
+  import { getForm } from "./assets/js/consent-core.js";
+  import { docBoxHtml, fillDoc, signFormHtml, bindSignForm, receiptHtml, bindReceipt, isPastDeadline } from "./assets/js/consent-ui.js";
+  import { esc, isDemo } from "./assets/js/db.js";
+
+  const root = document.getElementById("sign-root");
+  const formId = new URLSearchParams(location.search).get("f") || "";
+
+  const state = (title, text, links = "") => {
+    root.innerHTML = `<div class="sign-state"><h2>${esc(title)}</h2><p>${text}</p>${links}</div>`;
+  };
+  const memberLinks = (id) => `<p><a class="lux-btn" href="member.html#consent/${encodeURIComponent(id)}">会員サイトで署名する</a>　<a class="lux-btn ghost" href="member-login.html">会員ログイン</a></p>`;
+
+  async function start() {
+    if (isDemo) return state("準備中です", "現在この機能はご利用いただけません。");
+    if (!formId) return state("同意書が指定されていません", "お送りしたURLをもう一度ご確認ください。");
+    let form = null;
+    try { form = await getForm(formId); }
+    catch (e) { console.error(e); } // 権限がない（非公開・会員限定）場合も「見つからない」として扱う
+    if (!form) {
+      return state("同意書が見つかりませんでした",
+        "URLが正しくないか、公開が終了している可能性があります。<br>会員向けの同意書は、会員サイトにログインして署名してください。",
+        `<p><a class="lux-btn ghost" href="member-login.html">会員ログイン</a></p>`);
+    }
+    if (form.status === "closed" || isPastDeadline(form)) {
+      return state("この同意書の受付は終了しました", `「${esc(form.title)}」の署名の受付は終了しています。ご不明な点は委員会までお問い合わせください。`,
+        `<p><a class="lux-btn ghost" href="contact.html">お問い合わせ</a></p>`);
+    }
+    if (form.status !== "published") return state("この同意書は現在受け付けていません", "公開されるまでお待ちください。");
+    if (!["public", "both"].includes(form.audience)) {
+      return state("会員の方専用の同意書です", `「${esc(form.title)}」は会員サイトから署名できます。`, memberLinks(form.id));
+    }
+
+    document.title = `${form.title}｜電子同意書｜普賢アーカイブ運営委員会`;
+    root.innerHTML = docBoxHtml(form) + signFormHtml(form, { mode: "public" });
+    fillDoc(root, form);
+    bindSignForm(root, form, { mode: "public", onDone: showReceipt });
+  }
+
+  function showReceipt(rec) {
+    root.innerHTML = `<div class="alert ok" role="status">署名を受け付けました。ありがとうございました。</div>` + receiptHtml(rec);
+    bindReceipt(root, rec);
+    root.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  start();
+</script>
+</body>
+</html>

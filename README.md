@@ -21,7 +21,9 @@ functions/        Cloud Functions（申請時のメール送信。文面は mail
 apps-script/      メール送信用 Google Apps Script（Gmail アカウントに設置）
 member-login.html 会員ログイン（パスワード再設定つき）
 member.html       会員サイト（ダッシュボード・お知らせ・行事参加登録・資料室・会員証・プロフィール）
-admin.html        管理画面（お知らせ・行事・会員の承認・会員向けコンテンツの管理）
+admin.html        管理画面（ダッシュボード・お知らせ・行事・会員の承認・会員向けコンテンツ・電子同意書）
+sign.html         電子同意書の署名ページ（sign.html?f=同意書ID。外部の方がログインなしで署名）
+consent-verify.html 署名の検証ページ（控えの署名IDとハッシュ値で、改ざんされていないか確認）
 sitemap.html / privacy.html
 
 assets/css/style.css         デザイン全体（先頭の :root で色を変更可能）
@@ -33,6 +35,12 @@ assets/css/member.css        入会案内・会員サイトのデザイン（黒
 assets/js/member-api.js      会員機能のデータ処理（会員種別 MEMBER_TYPES もここ）
 assets/js/member.js          会員サイトの画面（メニューは ROUTES）
 assets/js/card.js            デジタル会員証（表・裏・QRコード）。デザインは member.css の「会員証」
+assets/js/admin.js           管理画面の処理（デザインは assets/css/admin.css）
+assets/js/rich-editor.js     高機能エディタ（Quill。画像は Firebase Storage へアップロード）
+assets/js/rich-view.js       エディタで作った本文の表示（DOMPurify で安全な形にしてから表示）
+assets/js/consent-core.js    電子同意書のハッシュ計算・手書きサイン入力欄・署名の保存
+functions/consent.js         署名の封印（HMAC-SHA256・ハッシュチェーン）と検証
+storage.rules                Firebase Storage セキュリティルール（画像は管理者のみアップロード可）
 LOGO.png                     ロゴ（ヘッダー・ファビコン・紹介ブロックで使用）
 assets/js/sample-data.js     Firebase 未設定時のサンプルデータ
 firestore.rules              Firestore セキュリティルール
@@ -119,6 +127,12 @@ firebase.json                Firebase Hosting 設定
 | `rsvps` | 行事の参加登録。ID = 行事ID_会員UID |
 | `admins` | 管理者。ID = UID。`role`（owner/admin）, `email`, `name`, `invitedBy`, `createdAt` |
 | `admin_invites` | 管理者への招待。ID = 小文字のメールアドレス |
+| `student_ids` | 学生証（表面）の画像。ID = UID。承認・否認・削除で自動削除 |
+| `consent_forms` | 電子同意書。`title`, `bodyHtml`, `version`, `status`（draft/published/closed）, `audience`（members/public/both）, `purpose`（general/membership）, `extraFields`, `contentHash`（公開時の SHA-256） |
+| `consent_signatures` | 署名の記録（変更不可）。`formId`, `formHash`, `name`, `email`, `signatureImage`, `signatureHash`, `recordHash`、サーバーが付ける `seq`, `prevSeal`, `seal` |
+| `consent_chain/head` | 封印の連鎖の先頭（サーバーのみ） |
+
+お知らせ・会員向けお知らせの本文は `bodyHtml`（装飾つき）と `body`（プレーンテキスト）の両方を保存します。画像は Firebase Storage の `content/` に保存されます。
 
 ## 会員機能の流れ
 
@@ -129,6 +143,19 @@ firebase.json                Firebase Hosting 設定
 5. 行事の参加登録者は、管理画面の「行事」タブに人数と氏名が表示されます。
 
 会員サイトの操作：`Ctrl + K`（Mac は `⌘ + K`）で検索・ページ移動、`1`〜`6` キーでページ切替、`/` キーで検索欄へ移動できます。
+
+## 電子同意書・電子署名
+
+管理画面の「電子同意書」で同意書を作り、**公開** すると署名を受け付けます。
+
+- **署名できる人**：会員（会員サイトの「同意書」）、外部の方（`sign.html?f=同意書ID` のURL・QRコード）、入会申込者（目的を「入会時の規約同意」にした同意書を公開すると、入会申込の最後に署名欄が出ます）
+- **改ざん防止**
+  1. 公開時に、同意書の本文を SHA-256 でハッシュ化（`contentHash`）。公開後は本文を変更できません（変更したいときは「新しい版を作る」）
+  2. 署名時に、手書きサインの画像と、氏名・メール・日時・文書のハッシュをまとめて SHA-256 でハッシュ化（`recordHash`）。署名の記録はあとから変更できません
+  3. サーバー（Cloud Functions）が秘密鍵で HMAC-SHA256 の封印（`seal`）を付け、1 つ前の署名の封印とつなげます（ハッシュチェーン）。記録の書き換え・削除は検証で見つかります
+- 署名者には控えのメール（署名ID・ハッシュ値・確認ページのURL）が届きます。`consent-verify.html` でだれでも有効性を確認できます
+- 管理画面では、署名ごとの検証・全署名のチェーン検証・署名証明書の印刷・CSV 出力ができます
+- 封印の秘密鍵は Secret Manager の `CONSENT_SEAL_KEY` です。**変更・削除すると過去の封印を検証できなくなる** ので触らないでください
 
 ## 表示確認（ローカル）
 

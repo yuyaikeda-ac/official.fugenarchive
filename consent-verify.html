@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>署名の確認｜普賢アーカイブ運営委員会</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/member.css">
+<link rel="icon" href="LOGO.png">
+<script src="assets/js/common.js" defer></script>
+</head>
+<body>
+<header id="site-header"></header>
+
+<main class="lux">
+  <section class="sub-hero">
+    <div class="inner">
+      <ol class="sub-crumb"><li><a href="index.html">ホーム</a></li><li>署名の確認</li></ol>
+      <p class="eyebrow">Verification</p>
+      <h1>電子署名の確認</h1>
+      <p>署名の控えに記載された「署名ID」と「記録のハッシュ値」を入力すると、記録が改ざんされていないかを確認できます。</p>
+    </div>
+  </section>
+
+  <section class="lux-section alt" style="padding-top:56px">
+    <div class="inner">
+      <div class="wizard sign-box">
+        <form id="verify-form" class="verify-form" novalidate>
+          <div class="field"><label for="v-id">署名ID<span class="req">必須</span></label><input id="v-id" name="sid" required maxlength="200" autocomplete="off" spellcheck="false"><p class="err">署名IDを入力してください</p></div>
+          <div class="field"><label for="v-hash">記録のハッシュ値（SHA-256・64文字）<span class="req">必須</span></label><input id="v-hash" name="hash" required autocomplete="off" spellcheck="false" placeholder="例：3f2a9c1e 5b7d… （スペースはあってもなくても構いません）"><p class="err">64文字のハッシュ値を入力してください</p></div>
+          <button class="lux-btn" type="submit" id="v-btn">確認する</button>
+        </form>
+        <div id="v-result" aria-live="polite"></div>
+
+        <div class="how-box">
+          <h3>改ざんを防ぐ仕組み</h3>
+          <ol>
+            <li><strong>文書のハッシュ値</strong>：同意書の本文は公開時に SHA-256 でハッシュ化され、公開後は変更できません。署名にはこの値が記録されるため、どの文面に同意したかが確定します。</li>
+            <li><strong>記録のハッシュ値</strong>：お名前・メールアドレス・署名の画像・署名日時などをまとめてハッシュ化した値です。1 文字でも書き換えられると値が変わります。</li>
+            <li><strong>サーバーの封印</strong>：委員会のサーバーが秘密の鍵で封印を付け、1 つ前の署名の封印とつなげて記録します（ハッシュチェーン）。記録の差し替えや削除があると、確認時に検出されます。</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer id="site-footer"></footer>
+
+<script type="module">
+  import { verifySignature } from "./assets/js/consent-core.js";
+  import { esc, isDemo } from "./assets/js/db.js";
+
+  const form = document.getElementById("verify-form");
+  const out = document.getElementById("v-result");
+  const btn = document.getElementById("v-btn");
+  const idEl = document.getElementById("v-id"), hashEl = document.getElementById("v-hash");
+  const params = new URLSearchParams(location.search);
+  idEl.value = params.get("id") || "";
+  hashEl.value = params.get("h") || "";
+
+  const clean = (h) => h.replace(/\s+/g, "").toLowerCase();
+  const valid = {
+    sid: v => v.trim().length > 0,
+    hash: v => /^[0-9a-f]{64}$/.test(clean(v))
+  };
+  const check = (el) => { const ok = valid[el.name](el.value); el.closest(".field").classList.toggle("is-invalid", !ok); return ok; };
+
+  const errorText = (e) => ({
+    "functions/not-found": "該当する署名が見つかりませんでした。署名IDとハッシュ値をご確認ください。",
+    "functions/invalid-argument": "入力内容が正しくありません。署名IDとハッシュ値をご確認ください。",
+    "functions/resource-exhausted": "確認の回数が多すぎます。しばらく時間をおいてからお試しください。",
+    "functions/unavailable": "確認サーバーに接続できませんでした。しばらく時間をおいてからお試しください。",
+    "functions/internal": "確認サーバーでエラーが発生しました。しばらく時間をおいてからお試しください。"
+  }[e?.code] || "確認できませんでした。しばらく時間をおいてからお試しください。");
+
+  function render(r) {
+    const checks = Array.isArray(r?.checks) ? r.checks : [];
+    const ok = !!r?.ok;
+    out.innerHTML = `<div class="verify-result ${ok ? "ok" : "ng"}">
+      <h3>${ok ? "✓ 改ざんは検出されませんでした" : "✕ 確認できない項目があります"}</h3>
+      ${r?.summary ? `<p class="sum">${esc(r.summary)}</p>` : ""}
+      ${checks.length ? `<ul class="checks">${checks.map(c => `<li class="${c.ok ? "ok" : "ng"}"><span>${c.ok ? "✓" : "✕"}</span><div>${esc(c.label)}${c.detail ? `<small>${esc(c.detail)}</small>` : ""}</div></li>`).join("")}</ul>` : ""}
+    </div>`;
+  }
+
+  async function run() {
+    const okId = check(idEl), okHash = check(hashEl);
+    if (!okId || !okHash) return;
+    if (isDemo) { out.innerHTML = `<div class="alert error">現在この機能はご利用いただけません。</div>`; return; }
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> 確認中…';
+    out.innerHTML = "";
+    try {
+      render(await verifySignature(idEl.value.trim(), clean(hashEl.value)));
+    } catch (e) {
+      console.error(e);
+      out.innerHTML = `<div class="verify-result ng"><h3>✕ 確認できませんでした</h3><p class="sum">${esc(errorText(e))}</p></div>`;
+    } finally {
+      btn.disabled = false; btn.textContent = "確認する";
+    }
+  }
+
+  form.addEventListener("submit", e => { e.preventDefault(); run(); });
+  form.addEventListener("input", e => { if (e.target.closest(".field").classList.contains("is-invalid")) check(e.target); });
+  // URL に値が入っていれば自動で確認
+  if (idEl.value && hashEl.value) run();
+</script>
+</body>
+</html>

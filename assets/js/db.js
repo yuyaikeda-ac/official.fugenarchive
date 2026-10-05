@@ -16,6 +16,15 @@
 //    member_news : 会員向けお知らせ（title, date, body, important）
 //    member_docs : 会員限定資料（title, category, date, description, url）
 //    rsvps       : 行事への参加登録（ID = 行事ID_UID）
+//    student_ids : 学生証の画像（審査用。承認・否認で削除）
+//
+//  電子同意書（assets/js/consent-core.js・functions/consent.js）
+//    consent_forms      : 同意書（title, bodyHtml, version, status, audience, purpose, contentHash …）
+//    consent_signatures : 署名の記録（ハッシュ値つき。作成後は変更不可、サーバーが封印 seal を付与）
+//    consent_chain/head : 封印の連鎖の先頭（サーバーのみ読み書き）
+//
+//  お知らせ・会員向けお知らせの本文：body（プレーンテキスト）と bodyHtml（装飾つき）
+//  画像は Firebase Storage の content/ に保存（storage.rules）
 // ============================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
@@ -32,10 +41,11 @@ import { sampleData } from "./sample-data.js";
 // Firebase が未設定ならサンプルデータで動かす
 export const isDemo = !firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY";
 
+export let app = null;
 export let db = null;
 export let auth = null;
 if (!isDemo) {
-  const app = initializeApp(firebaseConfig);
+  app = initializeApp(firebaseConfig);
   db = getFirestore(app);
   auth = getAuth(app);
 }

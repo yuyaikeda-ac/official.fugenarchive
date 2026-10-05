@@ -190,4 +190,36 @@ ${signature()}`
   }];
 }
 
-module.exports = { CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited };
+// ---------- 電子同意書に署名したとき（署名者へ控え） ----------
+function consentSigned(s) {
+  const signedAt = s.agreedAt?.toDate?.() || new Date(s.clientSignedAt);
+  const verifyUrl = `${CONFIG.siteUrl}/consent-verify.html?id=${encodeURIComponent(s.id)}&h=${s.recordHash}`;
+  return [{
+    to: s.email,
+    subject: `【${CONFIG.orgName}】「${s.formTitle}」への署名の控え`,
+    text:
+`${s.name} 様
+
+${CONFIG.orgName}です。
+以下の同意書への電子署名を受け付けました。このメールは署名の控えです。大切に保管してください。
+
+■ 同意書　：${s.formTitle}（第${s.formVersion}版）
+■ 署名者　：${s.name}
+■ 署名日時：${fmtDate(signedAt)}
+■ 署名ID　：${s.id}
+
+■ 改ざん防止のための値（SHA-256 / HMAC-SHA256）
+　文書のハッシュ値　：${s.formHash}
+　署名記録のハッシュ値：${s.recordHash}
+　サーバーの封印　　：${s.seal}（連番 ${s.seq}）
+
+▼ 署名が有効か（内容が変更されていないか）は、次のページで確認できます
+${verifyUrl}
+
+お心当たりのない場合は、お手数ですが下記よりご連絡ください。
+${CONFIG.siteUrl}/contact.html
+${signature()}`
+  }];
+}
+
+module.exports = { CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned };

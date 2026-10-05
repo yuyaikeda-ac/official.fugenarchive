@@ -1,5 +1,5 @@
 // ============================================================
-//  Cloud Functions：申請・お問い合わせ時のメール送信
+//  Cloud Functions：申請・お問い合わせ時のメール送信、電子同意書の封印・検証
 //  Firestore にデータが保存されると自動で動きます。
 //
 //  ・送信は Google Apps Script（apps-script/Code.gs）経由。
@@ -7,9 +7,11 @@
 //  ・Secret Manager に次の 2 つを登録しておきます
 //      MAIL_WEBAPP_URL … Apps Script のウェブアプリの URL
 //      MAIL_TOKEN      … Apps Script の setup で表示された TOKEN
+//      CONSENT_SEAL_KEY … 電子同意書の封印用の秘密鍵（ランダムな長い文字列。変更すると過去の封印を検証できなくなる）
 //  ・メールの文面は mails.js で編集できます
 // ============================================================
 const { onDocumentCreated, onDocumentUpdated, onDocumentWritten } = require("firebase-functions/v2/firestore");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const logger = require("firebase-functions/logger");
@@ -56,6 +58,11 @@ async function sendAll(list, context) {
 }
 
 const withDates = (data) => ({ ...data, createdAt: data.createdAt?.toDate?.() || new Date() });
+
+// ---------- 電子同意書：署名の封印・控えのメール・検証（中身は consent.js） ----------
+Object.assign(exports, require("./consent")({
+  onDocumentCreated, onCall, HttpsError, defineSecret, getFirestore, FieldValue, logger, sendAll, mailOpts: opts, mails
+}));
 
 // ---------- 入会申込 → 委員会へ通知 ＋ 申込者へ受付確認 ----------
 exports.mailOnMemberApplied = onDocumentCreated({ document: "members/{uid}", ...opts }, async (event) => {

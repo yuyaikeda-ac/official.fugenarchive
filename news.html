@@ -61,6 +61,7 @@
 <script type="module">
   import { getNews, getNewsById, newsItemHtml, esc, fmtDate, categoryBadge, isDemo } from "./assets/js/db.js";
   import { showDemoBanner } from "./assets/js/render.js";
+  import { renderRich } from "./assets/js/rich-view.js";
   if (isDemo) showDemoBanner();
 
   const params = new URLSearchParams(location.search);
@@ -79,7 +80,8 @@
         `<time>${esc(fmtDate(n.date))}</time> ${categoryBadge(n.category)}`
         + (n.important ? ' <span class="cat cat-important">重要</span>' : "");
       document.getElementById("detail-title").textContent = n.title;
-      document.getElementById("detail-body").textContent = n.body || "";
+      // 装飾つき本文（bodyHtml）は安全な形にしてから表示。無ければ本文（body）をそのまま表示
+      await renderRich(document.getElementById("detail-body"), n);
       const crumb = document.getElementById("crumb-current");
       crumb.textContent = n.title; crumb.hidden = false;
     }

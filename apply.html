@@ -103,7 +103,9 @@
             </div>
             <div class="field"><label for="f-msg">入会の動機・メッセージ（任意）</label><textarea id="f-msg" name="message" maxlength="2000" placeholder="普賢との関わりや、活動への想いなどをお聞かせください"></textarea></div>
             <div class="field"><label class="check"><input type="checkbox" name="newsletter" checked> 会員向けのお知らせをメールで受け取る</label></div>
-            <div class="field"><label class="check"><input type="checkbox" name="agree" required> <span><a href="about.html#rules" target="_blank">運営規程</a>および<a href="privacy.html" target="_blank">プライバシーポリシー</a>に同意します</span></label><p class="err">同意が必要です</p></div>
+            <!-- 入会規約への署名（管理画面で「入会時の規約同意」の同意書を公開しているときだけ表示） -->
+            <div class="terms-sign" id="terms-sign" hidden></div>
+            <div class="field"><label class="check"><input type="checkbox" name="agree" required> <span id="agree-text"><a href="about.html#rules" target="_blank">運営規程</a>および<a href="privacy.html" target="_blank">プライバシーポリシー</a>に同意します</span></label><p class="err">同意が必要です</p></div>
           </div>
 
           <!-- STEP 4 -->
@@ -130,6 +132,8 @@
 <script type="module">
   import { apply, applyWithGoogle, errorMessage, compressImage, MEMBER_TYPES, OCCUPATIONS } from "./assets/js/member-api.js";
   import { esc } from "./assets/js/db.js";
+  import { getMembershipForm, submitSignature } from "./assets/js/consent-core.js";
+  import { docBoxHtml, fillDoc, padHtml, mountPad } from "./assets/js/consent-ui.js";
 
   // ---------- ウィザード ----------
   const form = document.getElementById("apply-form");
@@ -220,9 +224,30 @@
     const els = [...panels[n - 1].querySelectorAll("input, textarea, select")].filter(el => rules[el.name]);
     const results = els.map(check);
     const firstBad = els[results.indexOf(false)];
+    // 入会規約の署名欄
+    const sigBad = n === 3 && termsForm && termsPad.isEmpty();
+    if (termsForm && n === 3) document.getElementById("terms-sig-field").classList.toggle("is-invalid", sigBad);
     if (firstBad) firstBad.focus();
-    return !firstBad;
+    else if (sigBad) document.getElementById("terms-sig-field").scrollIntoView({ behavior: "smooth", block: "center" });
+    return !firstBad && !sigBad;
   }
+
+  // ---------- 入会規約への署名（電子同意書） ----------
+  // 公開中の「入会時の規約同意」があれば、本文と署名欄を表示し、申込後に署名を記録します
+  let termsForm = null, termsPad = null;
+  getMembershipForm().then(f => {
+    if (!f) return;
+    termsForm = f;
+    const box = document.getElementById("terms-sign");
+    box.innerHTML = docBoxHtml(f, { scroll: true }) +
+      `<div class="field" id="terms-sig-field"><label>署名<span class="req">必須</span></label>${padHtml()}
+        <p class="hint">上の規約をお読みのうえ、枠の中に指・マウス・ペンでお名前を手書きしてください。</p>
+        <p class="err">署名欄に署名してください</p></div>`;
+    box.hidden = false;
+    fillDoc(box, f);
+    termsPad = mountPad(box, p => { if (!p.isEmpty()) document.getElementById("terms-sig-field").classList.remove("is-invalid"); });
+    document.getElementById("agree-text").innerHTML = `上記の「${esc(f.title)}」および<a href="privacy.html" target="_blank">プライバシーポリシー</a>に同意します`;
+  });
   form.addEventListener("input", e => {
     const field = e.target.closest(".field");
     if (field?.classList.contains("is-invalid") || field?.classList.contains("is-valid")) check(e.target);
@@ -277,7 +302,8 @@
       ["ログイン方法", useGoogle() ? "Googleアカウント（確定時にGoogleのログイン画面が開きます）" : "メールアドレスとパスワード"]
     ];
     document.getElementById("confirm").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("") +
-      (isStudent() ? `<dt>学生証（表面）</dt><dd><img src="${studentIdImage}" alt="学生証" class="sid-confirm"></dd>` : "");
+      (isStudent() ? `<dt>学生証（表面）</dt><dd><img src="${studentIdImage}" alt="学生証" class="sid-confirm"></dd>` : "") +
+      (termsForm ? `<dt>規約への署名</dt><dd>${esc(termsForm.title)}（第 ${esc(termsForm.version || 1)} 版）に同意<img src="${termsPad.toDataURL()}" alt="署名" class="confirm-sig"></dd>` : "");
   }
 
   // ---------- 送信 ----------
@@ -294,7 +320,16 @@
         message: F.message.value.trim(), newsletter: F.newsletter.checked, password: F.password.value,
         studentId: isStudent() ? studentIdImage : ""
       };
-      await (useGoogle() ? applyWithGoogle(data) : apply(data));
+      const user = await (useGoogle() ? applyWithGoogle(data) : apply(data));
+      // 入会規約への署名を記録（失敗しても申込自体は完了しているので、そのまま完了ページへ）
+      if (termsForm && user) {
+        nextBtn.innerHTML = '<span class="spinner"></span> 署名を記録しています…';
+        try {
+          await submitSignature(termsForm, {
+            signerType: "applicant", uid: user.uid, name: data.name, email: useGoogle() ? user.email : data.email
+          }, termsPad.toDataURL());
+        } catch (sigErr) { console.error("入会規約の署名を保存できませんでした", sigErr); }
+      }
       try { sessionStorage.removeItem(DRAFT_KEY); } catch {}
       location.replace("apply-done.html");
     } catch (err) {
