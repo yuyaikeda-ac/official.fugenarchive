@@ -532,4 +532,30 @@ ${signature()}`
   }];
 }
 
-module.exports = { CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided , contactAiReply, passwordResetByAi, contactAiNotify, contactStaffReply , ticketReplyToCustomer, ticketToStaff , loginGuideByAi };
+// ---------- 行事の参加登録・取り消し（会員へ） ----------
+function eventRsvpMail({ member: mm, event: e, join }) {
+  const [y, mo, d] = String(e.date || "").split("-");
+  const week = e.date ? "日月火水木金土"[new Date(e.date + "T00:00:00+09:00").getDay()] : "";
+  const when = e.date ? `${y}年${Number(mo)}月${Number(d)}日（${week}）${e.startTime ? " " + e.startTime + (e.endTime ? "〜" + e.endTime : "") : ""}` : "—";
+  return [{
+    to: mm.email,
+    subject: `【${CONFIG.orgName}】${join ? "参加登録を受け付けました" : "参加登録を取り消しました"}：${e.title}`,
+    text:
+`${mm.name} 様
+
+${CONFIG.orgName}です。
+${join ? "下記の行事への参加登録を受け付けました。当日お会いできるのを楽しみにしております。" : "下記の行事の参加登録を取り消しました。"}
+
+■ 行事　：${e.title}
+■ 日時　：${when}
+■ 会場　：${e.place || "—"}
+${e.url ? `■ 詳細　：${e.url}\n` : ""}
+${join ? "ご都合が悪くなった場合は、会員サイトの「行事・参加登録」から取り消しできます。" : "あらためて参加される場合は、会員サイトの「行事・参加登録」から登録できます。"}
+
+▼ 会員サイト（行事・参加登録）
+${CONFIG.siteUrl}/member.html#events
+${signature()}`
+  }];
+}
+
+module.exports = { CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided , contactAiReply, passwordResetByAi, contactAiNotify, contactStaffReply , ticketReplyToCustomer, ticketToStaff , loginGuideByAi , eventRsvpMail };

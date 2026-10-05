@@ -270,13 +270,11 @@ service cloud.firestore {
     match /member_docs/{id} { allow read: if isActiveMember() || isAdmin(); allow write: if isAdmin(); }
 
     // ---------- 行事の参加登録（ID = 行事ID_UID） ----------
+    // 登録・取り消しは Cloud Functions（eventRsvp）経由のみ。定員・締切をサーバーで確認するため
     match /rsvps/{id} {
       allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
-      allow create: if isActiveMember()
-        && request.resource.data.uid == request.auth.uid
-        && id == request.resource.data.eventId + '_' + request.auth.uid
-        && request.resource.data.keys().hasOnly(['eventId', 'uid', 'name', 'createdAt']);
-      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create, update: if false;
+      allow delete: if isAdmin();
     }
   }
 }

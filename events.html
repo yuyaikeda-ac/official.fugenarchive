@@ -37,14 +37,17 @@
 
 <script type="module">
   import { getEvents, isDemo } from "./assets/js/db.js";
-  import { eventItemHtml, showDemoBanner } from "./assets/js/render.js";
+  import { eventItemHtml, renderEventBodies, showDemoBanner } from "./assets/js/render.js";
   if (isDemo) showDemoBanner();
 
-  const fill = (id, rows, msg) =>
-    document.getElementById(id).innerHTML = rows.length ? rows.map(eventItemHtml).join("") : `<li class="empty">${msg}</li>`;
+  const fill = (id, rows, msg) => {
+    const el = document.getElementById(id);
+    el.innerHTML = rows.length ? rows.map(r => eventItemHtml(r, { detail: true })).join("") : `<li class="empty">${msg}</li>`;
+    renderEventBodies(el, rows);
+  };
   try {
     const rows = await getEvents();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
     fill("upcoming", rows.filter(r => r.date >= today).reverse(), "現在予定されている行事はありません。");
     fill("past", rows.filter(r => r.date < today), "過去の行事はありません。");
   } catch (e) {

@@ -193,10 +193,25 @@ export async function getMyRsvps(uid) {
   const snap = await getDocs(query(collection(db, "rsvps"), where("uid", "==", uid)));
   return new Set(snap.docs.map(d => d.data().eventId));
 }
-export async function rsvp(eventId, member, join) {
-  const ref = doc(db, "rsvps", `${eventId}_${member.id}`);
-  if (join) await setDoc(ref, { eventId, uid: member.id, name: member.name, createdAt: serverTimestamp() });
-  else await deleteDoc(ref);
+/**
+ * 行事の参加登録・取り消し（サーバーで定員・締切を確認し、確認メールを送る）
+ * @returns { joined, count, remaining }
+ */
+export async function rsvp(eventId, _member, join) {
+  const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+  const { app } = await import("./db.js");
+  return (await httpsCallable(getFunctions(app, "asia-northeast1"), "eventRsvp")({ eventId, join })).data;
+}
+
+/** 行事の受付状況（会員サイト・公開ページで共通） */
+export function eventRsvpState(ev, today) {
+  const count = Number(ev.rsvpCount) || 0, cap = Number(ev.capacity) || 0;
+  const remaining = cap ? Math.max(0, cap - count) : null;
+  if (ev.rsvpOpen === false) return { open: false, label: "", remaining, count, cap };
+  if (ev.date < today) return { open: false, label: "終了", remaining, count, cap };
+  if (ev.rsvpDeadline && ev.rsvpDeadline < today) return { open: false, label: "締切済み", remaining, count, cap };
+  if (cap && remaining <= 0) return { open: false, label: "満員", remaining, count, cap };
+  return { open: true, label: "受付中", remaining, count, cap };
 }
 
 /** Firebase のエラーコードを日本語に */
@@ -211,6 +226,7 @@ export function errorMessage(e) {
     "auth/too-many-requests": "試行回数が多すぎます。しばらく時間をおいてからお試しください。",
     "auth/network-request-failed": "ネットワークに接続できません。通信環境をご確認ください。",
     "permission-denied": "アクセス権限がありません。",
+    "functions/resource-exhausted": "定員に達したため、参加登録できません。",
     "member/exists": "この Google アカウントは既にお申込み済みです。会員ログインから状況をご確認ください。",
     "auth/operation-not-allowed": "このログイン方法は現在ご利用いただけません。委員会までお問い合わせください。",
     "auth/popup-blocked": "ポップアップがブロックされました。ブラウザの設定でポップアップを許可してください。",

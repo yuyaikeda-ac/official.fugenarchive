@@ -52,11 +52,17 @@ const SCHEMA = {
   events: {
     label: "行事", order: "date",
     fields: [
+      { key: "title", label: "行事名", type: "text", required: true, list: true },
       { key: "date", label: "開催日", type: "date", required: true, list: true, half: true },
       { key: "place", label: "会場", type: "text", list: true, half: true },
-      { key: "title", label: "行事名", type: "text", required: true, list: true },
-      { key: "description", label: "説明", type: "textarea" },
-      { key: "url", label: "詳細ページURL", type: "url" }
+      { key: "startTime", label: "開始時刻", type: "time", half: true },
+      { key: "endTime", label: "終了時刻", type: "time", half: true },
+      { key: "description", label: "内容（画像・リンク・文字色なども使えます）", type: "rich" },
+      { key: "url", label: "詳細ページURL（外部のページがある場合）", type: "url" },
+      // ---- 会員のワンクリック参加登録 ----
+      { key: "rsvpOpen", label: "会員の参加登録（ワンクリック）を受け付ける", type: "checkbox", section: "参加登録", default: true },
+      { key: "capacity", label: "定員（空欄で制限なし）", type: "number", half: true },
+      { key: "rsvpDeadline", label: "申込締切日（空欄で開催日まで）", type: "date", half: true }
     ]
   },
   member_docs: {
@@ -480,10 +486,10 @@ async function renderDashboard() {
 async function renderContent(name, sub = "") {
   const s = SCHEMA[name];
   const rows = await getRows(name, true);
-  let rsvpBy = null;
+  let rsvpBy = null, rsvpRows = [];
   if (name === "events") {
     rsvpBy = {};
-    try { (await adminApi.list("rsvps", { order: "createdAt" })).forEach(r => (rsvpBy[r.eventId] ||= []).push(r.name)); }
+    try { rsvpRows = await adminApi.list("rsvps", { order: "createdAt" }); rsvpRows.forEach(r => (rsvpBy[r.eventId] ||= []).push(r)); }
     catch (e) { console.error(e); }
   }
   const cols = s.fields.filter(f => f.list);
@@ -508,15 +514,17 @@ async function renderContent(name, sub = "") {
     const list = rows.filter(r => !q || `${r.title} ${r.body || ""} ${r.place || ""} ${r.category || ""}`.toLowerCase().includes(q));
     $("tbl").querySelector("tbody").innerHTML = list.length ? list.map(r => `<tr>
       ${cols.map(c => `<td${c.key === "title" ? ' class="main"' : c.type === "checkbox" ? "" : ` data-label="${esc(c.label.replace(/（.*）/, ""))}"`}>${c.key === "title" ? `<b>${cell(c, r)}</b>${r.bodyHtml ? ' <span class="pill info">装飾つき</span>' : ""}` : cell(c, r)}</td>`).join("")}
-      ${rsvpBy ? `<td data-label="参加登録">${(rsvpBy[r.id] || []).length} 名${(rsvpBy[r.id] || []).length ? `<span class="sub">${esc((rsvpBy[r.id] || []).join("、"))}</span>` : ""}</td>` : ""}
-      <td class="act"><button class="btn btn-sm" data-edit="${esc(r.id)}">編集</button><button class="btn btn-sm btn-danger" data-del="${esc(r.id)}">削除</button></td></tr>`).join("")
+      ${rsvpBy ? `<td data-label="参加登録">${(rsvpBy[r.id] || []).length} 名${r.capacity ? ` ／ 定員 ${esc(r.capacity)} 名` : ""}
+        <span class="sub">${r.date && r.date < new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" }) ? pill("draft", "終了") : r.rsvpOpen !== false ? (r.capacity && (rsvpBy[r.id] || []).length >= r.capacity ? pill("ng", "満員") : pill("ok", "受付中")) : pill("draft", "受付なし")}${r.rsvpDeadline ? ` 締切 ${esc(fmtDate(r.rsvpDeadline))}` : ""}</span></td>` : ""}
+      <td class="act">${rsvpBy ? `<button class="btn btn-sm" data-attend="${esc(r.id)}">参加者</button>` : ""}<button class="btn btn-sm" data-edit="${esc(r.id)}">編集</button><button class="btn btn-sm btn-danger" data-del="${esc(r.id)}">削除</button></td></tr>`).join("")
       : `<tr><td colspan="${cols.length + 2}" class="empty">データがありません。</td></tr>`;
   };
   draw();
   $("q").addEventListener("input", draw);
   $("new-btn").addEventListener("click", () => openEditor(name, null));
   $("tbl").addEventListener("click", async e => {
-    const { edit, del } = e.target.dataset;
+    const { edit, del, attend } = e.target.dataset;
+    if (attend) return openAttendees(rows.find(r => r.id === attend), rsvpBy[attend] || []);
     if (edit) openEditor(name, rows.find(r => r.id === edit));
     if (del) {
       const r = rows.find(x => x.id === del);
@@ -532,6 +540,30 @@ async function renderContent(name, sub = "") {
   if (sub === "new") { history.replaceState(null, "", `#${name}`); openEditor(name, null); }
 }
 
+/** 行事の参加者一覧 */
+function openAttendees(ev, list) {
+  const body = openModal(`参加者：${ev.title}`, `
+    <p class="muted small">${esc(fmtDate(ev.date))}${ev.startTime ? " " + esc(ev.startTime) : ""}・${esc(ev.place || "")}　／　${list.length} 名${ev.capacity ? `（定員 ${esc(ev.capacity)} 名）` : ""}</p>
+    ${list.length ? `<div class="table-wrap"><table class="tbl cards"><thead><tr><th>お名前</th><th>会員番号</th><th>メール</th><th>登録日時</th></tr></thead><tbody>
+      ${list.map(r => `<tr><td class="main"><b>${esc(r.name)}</b></td><td data-label="会員番号">${esc(r.memberNo || "—")}</td><td data-label="メール">${r.email ? `<a href="mailto:${esc(r.email)}">${esc(r.email)}</a>` : "—"}</td><td data-label="登録">${fmtDT(r.createdAt)}</td></tr>`).join("")}
+      </tbody></table></div>
+      <div class="drawer-foot" style="margin-top:14px"><span style="flex:1"></span><button class="btn" id="att-mail">全員のメールをコピー</button><button class="btn btn-primary" id="att-csv">CSV をダウンロード</button></div>`
+      : '<div class="empty">まだ参加登録はありません。</div>'}`, { wide: true });
+  body.querySelector("#att-mail")?.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(list.map(r => r.email).filter(Boolean).join(", ")); toast("メールアドレスをコピーしました。"); }
+    catch { toast("コピーできませんでした。", "error"); }
+  });
+  body.querySelector("#att-csv")?.addEventListener("click", () => {
+    const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const csv = "\ufeff" + [["お名前", "会員番号", "メール", "登録日時"], ...list.map(r => [r.name, r.memberNo, r.email, fmtDT(r.createdAt)])].map(r => r.map(q).join(",")).join("\r\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `参加者_${ev.date || ""}_${(ev.title || "").slice(0, 20)}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+}
+
 /** プレーンテキストを段落の HTML に（古いお知らせを編集するとき） */
 const textToHtml = (t) => (t || "").split(/\r?\n/).map(l => `<p>${l ? esc(l) : "<br>"}</p>`).join("");
 
@@ -540,10 +572,12 @@ const textToHtml = (t) => (t || "").split(/\r?\n/).map(l => `<p>${l ? esc(l) : "
 const todayJst = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 
 function fieldHtml(f, row) {
+  if (f.section && !f._sectionDone) return `<h3 class="fld-section">${esc(f.section)}</h3>` + fieldHtml({ ...f, _sectionDone: true }, row);
   const v = esc(row?.[f.key] ?? (!row && f.today ? todayJst() : ""));
   const req = f.required ? " required" : "";
   const reqMark = f.required ? '<span class="req">必須</span>' : "";
-  if (f.type === "checkbox") return `<label class="check"><input type="checkbox" name="${f.key}"${row?.[f.key] ? " checked" : ""}> ${esc(f.label)}</label>`;
+  if (f.type === "checkbox") return `<label class="check"><input type="checkbox" name="${f.key}"${(row ? (row[f.key] ?? f.default) : f.default) ? " checked" : ""}> ${esc(f.label)}</label>`;
+  if (f.type === "number") return `<label class="fld"><span>${esc(f.label)}</span><input type="number" name="${f.key}" min="1" step="1" inputmode="numeric" value="${row?.[f.key] ? esc(row[f.key]) : ""}"></label>`;
   if (f.type === "file") return `<div class="fld"><span>${esc(f.label)}</span>
     <div class="file-drop" data-file-box>
       <input type="file" data-file-input hidden>
@@ -664,7 +698,7 @@ async function openEditor(name, row) {
       }
       if (f.type === "file") continue;
       const el = form.elements[f.key];
-      data[f.key] = f.type === "checkbox" ? el.checked : el.value.trim();
+      data[f.key] = f.type === "checkbox" ? el.checked : f.type === "number" ? (parseInt(el.value, 10) > 0 ? parseInt(el.value, 10) : 0) : el.value.trim();
       if (f.required && !data[f.key]) { toast(`「${f.label.replace(/（.*）/, "")}」を入力してください。`, "error"); el.focus(); return; }
     }
     // 会員限定資料：ファイルか URL のどちらかが必要

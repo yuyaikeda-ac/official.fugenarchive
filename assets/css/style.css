@@ -489,3 +489,23 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
 .tk-ask-no { border: 1px solid #b8c4d6; background: #fff; color: var(--main, #0b3a6e); }
 .tk-ask-no:hover { border-color: var(--main, #0b3a6e); }
 @media (max-width: 380px) { .tk-ask-btns { grid-template-columns: 1fr; } }
+
+/* 行事：曜日・内容（装飾つき）・会員の参加登録の案内 */
+.event-date .w { font-size: 11px; opacity: .85; }
+.ev-body { margin-top: 8px; font-size: 14px; color: var(--text); }
+.ev-body img { max-width: 100%; height: auto; border-radius: 8px; }
+.ev-rsvp { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 12px; padding: 10px 14px; border-radius: 10px; background: #f3f7fc; border: 1px solid #d5e1f0; font-size: 13px; color: var(--text-sub); }
+.ev-rsvp b { color: var(--main); }
+.ev-rsvp-badge { padding: 1px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.ev-rsvp-badge.ok { background: #e3f2e8; color: #1e6b3a; }
+.ev-rsvp-badge.ng { background: #fde2e2; color: #9b1c1c; }
+.ev-rsvp-btn { margin-left: auto; padding: 6px 14px; border-radius: 999px; background: var(--main); color: #fff !important; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.ev-rsvp-btn:hover { background: var(--main-dark); }
+@media (max-width: 600px) { .ev-rsvp-btn { margin-left: 0; width: 100%; text-align: center; } }
+.event-item > div { min-width: 0; overflow-wrap: anywhere; }
+/* 行事の内容の見出しは、ページの見出し（帯付き）ではなく小さめに */
+.content .ev-body h2, .content .ev-body h3, .content .ev-body h4 { margin: 14px 0 6px; padding: 0 0 0 10px; border: 0; border-left: 3px solid var(--main); background: none; font-size: 15.5px; line-height: 1.5; }
+.ev-body ul, .ev-body ol { padding-left: 1.4em; margin: 6px 0; }
+.ev-body p { margin: 6px 0; color: var(--text); }
+.ev-rsvp-btn { white-space: normal; box-sizing: border-box; }
+@media (max-width: 600px) { .ev-rsvp-btn .pc { display: none; } }

@@ -3,7 +3,7 @@
 // ============================================================
 import {
   onAuth, logout, resetPassword, getMember, updateProfile, getMemberNews, getMemberDocs,
-  getEvents, getMyRsvps, rsvp, errorMessage, MEMBER_TYPES, STATUS_LABEL, OCCUPATIONS, saveCardSignature,
+  getEvents, getMyRsvps, rsvp, errorMessage, MEMBER_TYPES, STATUS_LABEL, OCCUPATIONS, saveCardSignature, eventRsvpState,
   requestSignatureRewrite, canChangeEmail, requestEmailChange, syncMemberEmail,
   requestTypeChange, cancelTypeChange, compressImage
 } from "./member-api.js";
@@ -332,6 +332,11 @@ function renderNews() {
 // ============================================================
 let evFilter = "upcoming";
 routeOf("events").after = () => {
+  // 内容（装飾つき HTML は安全な形にしてから）を表示
+  document.querySelectorAll("[data-ev-body]").forEach(el => {
+    const ev = (state.events || []).find(x => x.id === el.dataset.evBody);
+    if (ev?.bodyHtml) renderRich(el, ev);
+  });
   document.querySelectorAll("[data-evf]").forEach(b => b.addEventListener("click", () => { evFilter = b.dataset.evf; rerender(); }));
   document.querySelectorAll("[data-rsvp]").forEach(b => b.addEventListener("click", () => toggleRsvp(b)));
 };
@@ -354,14 +359,17 @@ function renderEvents() {
     const d = new Date(e.date + "T00:00:00");
     const past = e.date < t;
     const on = state.rsvps.has(e.id);
+    const rs = eventRsvpState(e, t);
+    const time = e.startTime ? `　${esc(e.startTime)}${e.endTime ? "〜" + esc(e.endTime) : ""}` : "";
     return `<article class="ev${past ? " is-past" : ""}">
       <div class="ev-top">
         <div class="ev-date"><div class="m">${d.getMonth() + 1}月</div><div class="d">${d.getDate()}</div><div class="y">${WEEK[d.getDay()]}曜日</div></div>
         <div class="ev-head"><h4>${esc(e.title)}</h4>
-          <div class="meta">${icon("cal")}${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${WEEK[d.getDay()]}）</div>
-          ${e.place ? `<div class="meta">${icon("pin")}${esc(e.place)}</div>` : ""}</div>
+          <div class="meta">${icon("cal")}${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${WEEK[d.getDay()]}）${time}</div>
+          ${e.place ? `<div class="meta">${icon("pin")}${esc(e.place)}</div>` : ""}
+          ${!past && e.rsvpOpen !== false ? `<div class="ev-cap">${rs.label ? `<span class="ev-badge ${rs.open ? "ok" : "ng"}">${rs.label}</span>` : ""}${rs.cap ? `<span>定員 ${rs.cap} 名・残り <b>${rs.remaining}</b> 名</span>` : "<span>定員なし</span>"}${e.rsvpDeadline ? `<span>締切 ${esc(e.rsvpDeadline.replace(/-/g, "/"))}</span>` : ""}</div>` : ""}</div>
       </div>
-      ${e.description ? `<div class="desc">${esc(e.description)}</div>` : '<div class="desc"></div>'}
+      <div class="desc rich-body" data-ev-body="${esc(e.id)}">${e.bodyHtml ? "" : esc(e.description || "")}</div>
       ${on || past ? `<div class="ev-status${on ? " on" : ""}">${past ? (on ? "✓ この行事に参加しました" : "この行事は終了しました") : "✓ 参加登録済みです"}</div>` : ""}
       ${evActions(e, past, on)}
     </article>`;
@@ -370,11 +378,13 @@ function renderEvents() {
 
 // 行事カードの下のボタン（詳細・参加登録・取り消し）。ボタンが無いときは何も出さない
 function evActions(e, past, on) {
+  const rs = eventRsvpState(e, today());
   const btns = [
     e.url ? `<a class="lux-btn ghost" href="${esc(e.url)}" target="_blank" rel="noopener">詳細を見る ${icon("ext")}</a>` : "",
-    past ? "" : on
+    past || e.rsvpOpen === false ? "" : on
       ? `<button type="button" class="lux-btn ghost ev-cancel" data-rsvp="${esc(e.id)}">登録を取り消す</button>`
-      : `<button type="button" class="lux-btn" data-rsvp="${esc(e.id)}">参加登録する</button>`
+      : rs.open ? `<button type="button" class="lux-btn" data-rsvp="${esc(e.id)}">参加登録する</button>`
+      : `<button type="button" class="lux-btn" disabled>${esc(rs.label === "満員" ? "満員のため受付終了" : "受付は終了しました")}</button>`
   ].filter(Boolean);
   return btns.length ? `<div class="ev-actions">${btns.join("")}</div>` : '<div class="ev-pad"></div>';
 }
@@ -389,8 +399,10 @@ async function toggleRsvp(btn) {
   join ? state.rsvps.add(id) : state.rsvps.delete(id);
   rerender();
   try {
-    await rsvp(id, state.member, join);
-    toast(join ? `「${ev.title}」に参加登録しました` : `「${ev.title}」の参加登録を取り消しました`);
+    const res = await rsvp(id, state.member, join);
+    ev.rsvpCount = res.count;
+    rerender();
+    toast(join ? `「${ev.title}」に参加登録しました。確認メールをお送りしました` : `「${ev.title}」の参加登録を取り消しました`);
   } catch (e) {
     console.error(e);
     join ? state.rsvps.delete(id) : state.rsvps.add(id);

@@ -128,6 +128,9 @@ Object.assign(exports, require("./tickets")({
   ANTHROPIC_API_KEY: aiOperator.ANTHROPIC_API_KEY, mailSecrets: opts.secrets
 }));
 
+// ---------- 行事へのワンクリック参加登録（中身は events.js） ----------
+Object.assign(exports, require("./events")({ onCall, HttpsError, getFirestore, FieldValue, logger, sendAll, mails, mailSecrets: opts.secrets }));
+
 // ---------- 管理画面：お問い合わせ（以前のフォーム）へ担当者が返信 ----------
 exports.replyContact = onCall({ secrets: opts.secrets, maxInstances: 3 }, async (req) => {
   const db = getFirestore();
