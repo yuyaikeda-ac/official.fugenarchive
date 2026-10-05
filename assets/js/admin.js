@@ -1000,7 +1000,7 @@ function renderContacts(sub = "") {
     tb.innerHTML = list.length ? list.map(t => `<tr class="clickable${t.unreadStaff ? " is-unread" : ""}" data-ticket="${esc(t.id)}">
       <td class="st">${ticketStatusPill(t)}${t.priority ? priorityPill(t) : ""}${t.unreadStaff ? pill("ng", "未読") : ""}</td>
       <td class="main"><b>${t.unreadStaff ? '<i class="unread-dot" title="未読"></i>' : ""}${esc(t.name || "（お名前なし）")}</b>
-        <span class="sub">${esc(t.no || "")}${t.category ? `・${esc(t.category)}` : ""}</span><span class="sub">${esc(t.email || "")}</span></td>
+        <span class="sub">${esc(t.no || "")}${t.category ? `・${esc(t.category)}` : ""}</span><span class="sub">${esc(t.email || "")}</span>${t.assignee?.name && t.status !== "ai" ? `<span class="sub">担当：${esc(t.assignee.name)}</span>` : ""}</td>
       <td class="msg-cell">${esc(t.summary || t.lastText || "")}${t.summary && t.lastText ? `<span class="sub">最新：${esc({ customer: "お客様", ai: "AI", staff: "担当者", system: "システム" }[t.lastFrom] || "")}「${esc(t.lastText)}」</span>` : ""}</td>
       <td data-label="更新">${fmtDT(t.updatedAt)}</td>
       <td class="act"><button class="btn btn-sm" data-ticket="${esc(t.id)}">開く</button></td></tr>`).join("")
@@ -1037,18 +1037,18 @@ function openTicket(id) {
   drawerStop?.(); drawerStop = null;
   const body = openDrawer("お問い合わせ", `
     <div id="tk-head"><div class="loading"><span class="spin"></span> 読み込み中…</div></div>
+    <div class="tk-assign" id="tk-assign"></div>
     <div id="tk-ai"></div>
     <h3 class="ct-h">会話</h3>
     <div class="tk-thread" id="tk-thread"></div>
     <form class="tk-compose" id="tk-form">
-      <label class="fld"><span>担当者として返信（お客様にメールで通知されます）</span>
+      <label class="fld"><span id="tk-text-label">担当者として返信（お客様にメールで通知されます）</span>
         <textarea id="tk-text" rows="4" maxlength="5000" placeholder="返信を入力…"></textarea></label>
       <div class="tk-compose-row">
-        <label class="check"><input type="checkbox" id="tk-close"> 送信後に対応完了にする</label>
+        <label class="check"><input type="checkbox" id="tk-close"> お客様に「チャットを終了する／続ける」を選んでもらう</label>
         <span style="flex:1"></span>
         <button type="submit" class="btn btn-primary" id="tk-send">返信を送信</button>
       </div>
-      <div class="tk-actions" id="tk-actions"></div>
     </form>`);
   $("drawer").dataset.mode = "ticket";
   let t = null, markedRead = false, firstMsgs = true;
@@ -1063,27 +1063,69 @@ function openTicket(id) {
         <dt>チケット番号</dt><dd>${esc(t.no || id)}</dd>
         <dt>お名前</dt><dd>${esc(t.name || "（未確認）")}</dd>
         <dt>メール</dt><dd>${t.email ? `<a href="mailto:${esc(t.email)}">${esc(t.email)}</a>` : "（未確認）"}</dd>
+        <dt>担当者</dt><dd>${t.assignee?.name ? esc(t.assignee.name) : "（未定）"}</dd>
       </dl>`;
     body.querySelector("#tk-ai").innerHTML = t.summary || t.todoForStaff ? `
       <div class="ct-ai">
         ${t.summary ? `<p><b>AI の要約：</b>${esc(t.summary)}</p>` : ""}
         ${t.todoForStaff ? `<p><b>担当者がすべきこと：</b>${esc(t.todoForStaff)}</p>` : ""}
       </div>` : "";
+    // 担当：返信できるのは「担当する」を押した人だけ（赤いボタンを上に大きく出す）
+    const mine = t.status === "staff" && t.assignee?.uid === currentAdmin?.uid;
+    const other = t.status === "staff" && t.assignee?.name && !mine;
     const btn = (status, label, cls = "") => `<button type="button" class="btn ${cls}" data-st="${status}">${label}</button>`;
-    body.querySelector("#tk-actions").innerHTML = [
-      t.status === "ai" || t.status === "waiting_staff" ? btn("staff", "担当者が引き継ぐ") : "",
-      t.status === "staff" || t.status === "waiting_staff" ? btn("ai", "AI に戻す") : "",
-      t.status !== "closed" ? btn("closed", "対応完了", "btn-ok") : btn("staff", "再開")
-    ].join("");
+    const form = body.querySelector("#tk-transfer");
+    const transferOpen = form && !form.hidden;
+    const keep = transferOpen ? { to: body.querySelector("#tk-to").value, note: body.querySelector("#tk-note").value } : null;
+    body.querySelector("#tk-assign").innerHTML = `
+      <div class="tk-assign-main${mine ? " is-mine" : ""}">
+        ${mine
+          ? `<p><b>あなたが担当しています。</b>下の欄から返信できます。</p>`
+          : `<p>${t.status === "closed" ? "このお問い合わせは対応完了です。" : other ? `<b>${esc(t.assignee.name)} さんが担当しています。</b>` : "<b>担当者が決まっていません。</b>"}
+              返信するには、先に「担当する」を押してください。</p>
+            ${btn("staff", t.status === "closed" ? "再開して担当する" : other ? "自分が担当する（引き継ぐ）" : "担当する", "btn-take")}`}
+        <div class="tk-assign-sub">
+          <button type="button" class="btn" id="tk-transfer-btn">転送…</button>
+          ${t.status === "staff" || t.status === "waiting_staff" ? btn("ai", "AI に戻す") : ""}
+          ${t.status !== "closed" ? btn("closed", "強制終了", "btn-danger") : ""}
+        </div>
+      </div>
+      <form class="tk-transfer" id="tk-transfer"${transferOpen ? "" : " hidden"}>
+        <label class="fld"><span>転送先の管理者（その人が担当者になり、メールで知らせます）</span>
+          <select id="tk-to" required><option value="">読み込み中…</option></select></label>
+        <label class="fld"><span>メモ（任意。転送先へのメールとチャットの記録に残ります）</span>
+          <textarea id="tk-note" rows="2" maxlength="1000" placeholder="例：入会の件なので対応をお願いします"></textarea></label>
+        <div class="tk-compose-row"><span style="flex:1"></span>
+          <button type="button" class="btn" id="tk-transfer-cancel">やめる</button>
+          <button type="submit" class="btn btn-primary" id="tk-transfer-send">転送する</button></div>
+      </form>`;
+    if (keep) { body.querySelector("#tk-note").value = keep.note; loadTransferTargets(keep.to); }
+    // 返信欄：担当していないときは入力できない
+    for (const el of body.querySelectorAll("#tk-text, #tk-close, #tk-send")) el.disabled = !mine;
+    body.querySelector("#tk-text").placeholder = mine ? "返信を入力…" : "上の「担当する」を押すと入力できます";
+    body.querySelector("#tk-text-label").textContent = mine ? "担当者として返信（お客様にメールで通知されます）" : "返信（上の「担当する」を押すと入力できます）";
+  };
+  // 転送先：自分以外の管理者
+  let transferTargets = null;
+  const loadTransferTargets = async (keepTo = "") => {
+    try {
+      transferTargets ??= (await adminApi.listAll("admins")).filter(a => a.id !== currentAdmin?.uid);
+      const sel = body.querySelector("#tk-to");
+      if (!sel) return;
+      sel.innerHTML = transferTargets.length
+        ? '<option value="">選んでください</option>' + transferTargets.map(a => `<option value="${esc(a.id)}">${esc(a.name || a.email || a.id)}${a.email ? `（${esc(a.email)}）` : ""}${t?.assignee?.uid === a.id ? "・担当中" : ""}</option>`).join("")
+        : '<option value="">ほかの管理者がいません</option>';
+      sel.value = keepTo;
+    } catch (err) { fail("管理者を読み込めませんでした")(err); }
   };
   const FROM = { customer: "お客様", ai: "AI オペレータ", staff: "担当者", system: "" };
   const renderThread = (msgs) => {
     const box = body.querySelector("#tk-thread");
     const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
     box.innerHTML = msgs.length ? msgs.map(m => m.from === "system"
-      ? `<div class="tk-sys">${linkify(m.text || "")}<small>${fmtDT(m.at)}</small></div>`
+      ? `<div class="tk-sys${m.internal ? " is-internal" : ""}">${m.internal ? "🔒 " : ""}${linkify(m.staffText || m.text || "")}<small>${m.internal ? "管理者のみ・" : ""}${fmtDT(m.at)}</small></div>`
       : `<div class="tk-msg from-${esc(m.from)}">
-          <div class="tk-meta">${esc(m.from === "customer" ? `お客様（${t?.name || ""}）` : m.from === "staff" ? `担当者${m.staffName ? `（${m.staffName}）` : ""}` : FROM[m.from] || m.from)}・${fmtDT(m.at)}</div>
+          <div class="tk-meta">${esc(m.from === "customer" ? `お客様（${t?.name || ""}）` : m.from === "staff" ? `担当者${m.staffName ? `（${m.staffName}）` : ""}` : FROM[m.from] || m.from)}・${fmtDT(m.at)}${m.askClose ? `・終了の確認つき${m.askAnswered === "continue" ? "（お客様：続ける）" : ""}` : ""}</div>
           <div class="tk-bubble">${linkify(m.text || "")}</div></div>`).join("")
       : '<div class="empty">メッセージはまだありません。</div>';
     // 最初に開いたとき・最新を見ているときは、いちばん下（最新のメッセージ）へ
@@ -1107,16 +1149,42 @@ function openTicket(id) {
   }, fail("会話を読み込めませんでした"));
   drawerStop = () => { stopTicket(); stopMsgs(); };
 
-  // 状態の変更
-  body.querySelector("#tk-actions").addEventListener("click", async (e) => {
+  // 担当・状態の変更・転送
+  body.querySelector("#tk-assign").addEventListener("click", async (e) => {
+    if (!t) return;
+    const form = body.querySelector("#tk-transfer");
+    if (e.target.closest("#tk-transfer-btn")) { form.hidden = !form.hidden; if (!form.hidden) loadTransferTargets(); return; }
+    if (e.target.closest("#tk-transfer-cancel")) { form.hidden = true; return; }
     const b = e.target.closest("[data-st]");
-    if (!b || !t) return;
+    if (!b) return;
     const status = b.dataset.st;
-    const msg = { staff: "担当者が対応します（AI は返信しなくなります）。", ai: "AI オペレータの対応に戻します。", closed: "このお問い合わせを対応完了にします。" }[status];
+    const msg = {
+      staff: t.status === "staff" && t.assignee?.name ? `${t.assignee.name} さんから担当を引き継ぎます。` : "あなたが担当します（AI は返信しなくなります）。",
+      ai: "AI オペレータの対応に戻します。", closed: "お客様の確認なしで、このお問い合わせを終了します（お客様はこのチャットで送信できなくなります）。"
+    }[status];
     if (!window.confirm(`${msg}よろしいですか？`)) return;
     b.disabled = true;
-    try { await callFn("ticketSetStatus", { id, status }); toast({ staff: "担当者が引き継ぎました。", ai: "AI の対応に戻しました。", closed: "対応完了にしました。" }[status]); }
-    catch (err) { fail("変更に失敗しました")(err); b.disabled = false; }
+    try {
+      await callFn("ticketSetStatus", { id, status });
+      toast({ staff: "担当になりました。返信を入力できます。", ai: "AI の対応に戻しました。", closed: "お問い合わせを終了しました。" }[status]);
+      if (status === "staff") setTimeout(() => body.querySelector("#tk-text")?.focus(), 300);
+    } catch (err) { fail("変更に失敗しました")(err); b.disabled = false; }
+  });
+  body.querySelector("#tk-assign").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!t) return;
+    const to = body.querySelector("#tk-to").value, note = body.querySelector("#tk-note").value.trim();
+    const target = transferTargets?.find(a => a.id === to);
+    if (!target) return toast("転送先の管理者を選んでください。", "error");
+    const name = target.name || target.email;
+    if (!window.confirm(`${name} さんに転送します（${name} さんが担当者になり、メールで知らせます）。よろしいですか？`)) return;
+    const btn = body.querySelector("#tk-transfer-send");
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span> 転送中…';
+    try {
+      await callFn("ticketTransfer", { id, to, note });
+      body.querySelector("#tk-transfer").hidden = true;
+      toast(`${name} さんに転送しました。`);
+    } catch (err) { fail("転送に失敗しました")(err); btn.disabled = false; btn.textContent = "転送する"; }
   });
   // 返信
   body.querySelector("#tk-form").addEventListener("submit", async (e) => {
@@ -1124,16 +1192,16 @@ function openTicket(id) {
     if (!t) return;
     const text = $("tk-text").value.trim();
     if (text.length < 2) return toast("返信を入力してください。", "error");
-    const close = $("tk-close").checked;
-    if (!window.confirm(`${t.email || "お客様"} にメールでも通知されます。${close ? "送信後に対応完了にします。" : ""}送信しますか？`)) return;
+    const askClose = $("tk-close").checked;
+    if (!window.confirm(`${t.email || "お客様"} にメールでも通知されます。${askClose ? "お客様に「チャットを終了する／続ける」のボタンを表示します。" : ""}送信しますか？`)) return;
     const btn = $("tk-send");
     btn.disabled = true; btn.innerHTML = '<span class="spin"></span> 送信中…';
     try {
-      await callFn("ticketStaffReply", { id, text, close });
+      await callFn("ticketStaffReply", { id, text, askClose });
       $("tk-text").value = ""; $("tk-close").checked = false;
       toast("返信を送信しました。お客様にメールで通知しました。");
     } catch (err) { fail("送信に失敗しました")(err); }
-    finally { btn.disabled = false; btn.textContent = "返信を送信"; }
+    finally { btn.disabled = !(t.status === "staff" && t.assignee?.uid === currentAdmin?.uid); btn.textContent = "返信を送信"; }
   });
 }
 

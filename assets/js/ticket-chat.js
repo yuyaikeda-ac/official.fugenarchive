@@ -80,18 +80,18 @@ function bubble(m) {
   </div>`;
 }
 
-// AI が終了を確認した返事の下に出すボタン（最新の AI の返事で、そのあとにお客様が発言していないときだけ）
+// AI・担当者が終了を確認した返事の下に出すボタン（最新の返事で、そのあとにお客様が発言していないときだけ）
 let dismissedAsk = "";
 function askCloseHtml() {
   const t = state.ticket;
-  if (t.status !== "ai" || sending) return "";
+  if (t.status === "closed" || sending) return "";
   const last = state.messages[state.messages.length - 1];
-  if (!last || last.from !== "ai" || !last.askClose || dismissedAsk === last.id) return "";
-  return `<div class="tk-ask" role="group" aria-label="お問い合わせを終了しますか">
+  if (!last || (last.from !== "ai" && last.from !== "staff") || !last.askClose || dismissedAsk === last.id) return "";
+  return `<div class="tk-ask" role="group" aria-label="チャットを終了しますか">
     <p>ご質問は解決しましたか？</p>
     <div class="tk-ask-btns">
-      <button type="button" class="tk-ask-yes" data-ask="close">${ICON.check || "✓"} 解決したので終了する</button>
-      <button type="button" class="tk-ask-no" data-ask="more">まだ質問がある</button>
+      <button type="button" class="tk-ask-yes" data-ask="close">${ICON.check || "✓"} チャットを終了する</button>
+      <button type="button" class="tk-ask-no" data-ask="more">チャットを続ける</button>
     </div>
   </div>`;
 }
@@ -189,7 +189,7 @@ async function closeTicket(resolved = false) {
   catch (e) { console.error(e); toastError(errText(e)); }
 }
 
-// 「解決したので終了する」「まだ質問がある」
+// 「チャットを終了する」「チャットを続ける」（どちらを選んだかは担当者にも伝わる）
 document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-ask]");
   if (!b) return;
@@ -197,8 +197,10 @@ document.addEventListener("click", (e) => {
     b.disabled = true;
     closeTicket(true);
   } else {
-    dismissedAsk = state.messages[state.messages.length - 1]?.id || "";
+    const mid = state.messages[state.messages.length - 1]?.id || "";
+    dismissedAsk = mid;
     renderLog();
+    call("ticketContinue", { id, token, mid }).then(r => apply(r, true)).catch(err => console.warn(err));
     const ta = document.getElementById("tk-text");
     ta?.focus();
     ta?.scrollIntoView({ block: "center", behavior: "smooth" });

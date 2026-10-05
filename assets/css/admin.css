@@ -439,17 +439,31 @@ dialog::backdrop { background: rgba(10,18,32,.55); backdrop-filter: blur(2px); }
 .tk-msg.from-staff .tk-bubble a { color: #bcd4ff; }
 .tk-sys { align-self: center; max-width: 90%; padding: 4px 12px; border-radius: 99px; background: #e6ebf2; color: var(--muted); font-size: 12px; text-align: center; white-space: pre-wrap; }
 .tk-sys small { margin-left: 6px; opacity: .8; }
+.tk-sys.is-internal { background: #fff6dc; color: #7a5a10; border-radius: 10px; }
 .tk-compose { position: sticky; bottom: 0; z-index: 3; margin: 16px -22px 0; padding: 14px 22px; background: #fff; border-top: 1px solid var(--line); }
 .tk-compose .fld { margin-bottom: 8px; }
 .tk-compose textarea { min-height: 84px; }
 .tk-compose-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.tk-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
-.tk-actions:empty { display: none; }
+/* 担当（返信するには「担当する」を押す）・転送 */
+.tk-assign { margin: 0 0 16px; }
+.tk-assign:empty { display: none; }
+.tk-assign-main { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 14px 16px; border-radius: 12px; border: 1px solid #f0c8c3; background: #fdf3f2; }
+.tk-assign-main.is-mine { border-color: #bfe3cb; background: #f0faf3; }
+.tk-assign-main p { flex: 1 1 260px; margin: 0; font-size: 13.5px; line-height: 1.7; }
+.tk-assign-sub { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn-take { padding: 11px 22px; background: var(--danger); border-color: var(--danger); color: #fff; font-size: 15px; font-weight: 700; }
+.btn-take:hover { background: #a5301f; border-color: #a5301f; color: #fff; }
+.tk-transfer { margin-top: 10px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line); background: #f8fafc; }
+.tk-transfer .fld { margin-bottom: 10px; }
+.tk-transfer select { width: 100%; }
+.tk-compose textarea:disabled { background: #f1f4f8; cursor: not-allowed; }
 @media (max-width: 860px) {
   .tk-compose { position: static; margin: 16px -14px 0; padding: 12px 14px max(16px, env(safe-area-inset-bottom)); }
   .tk-msg { max-width: 92%; }
   .tk-thread { max-height: none; }
   .tk-compose-row .btn-primary { flex: 1 1 100%; }
+  .btn-take { flex: 1 1 100%; }
+  .tk-assign-sub { flex: 1 1 100%; }
 }
 
 /* 入力パネルの区切り見出し（行事の「参加登録」など） */

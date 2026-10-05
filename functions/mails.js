@@ -467,7 +467,7 @@ ${text.trim()}
 ▼ このお問い合わせの専用チャット（返信・続きはこちらから）
 ${link}
 ※ このリンクはお客様専用です。他の方に転送しないでください。
-${askClose && !closed ? "\n解決した場合は、専用チャットの「解決したので終了する」ボタンでお問い合わせを終了できます。\n" : ""}${closed ? "\nこのお問い合わせは完了となりました。新しいお問い合わせはお問い合わせページからお送りください。\n" : ""}${from === "ai" ? `
+${askClose && !closed ? "\n解決した場合は、専用チャットの「チャットを終了する」ボタンでお問い合わせを終了できます。\n" : ""}${closed ? "\nこのお問い合わせは完了となりました。新しいお問い合わせはお問い合わせページからお送りください。\n" : ""}${from === "ai" ? `
 ※ 担当者からの返信は、通常 3 営業日以内（土日祝日・年末年始などの長期休暇を除く）にお送りします。
 ※ AI オペレータの返信は自動で作成しています。担当者との対応をご希望の場合は、専用チャットの「担当者に相談する」を押してください。` : ""}
 ${signature()}`
@@ -498,6 +498,35 @@ ${escalated ? `■ 優先度　：${t.priorityLabel || "—"}
 
 ■ これまでのやりとり
 ` : "■ お客様の返信\n"}${text}
+`
+  }];
+}
+
+// ---------- お問い合わせの転送（管理画面で「転送」→ 選んだ管理者へ） ----------
+function ticketTransferred({ to, toName, fromName, note, ticket: t, text, adminLink }) {
+  return [{
+    to,
+    subject: `【お問い合わせ・転送】${t.no} ${t.category || ""}：${t.name || ""} 様（${fromName} さんから）`,
+    text:
+`${toName} さん
+
+${fromName} さんから、お問い合わせが転送されました。担当者はあなたになっています。
+返信は管理画面から行ってください（お客様へメールが届き、専用チャットにも表示されます）。
+
+▼ 管理画面
+${adminLink}
+${note ? `
+■ ${fromName} さんからのメモ
+${note}
+` : ""}
+■ チケット：${t.no}（${t.category || "—"}）
+■ お名前　：${t.name || "—"}
+■ メール　：${t.email || "—"}
+■ AI の要約：${t.summary || "—"}
+■ 担当者がすべきこと：${t.todoForStaff || "—"}
+
+■ これまでのやりとり
+${text}
 `
   }];
 }
@@ -675,4 +704,4 @@ ${CONFIG.siteUrl}/admin.html#polls/${p.id}
   }];
 }
 
-module.exports = {CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided , contactAiReply, passwordResetByAi, contactAiNotify, contactStaffReply , ticketReplyToCustomer, ticketToStaff , loginGuideByAi , eventRsvpMail, memberNotice, pollOpened, voteReceipt, pollAutoClosed };
+module.exports = {CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided , contactAiReply, passwordResetByAi, contactAiNotify, contactStaffReply , ticketReplyToCustomer, ticketToStaff , ticketTransferred , loginGuideByAi , eventRsvpMail, memberNotice, pollOpened, voteReceipt, pollAutoClosed };

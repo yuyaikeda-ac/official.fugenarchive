@@ -4,7 +4,8 @@
 //  ・お客様：ticketCreate でチケット発行 → ticket.html#ID.トークン の専用チャットでやりとり
 //            ticketGet / ticketSend / ticketClose（トークンで本人確認。トークンはメールのリンクにだけ入る）
 //  ・AI オペレータ（Claude）が 1 次対応。担当者が必要なら escalate_to_staff で引き継ぐ
-//  ・担当者：管理画面から ticketStaffReply / ticketSetStatus（管理者のみ）
+//  ・担当者：管理画面から ticketStaffReply / ticketSetStatus / ticketTransfer（管理者のみ）
+//            返信できるのは「担当する」を押した担当者（tickets/{id}.assignee）だけ。ほかの管理者へ転送もできる
 //  ・メール：AI・担当者の返信ごとにお客様へ。引き継ぎ時と、担当者の対応中にお客様が送信したときは委員会へ
 //  ・個人情報は pii.js で記号に置き換えてから Claude に渡す。記号と元の値の対応・会話の履歴・トークンは
 //    tickets/{id}/private/state（ブラウザからは読めない）にだけ保存
@@ -55,7 +56,7 @@ const SYSTEM = `あなたは「普賢アーカイブ運営委員会」のお問�
 - 審査の状況・会員の状態 → get_my_account_status（チケット発行時にログインしていた場合だけ確認できる。できなければ会員ログイン後の会員サイトで確認できると案内）
 - 行事 → get_upcoming_events、最新情報 → get_latest_news
 - 担当者が必要なとき（知識の「担当者の対応が必要なもの」・知識で確実に答えられないこと・お客様が人の対応を望むとき）→ 必要な内容を確認してから escalate_to_staff。その後「担当者から、このチャットとメールでご連絡します。返信は通常 3 営業日以内（土日祝日・年末年始などの長期休暇を除く）です」と伝える
-- お客様の質問に答え終わり、解決したと思われるとき → offer_to_close を呼び、返事の最後に「ほかにご質問がなければ、下の『解決したので終了する』ボタンでお問い合わせを終了できます」とひとこと添える。
+- お客様の質問に答え終わり、解決したと思われるとき → offer_to_close を呼び、返事の最後に「ほかにご質問がなければ、下の『チャットを終了する』ボタンでお問い合わせを終了できます」とひとこと添える。
   確認の質問をしている途中・担当者に引き継いだ後・お客様がまだ困っている様子のときは呼ばない
 
 # 安全のための決まり
@@ -81,7 +82,7 @@ const TOOLS = [
     description: "公式サイトの最新のお知らせ（日付・区分・タイトル・URL）を取得する。",
     input_schema: { type: "object", properties: {}, additionalProperties: false } },
   { name: "offer_to_close", strict: true,
-    description: "お客様の質問が解決したと思われるときに呼ぶ。チャット画面のあなたの返事の下に「解決したので終了する」「まだ質問がある」のボタンが表示される。",
+    description: "お客様の質問が解決したと思われるときに呼ぶ。チャット画面のあなたの返事の下に「チャットを終了する」「チャットを続ける」のボタンが表示される。",
     input_schema: { type: "object", properties: {}, additionalProperties: false } },
   { name: "escalate_to_staff", strict: true,
     description: "担当者（人）へ引き継ぐ。以後は担当者が対応し、あなたは返事をしない。委員会へ通知される。",
@@ -149,7 +150,8 @@ module.exports = function tickets({ onCall, HttpsError, getFirestore, getAuth, F
     const d = t.data();
     return {
       ticket: { id: ref.id, no: d.no, category: d.category, status: d.status, statusLabel: STATUS_LABEL[d.status] || d.status, name: d.name, createdAt: iso(d.createdAt), updatedAt: iso(d.updatedAt) },
-      messages: ms.docs.map(m => { const x = m.data(); return { id: m.id, from: x.from, text: x.text, at: iso(x.at), staffName: x.from === "staff" ? (x.staffName || "担当者") : "", askClose: !!x.askClose }; })
+      // internal（転送のメモなど、管理者だけが見る記録）はお客様に返さない
+      messages: ms.docs.filter(m => !m.get("internal")).map(m => { const x = m.data(); return { id: m.id, from: x.from, text: x.text, at: iso(x.at), staffName: x.from === "staff" ? (x.staffName || "担当者") : "", askClose: !!x.askClose && !x.askAnswered }; })
     };
   }
 
@@ -305,7 +307,7 @@ module.exports = function tickets({ onCall, HttpsError, getFirestore, getAuth, F
   async function transcript(ref) {
     const ms = await ref.collection("messages").orderBy("at").get();
     const who = { customer: "お客様", ai: "AI", staff: "担当者", system: "（案内）" };
-    return ms.docs.map(m => { const x = m.data(); return `${who[x.from] || x.from}：${x.text}`; }).join("\n\n");
+    return ms.docs.map(m => { const x = m.data(); return `${who[x.from] || x.from}：${x.staffText || x.text}`; }).join("\n\n");
   }
 
   /** お客様の発言を記号に置き換える */
@@ -383,7 +385,10 @@ module.exports = function tickets({ onCall, HttpsError, getFirestore, getAuth, F
     } else if (text) {
       // 担当者の対応中 → 委員会へ通知（AI は返事をしない）
       const fresh = (await ref.get()).data();
-      await sendAll(mails.ticketToStaff({ kind: "customer_message", ticket: fresh, text, adminLink: adminLink(ref.id) }), "チケット：お客様からの返信");
+      const toStaff = mails.ticketToStaff({ kind: "customer_message", ticket: fresh, text, adminLink: adminLink(ref.id) });
+      const a = fresh.assignee?.email;
+      if (a && !toStaff.some(m => String(m.to).toLowerCase() === a.toLowerCase())) toStaff.push({ ...toStaff[0], to: a });
+      await sendAll(toStaff, "チケット：お客様からの返信");
     }
     return publicView(ref);
   });
@@ -398,6 +403,20 @@ module.exports = function tickets({ onCall, HttpsError, getFirestore, getAuth, F
     return publicView(ref);
   });
 
+  // 「チャットを続ける」：終了の確認（askClose）に、お客様が続けると答えた
+  const ticketContinue = onCall({ maxInstances: 5 }, async (req) => {
+    const db = getFirestore();
+    const { ref, ticket } = await load(db, req.data?.id, req.data?.token);
+    const mid = req.data?.mid;
+    if (ticket.status === "closed" || typeof mid !== "string" || !mid) return publicView(ref);
+    const m = ref.collection("messages").doc(mid);
+    const snap = await m.get();
+    if (!snap.exists || !snap.get("askClose") || snap.get("askAnswered")) return publicView(ref);
+    await m.update({ askAnswered: "continue" });
+    await addMessage(ref, "system", "お客様が「チャットを続ける」を選びました。", {}, ticket.status === "staff" ? { unreadStaff: true } : {});
+    return publicView(ref);
+  });
+
   // ---------- 担当者（管理者）：返信・状態の変更 ----------
   async function requireAdmin(db, req) {
     const uid = req.auth?.uid;
@@ -405,21 +424,27 @@ module.exports = function tickets({ onCall, HttpsError, getFirestore, getAuth, F
     if (!snap?.exists) throw new HttpsError("permission-denied", "管理者のみ実行できます。");
     return snap.data();
   }
+  /** 担当者（一覧・詳細に表示し、返信できる人を決める） */
+  const assigneeOf = (uid, a, email = "") => ({ uid, name: a.name || a.email || email || "担当者", email: a.email || email || "" });
 
   const ticketStaffReply = onCall({ secrets: mailSecrets, maxInstances: 3 }, async (req) => {
     const db = getFirestore();
     const admin = await requireAdmin(db, req);
-    const { id, text, close } = req.data || {};
+    // askClose：お客様に「チャットを終了する／続ける」のボタンを表示する（終了するかはお客様が決める）
+    const { id, text, askClose } = req.data || {};
     const body = String(text || "").trim();
     if (typeof id !== "string" || !id) throw new HttpsError("invalid-argument", "チケットを指定してください。");
     if (body.length < 2 || body.length > 5000) throw new HttpsError("invalid-argument", "返信の本文を入力してください。");
     const ref = db.doc(`tickets/${id}`);
     const [t, p] = await Promise.all([ref.get(), ref.collection("private").doc("state").get()]);
     if (!t.exists) throw new HttpsError("not-found", "チケットが見つかりません。");
+    // 返信は「担当する」を押した担当者だけ（ほかの人が担当中・完了済みのときは、先に「担当する」を押す）
+    if (t.get("status") !== "staff" || t.get("assignee")?.uid !== req.auth.uid) {
+      throw new HttpsError("failed-precondition", "返信する前に「担当する」を押してください。");
+    }
     const staffName = admin.name || "担当者";
-    await addMessage(ref, "staff", body, { staffName, staffEmail: req.auth.token.email || "" },
-      { status: close ? "closed" : "staff", unreadStaff: false, ...(close ? { closedAt: FieldValue.serverTimestamp() } : {}) });
-    if (close) await addMessage(ref, "system", "担当者がお問い合わせを完了にしました。");
+    await addMessage(ref, "staff", body, { staffName, staffEmail: req.auth.token.email || "", ...(askClose ? { askClose: true } : {}) },
+      { status: "staff", unreadStaff: false });
     // AI の履歴にも残す（AI に戻したときに経緯がわかるように。個人情報は伏せる）
     const state = { map: JSON.parse(p.get("piiMap") || "{}"), history: JSON.parse(p.get("history") || "[]") };
     const masked = maskWithMap(body, { 氏名: [t.get("name")], メール: [t.get("email")] }, state.map);
@@ -427,13 +452,13 @@ module.exports = function tickets({ onCall, HttpsError, getFirestore, getAuth, F
     state.history.push({ role: "user", content: `（担当者が返信しました）\n${masked.masked}` }, { role: "assistant", content: [{ type: "text", text: "（担当者の返信を確認しました）" }] });
     await ref.collection("private").doc("state").set({ history: JSON.stringify(state.history), piiMap: JSON.stringify(state.map) }, { merge: true });
     const d = t.data();
-    await sendAll(mails.ticketReplyToCustomer({ to: d.email, name: d.name, no: d.no, link: link(id, p.get("token")), from: "staff", text: body, closed: !!close, category: d.category }), "チケット：担当者の返信");
+    await sendAll(mails.ticketReplyToCustomer({ to: d.email, name: d.name, no: d.no, link: link(id, p.get("token")), from: "staff", text: body, askClose: !!askClose, category: d.category }), "チケット：担当者の返信");
     return { ok: true };
   });
 
   const ticketSetStatus = onCall({ maxInstances: 3 }, async (req) => {
     const db = getFirestore();
-    await requireAdmin(db, req);
+    const admin = await requireAdmin(db, req);
     const { id, status, read } = req.data || {};
     if (typeof id !== "string" || !id) throw new HttpsError("invalid-argument", "チケットを指定してください。");
     const ref = db.doc(`tickets/${id}`);
@@ -444,15 +469,56 @@ module.exports = function tickets({ onCall, HttpsError, getFirestore, getAuth, F
     if (status) {
       if (!STATUS_LABEL[status]) throw new HttpsError("invalid-argument", "状態が正しくありません。");
       Object.assign(patch, { status, ...(status === "closed" ? { closedAt: FieldValue.serverTimestamp(), unreadStaff: false } : {}) });
+      // 「担当する」→ 押した人が担当者に。AI に戻したときは担当者なし
+      if (status === "staff") patch.assignee = assigneeOf(req.auth.uid, admin, req.auth.token.email);
+      if (status === "ai") patch.assignee = null;
     }
     if (!Object.keys(patch).length) return { ok: true };
+    const prev = t.get("assignee");
     await ref.update({ ...patch, updatedAt: FieldValue.serverTimestamp() });
-    const note = { staff: "担当者が対応を引き継ぎました。", ai: "AI オペレータの対応に戻りました。", closed: "担当者がお問い合わせを完了にしました。", waiting_staff: "担当者の確認待ちに戻しました。" }[status];
-    if (status && status !== t.get("status") && note) await addMessage(ref, "system", note);
+    if (status === "staff") {
+      // お客様には「担当者が引き継いだ」ことだけ。だれが担当かは管理者だけに見せる（staffText）
+      const was = t.get("status");
+      const staffText = prev?.uid && prev.uid !== req.auth.uid && was === "staff"
+        ? `${patch.assignee.name} さんが ${prev.name} さんから担当を引き継ぎました。`
+        : `${patch.assignee.name} さんが担当します。`;
+      if (was !== "staff") await addMessage(ref, "system", was === "closed" ? "担当者がお問い合わせを再開しました。" : "担当者が対応を引き継ぎました。", { staffText });
+      else if (prev?.uid !== req.auth.uid) await addMessage(ref, "system", staffText, { internal: true });
+    } else if (status && status !== t.get("status")) {
+      const note = { ai: "AI オペレータの対応に戻りました。", closed: "担当者がお問い合わせを終了しました。", waiting_staff: "担当者の確認待ちに戻しました。" }[status];
+      if (note) await addMessage(ref, "system", note);
+    }
     return { ok: true };
   });
 
-  return { ticketCreate, ticketGet, ticketSend, ticketClose, ticketStaffReply, ticketSetStatus };
+  // 転送：ほかの管理者を担当者にして、その人にメールで知らせる
+  const ticketTransfer = onCall({ secrets: mailSecrets, maxInstances: 3 }, async (req) => {
+    const db = getFirestore();
+    const admin = await requireAdmin(db, req);
+    const { id, to, note } = req.data || {};
+    const memo = String(note || "").trim().slice(0, 1000);
+    if (typeof id !== "string" || !id) throw new HttpsError("invalid-argument", "チケットを指定してください。");
+    if (typeof to !== "string" || !to) throw new HttpsError("invalid-argument", "転送先の管理者を選んでください。");
+    if (to === req.auth.uid) throw new HttpsError("invalid-argument", "自分には転送できません。");
+    const ref = db.doc(`tickets/${id}`);
+    const [t, target] = await Promise.all([ref.get(), db.doc(`admins/${to}`).get()]);
+    if (!t.exists) throw new HttpsError("not-found", "チケットが見つかりません。");
+    if (!target.exists) throw new HttpsError("not-found", "転送先の管理者が見つかりません。");
+    const assignee = assigneeOf(to, target.data());
+    if (!assignee.email) throw new HttpsError("failed-precondition", "転送先の管理者のメールアドレスがわかりません。");
+    const fromName = admin.name || admin.email || req.auth.token.email || "管理者";
+    const was = t.get("status");
+    await ref.update({ status: "staff", assignee, unreadStaff: true, updatedAt: FieldValue.serverTimestamp() });
+    // 転送の記録（メモ・名前）は管理者だけ。担当者がいなかったときは、お客様には「担当者が引き継いだ」とだけ出す
+    const staffText = `${fromName} さんが ${assignee.name} さんに転送しました。${memo ? `\n（メモ）${memo}` : ""}`;
+    if (was === "staff") await addMessage(ref, "system", staffText, { internal: true });
+    else await addMessage(ref, "system", was === "closed" ? "担当者がお問い合わせを再開しました。" : "担当者が対応を引き継ぎました。", { staffText });
+    const fresh = (await ref.get()).data();
+    await sendAll(mails.ticketTransferred({ to: assignee.email, toName: assignee.name, fromName, note: memo, ticket: fresh, text: await transcript(ref), adminLink: adminLink(id) }), "チケット：転送");
+    return { ok: true, assignee };
+  });
+
+  return { ticketCreate, ticketGet, ticketSend, ticketClose, ticketStaffReply, ticketSetStatus, ticketTransfer, ticketContinue };
 };
 
 module.exports.maskWithMap = maskWithMap;
