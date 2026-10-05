@@ -25,13 +25,13 @@ import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/
 //  コレクションごとの入力項目
 //  ★ 項目を追加したい場合はここに1行追加するだけで、編集パネルと一覧に反映されます。
 //    type: text | date | textarea | select | checkbox | url | rich（高機能エディタ。bodyHtml と body に保存）
-//    list: true で一覧に表示
+//    list: true で一覧に表示／today: true で新規作成のとき今日の日付を最初から入れる
 // ============================================================
 const SCHEMA = {
   news: {
     label: "お知らせ", order: "date",
     fields: [
-      { key: "date", label: "日付", type: "date", required: true, list: true, half: true },
+      { key: "date", label: "日付", type: "date", today: true, required: true, list: true, half: true },
       { key: "category", label: "区分", type: "select", options: Object.fromEntries(NEWS_CATEGORIES.map(c => [c.key, c.label])), required: true, list: true, half: true },
       { key: "title", label: "タイトル", type: "text", required: true, list: true },
       { key: "important", label: "「重要」ラベルを付ける", type: "checkbox", list: true },
@@ -42,7 +42,7 @@ const SCHEMA = {
   member_news: {
     label: "会員向けお知らせ", order: "date",
     fields: [
-      { key: "date", label: "日付", type: "date", required: true, list: true },
+      { key: "date", label: "日付", type: "date", today: true, required: true, list: true },
       { key: "title", label: "タイトル", type: "text", required: true, list: true },
       { key: "important", label: "「重要」ラベルを付ける", type: "checkbox", list: true },
       { key: "body", label: "本文", type: "rich" }
@@ -61,7 +61,7 @@ const SCHEMA = {
   member_docs: {
     label: "会員限定資料", order: "date",
     fields: [
-      { key: "date", label: "掲載日", type: "date", required: true, list: true, half: true },
+      { key: "date", label: "掲載日", type: "date", today: true, required: true, list: true, half: true },
       { key: "category", label: "分類（会議資料・活動報告 など）", type: "text", list: true, half: true },
       { key: "title", label: "資料名", type: "text", required: true, list: true },
       { key: "description", label: "説明", type: "textarea" },
@@ -505,8 +505,11 @@ async function renderContent(name, sub = "") {
 const textToHtml = (t) => (t || "").split(/\r?\n/).map(l => `<p>${l ? esc(l) : "<br>"}</p>`).join("");
 
 /** 入力欄の HTML（SCHEMA の 1 項目） */
+/** 今日の日付（日本時間、YYYY-MM-DD） */
+const todayJst = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+
 function fieldHtml(f, row) {
-  const v = esc(row?.[f.key] ?? "");
+  const v = esc(row?.[f.key] ?? (!row && f.today ? todayJst() : ""));
   const req = f.required ? " required" : "";
   const reqMark = f.required ? '<span class="req">必須</span>' : "";
   if (f.type === "checkbox") return `<label class="check"><input type="checkbox" name="${f.key}"${row?.[f.key] ? " checked" : ""}> ${esc(f.label)}</label>`;
