@@ -283,13 +283,28 @@ dialog::backdrop { background: rgba(10,18,32,.55); backdrop-filter: blur(2px); }
   .toolbar .search { max-width: none; flex: 1 1 100%; }
   .drawer-body { padding: 16px 14px 0; }
   .drawer-foot { margin: 20px -14px 0; padding: 12px 14px; }
-  /* 表はカード状に並べる */
+  /* 表はカード状に並べる
+     ・タイトル／名前（td.main）を一番上に大きく
+     ・ほかの項目は「ラベル 値」を横に詰めて折り返し、空の項目は表示しない
+     ・ボタン（td.act）は一番下に並べる */
   .tbl.cards thead { display: none; }
-  .tbl.cards, .tbl.cards tbody, .tbl.cards tr, .tbl.cards td { display: block; width: 100%; }
-  .tbl.cards tr { padding: 10px 4px; border-bottom: 1px solid var(--line); }
-  .tbl.cards td { padding: 3px 12px; border: 0; }
-  .tbl.cards td.act { text-align: left; padding-top: 8px; white-space: normal; }
-  .tbl.cards td[data-label]::before { content: attr(data-label) "："; color: var(--muted); font-size: 11px; }
+  .tbl.cards, .tbl.cards tbody { display: block; width: 100%; }
+  .tbl.cards tr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .tbl.cards tr:last-child { border-bottom: 0; }
+  .tbl.cards tr > th { flex: 1 1 100%; padding: 4px 0; background: none; }
+  .tbl.cards td { display: block; width: auto; min-width: 0; padding: 0; border: 0; font-size: 12.5px; line-height: 1.6; }
+  .tbl.cards td:empty { display: none; }
+  .tbl.cards td.main { order: -1; flex: 1 1 100%; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+  .tbl.cards td.main .sub { font-size: 12.5px; }
+  .tbl.cards td.st { order: -2; flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 6px; }
+  .tbl.cards td:not(.main) .sub { display: inline; margin-left: 6px; }
+  .tbl.cards td.msg-cell, .tbl.cards td.rv-reason { flex: 1 1 100%; max-width: none; padding: 8px 10px; border-radius: 8px; background: var(--bg, #f5f7fa); white-space: pre-wrap; }
+  .tbl.cards td.act { order: 99; flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 6px; padding-top: 6px; text-align: left; white-space: normal; }
+  .tbl.cards td.act .btn { margin: 0; }
+  .tbl.cards td.empty { flex: 1 1 100%; }
+  .tbl.cards td[data-label]::before { content: attr(data-label); margin-right: 6px; color: var(--muted); font-size: 11px; }
+  .tbl.cards td .sub.hide-sm { display: none; }
+  .toolbar .sel { flex: 1 1 100%; }
 }
 @media (max-width: 520px) {
   .stats { grid-template-columns: 1fr 1fr; gap: 10px; }

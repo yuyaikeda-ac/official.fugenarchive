@@ -454,7 +454,7 @@ async function renderContent(name, sub = "") {
     const q = $("q").value.trim().toLowerCase();
     const list = rows.filter(r => !q || `${r.title} ${r.body || ""} ${r.place || ""} ${r.category || ""}`.toLowerCase().includes(q));
     $("tbl").querySelector("tbody").innerHTML = list.length ? list.map(r => `<tr>
-      ${cols.map(c => `<td data-label="${esc(c.label.replace(/（.*）/, ""))}">${c.key === "title" ? `<b>${cell(c, r)}</b>${r.bodyHtml ? ' <span class="pill info">装飾つき</span>' : ""}` : cell(c, r)}</td>`).join("")}
+      ${cols.map(c => `<td${c.key === "title" ? ' class="main"' : c.type === "checkbox" ? "" : ` data-label="${esc(c.label.replace(/（.*）/, ""))}"`}>${c.key === "title" ? `<b>${cell(c, r)}</b>${r.bodyHtml ? ' <span class="pill info">装飾つき</span>' : ""}` : cell(c, r)}</td>`).join("")}
       ${rsvpBy ? `<td data-label="参加登録">${(rsvpBy[r.id] || []).length} 名${(rsvpBy[r.id] || []).length ? `<span class="sub">${esc((rsvpBy[r.id] || []).join("、"))}</span>` : ""}</td>` : ""}
       <td class="act"><button class="btn btn-sm" data-edit="${esc(r.id)}">編集</button><button class="btn btn-sm btn-danger" data-del="${esc(r.id)}">削除</button></td></tr>`).join("")
       : `<tr><td colspan="${cols.length + 2}" class="empty">データがありません。</td></tr>`;
@@ -485,7 +485,7 @@ function fieldHtml(f, row) {
   const reqMark = f.required ? '<span class="req">必須</span>' : "";
   if (f.type === "checkbox") return `<label class="check"><input type="checkbox" name="${f.key}"${row?.[f.key] ? " checked" : ""}> ${esc(f.label)}</label>`;
   if (f.type === "rich") return `<div class="fld"><span>${esc(f.label)}</span><div data-rich="${f.key}"></div>
-    <span class="hint">画像はボタン・貼り付け・ドラッグ＆ドロップで挿入できます。画像をダブルクリックすると幅を変えられます。</span></div>`;
+    <span class="hint">画像はボタン・貼り付け・ドラッグ＆ドロップで挿入できます。画像をクリックすると、大きさ（小・中・大・全幅、右下の□をドラッグ）と位置（左・中央・右・回り込み）を変えられます。</span></div>`;
   let input;
   if (f.type === "textarea") input = `<textarea name="${f.key}"${req}>${v}</textarea>`;
   else if (f.type === "select") input = `<select name="${f.key}"${req}>${Object.entries(f.options).map(([k, l]) =>
@@ -610,11 +610,11 @@ async function renderMembers() {
       .filter(r => !q || `${r.name} ${r.kana || ""} ${r.email} ${r.memberNo || ""} ${r.affiliation || ""} ${r.occupation || ""}`.toLowerCase().includes(q))
       .sort((a, b) => (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1));
     $("tbl").querySelector("tbody").innerHTML = list.length ? list.map(r => `<tr>
-      <td data-label="状態">${pill(r.status, MEMBER_STATUS[r.status] || r.status)}${reviewBadge(reviewOf(reviews, r.id))}</td>
-      <td><b>${esc(r.name)}</b>（${esc(r.kana || "")}）<span class="sub"><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></span>${r.occupation || r.affiliation ? `<span class="sub">${esc([r.occupation, r.affiliation].filter(Boolean).join("／"))}</span>` : ""}</td>
-      <td data-label="種別">${esc(MEMBER_TYPE[r.type] || r.type)}<span class="sub">${r.memberNo ? esc(r.memberNo) : r.status === "pending" ? "承認時に自動付与" : "—"}</span>
+      <td class="st">${pill(r.status, MEMBER_STATUS[r.status] || r.status)}${reviewBadge(reviewOf(reviews, r.id))}</td>
+      <td class="main"><b>${esc(r.name)}</b>（${esc(r.kana || "")}）<span class="sub"><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></span>${r.occupation || r.affiliation ? `<span class="sub">${esc([r.occupation, r.affiliation].filter(Boolean).join("／"))}</span>` : ""}</td>
+      <td data-label="種別">${esc(MEMBER_TYPE[r.type] || r.type)}${r.memberNo ? `<span class="sub">${esc(r.memberNo)}</span>` : r.status === "pending" ? '<span class="sub hide-sm">承認時に自動付与</span>' : ""}
         ${r.type === "student" && r.status === "pending" ? `<button class="btn btn-sm" data-sid="${esc(r.id)}" style="margin-top:4px">学生証を見る</button>` : ""}</td>
-      <td data-label="申込日">${fmtD(r.createdAt)}<span class="sub">${fmtD(r.approvedAt)}</span></td>
+      <td data-label="申込日">${fmtD(r.createdAt)}${r.approvedAt ? `<span class="sub">承認 ${fmtD(r.approvedAt)}</span>` : ""}</td>
       <td class="act">
         ${reviewOf(reviews, r.id) || (r.status === "pending" && hasGroup) ? `<button class="btn btn-sm" data-review="${esc(r.id)}">審査状況</button>` : ""}
         ${r.status === "pending" ? `<button class="btn btn-sm btn-ok" data-approve="${esc(r.id)}">承認</button><button class="btn btn-sm btn-danger" data-reject="${esc(r.id)}">否認</button>` : ""}
@@ -714,7 +714,7 @@ async function renderContacts() {
     $("tbl").querySelector("tbody").innerHTML = list.length ? list.map(r => `<tr>
       <td data-label="受信">${fmtDT(r.createdAt)}</td>
       <td data-label="種別">${pill("info", r.subject || "")}</td>
-      <td>${esc(r.name)}<span class="sub"><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></span></td>
+      <td class="main"><b>${esc(r.name)}</b><span class="sub"><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></span></td>
       <td class="msg-cell">${esc(r.message)}</td>
       <td class="act"><a class="btn btn-sm" href="mailto:${esc(r.email)}?subject=${encodeURIComponent("Re: " + (r.subject || "お問い合わせ"))}">返信</a><button class="btn btn-sm btn-danger" data-del="${esc(r.id)}">削除</button></td></tr>`).join("")
       : '<tr><td colspan="5" class="empty">お問い合わせはありません。</td></tr>';
@@ -753,14 +753,14 @@ async function renderAdmins() {
       <thead><tr><th>役割</th><th>お名前 / メール</th><th>登録日</th><th></th></tr></thead>
       <tbody>
       ${admins.map(a => `<tr>
-        <td>${a.role === "owner" ? pill("gold", "オーナー") : pill("info", "管理者")}</td>
-        <td>${esc(a.name || "")}<span class="sub">${esc(a.email || a.id)}</span></td>
+        <td class="st">${a.role === "owner" ? pill("gold", "オーナー") : pill("info", "管理者")}</td>
+        <td class="main"><b>${esc(a.name || "")}</b><span class="sub">${esc(a.email || a.id)}</span></td>
         <td data-label="登録日">${fmtD(a.createdAt)}</td>
         <td class="act">${a.role === "owner" ? "" : `<button class="btn btn-sm btn-danger" data-deladmin="${esc(a.id)}">管理者から外す</button>`}</td></tr>`).join("")}
       <tr><th colspan="4">招待中（未登録）</th></tr>
       ${invites.length ? invites.map(i => `<tr>
-        <td>${pill("draft", "招待中")}</td>
-        <td>${esc(i.name || "")}<span class="sub">${esc(i.email)}</span></td>
+        <td class="st">${pill("draft", "招待中")}</td>
+        <td class="main"><b>${esc(i.name || "")}</b><span class="sub">${esc(i.email)}</span></td>
         <td data-label="招待日">${fmtD(i.createdAt)}</td>
         <td class="act"><button class="btn btn-sm" data-delinvite="${esc(i.id)}">招待を取り消す</button></td></tr>`).join("")
         : '<tr><td colspan="4" class="empty">招待中の方はいません。</td></tr>'}
@@ -848,9 +848,9 @@ async function openReviewView(m) {
       <div class="table-wrap"><table class="tbl cards rv-tbl">
         <thead><tr><th>理事</th><th>判断</th><th>理由</th><th>回答日時 / 依頼メール</th></tr></thead>
         <tbody>${voters.map(v => `<tr>
-          <td><b>${esc(v.name || "")}</b><span class="sub">${esc(v.email || "")}</span></td>
+          <td class="main"><b>${esc(v.name || "")}</b><span class="sub">${esc(v.email || "")}</span></td>
           <td data-label="判断">${v.decision ? pill(DECISION[v.decision]?.cls || "info", DECISION[v.decision]?.label || v.decision) : pill("draft", "未回答")}</td>
-          <td data-label="理由" class="rv-reason">${v.reason ? esc(v.reason) : '<span class="muted">—</span>'}</td>
+          <td data-label="理由" class="rv-reason">${v.reason ? esc(v.reason) : ""}</td>
           <td data-label="回答">${fmtDT(v.decidedAt)}<span class="sub">依頼 ${fmtDT(v.sentAt)}</span></td></tr>`).join("")}</tbody>
       </table></div>
       <div class="rv-actions">
@@ -1022,7 +1022,7 @@ async function renderConsentList() {
     const q = $("q").value.trim().toLowerCase();
     const list = forms.filter(f => !q || (f.title || "").toLowerCase().includes(q));
     $("tbl").querySelector("tbody").innerHTML = list.length ? list.map(f => `<tr class="clickable" data-open="${esc(f.id)}">
-      <td><b>${esc(f.title || "（無題）")}</b>${f.deadline ? `<span class="sub">期限 ${esc(fmtDate(f.deadline))}</span>` : ""}</td>
+      <td class="main"><b>${esc(f.title || "（無題）")}</b>${f.deadline ? `<span class="sub">期限 ${esc(fmtDate(f.deadline))}</span>` : ""}</td>
       <td data-label="用途">${f.purpose === "membership" ? pill("gold", PURPOSE_LABEL.membership) : esc(PURPOSE_LABEL[f.purpose] || "一般")}</td>
       <td data-label="対象">${esc(AUDIENCE_LABEL[f.audience] || f.audience || "")}</td>
       <td data-label="状態">${formStatusPill(f.status)}</td>
@@ -1209,7 +1209,7 @@ async function renderFormDetail(id) {
     const q = $("q").value.trim().toLowerCase();
     const list = sigs.filter(s => !q || `${s.name} ${s.email}`.toLowerCase().includes(q));
     $("sig-tbl").querySelector("tbody").innerHTML = list.length ? list.map(s => `<tr>
-      <td><b>${esc(s.name)}</b></td>
+      <td class="main"><b>${esc(s.name)}</b></td>
       <td data-label="種別">${pill(s.signerType === "member" ? "active" : s.signerType === "applicant" ? "gold" : "info", SIGNER_LABEL[s.signerType] || s.signerType)}</td>
       <td data-label="メール">${esc(s.email)}</td>
       <td data-label="署名日時">${fmtDT(sigTime(s))}</td>
