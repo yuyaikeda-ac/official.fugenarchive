@@ -28,7 +28,7 @@ const icon = (name, sw = 1.6) => `<svg viewBox="0 0 24 24" fill="none" stroke="c
 
 // ---------- メニュー（★項目の追加・並べ替えはここ） ----------
 const ROUTES = [
-  { id: "dashboard", label: "ダッシュボード", short: "ホーム", icon: "home", render: renderDashboard },
+  { id: "dashboard", label: "会員専用サイト", short: "ホーム", icon: "home", render: renderDashboard },
   { id: "news", label: "会員向けお知らせ", short: "お知らせ", icon: "bell", render: renderNews },
   { id: "events", label: "行事・参加登録", short: "行事", icon: "cal", render: renderEvents },
   { id: "docs", label: "会員限定資料室", short: "資料室", icon: "book", render: renderDocs },
@@ -149,7 +149,7 @@ function route() {
     on ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current");
   });
   $("view-title").textContent = r.label;
-  document.title = `${r.label}｜会員サイト｜普賢アーカイブ運営委員会`;
+  document.title = r.id === "dashboard" ? "会員専用サイト｜普賢アーカイブ運営委員会" : `${r.label}｜会員サイト｜普賢アーカイブ運営委員会`;
   rerender();
   window.scrollTo({ top: 0 });
   if (r.id === "news") markNewsSeen();
@@ -199,7 +199,7 @@ function renderDashboard() {
   <section class="welcome">
     <div>
       <div class="greet">${en}</div>
-      <h2>${ja}、${esc(m.name)} 様</h2>
+      <h2>${ja}<span class="pc-only">、</span><span class="sp-only">。<br></span>${esc(m.name)} 様</h2>
       <p>会員番号 ${esc(m.memberNo || "—")}　／　入会日 ${ymd(m.approvedAt)}
         ${left !== null && left <= 60 ? `<span class="pill imp">有効期限まであと${left}日</span>` : ""}</p>
     </div>
