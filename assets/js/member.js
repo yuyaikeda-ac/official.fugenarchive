@@ -10,6 +10,7 @@ import { esc, isDemo, app } from "./db.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 import { memberCardHtml, bindCard, printSheetHtml, qrSvg, verifyUrl } from "./card.js";
 import { renderRich, htmlToText } from "./rich-view.js";
+import { docFileUrl, kindOf, KIND_LABEL, extOf, fmtSize } from "./doc-files.js";
 import { listMemberForms, listMySignatures } from "./consent-core.js";
 import { docBoxHtml, fillDoc, signFormHtml, bindSignForm, receiptHtml, bindReceipt, isPastDeadline, fmtDateTime, padHtml, mountPad } from "./consent-ui.js";
 
@@ -387,6 +388,13 @@ routeOf("docs").after = () => {
     $("doc-count").textContent = `${rows.length} 件`;
   };
   q?.addEventListener("input", draw);
+  // アップロードされたファイルを開く（動画・音声・画像はこの画面で再生・表示、PDF は新しいタブ、その他はダウンロード）
+  $("doc-box")?.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-doc]");
+    if (!b) return;
+    const d = (state.docs || []).find(x => x.id === b.dataset.doc);
+    if (d) openDocFile(d);
+  });
   document.querySelectorAll("[data-cat]").forEach(b => b.addEventListener("click", () => {
     docCat = b.dataset.cat;
     document.querySelectorAll("[data-cat]").forEach(x => x.classList.toggle("is-active", x === b));
@@ -403,13 +411,56 @@ function fileLabel(url = "") {
   const m = url.split("?")[0].match(/\.([a-z0-9]{2,4})$/i);
   return m ? m[1].toUpperCase() : "LINK";
 }
+const DOC_ACTION = { video: "再生", audio: "再生", image: "表示", pdf: "開く", file: "ダウンロード" };
 function docHtml(d) {
+  if (d.filePath) {
+    const kind = kindOf(d.fileType, d.fileName);
+    return `<button type="button" class="doc doc-file k-${kind}" data-doc="${esc(d.id)}">
+    <div class="file">${esc(extOf(d.fileName))}</div>
+    <h4>${esc(d.title)}${isNew(d.date) ? ' <span class="pill new">NEW</span>' : ""}</h4>
+    <p>${esc(d.description || "")}</p>
+    <div class="foot"><span>${d.category ? esc(d.category) + "・" : ""}${ymd(d.date)}・${esc(KIND_LABEL[kind])} ${esc(fmtSize(d.fileSize))}</span><span class="open">${DOC_ACTION[kind]}</span></div>
+  </button>`;
+  }
   return `<a class="doc" href="${esc(d.url || "#")}" ${d.url ? 'target="_blank" rel="noopener"' : ""}>
     <div class="file">${esc(fileLabel(d.url))}</div>
     <h4>${esc(d.title)}${isNew(d.date) ? ' <span class="pill new">NEW</span>' : ""}</h4>
     <p>${esc(d.description || "")}</p>
     <div class="foot"><span>${d.category ? esc(d.category) + "・" : ""}${ymd(d.date)}</span><span class="open">開く ${icon("ext")}</span></div>
   </a>`;
+}
+// アップロードされた資料を開く
+async function openDocFile(d) {
+  const kind = kindOf(d.fileType, d.fileName);
+  // PDF・その他は新しいタブで（ポップアップと判定されないよう、先にタブを開いておく）
+  if (kind === "pdf" || kind === "file") {
+    const w = window.open("", "_blank");
+    try { const url = await docFileUrl(d.filePath); if (w) w.location = url; else location.href = url; }
+    catch (err) { console.error(err); w?.close(); toast("資料を開けませんでした。時間をおいてお試しください", true); }
+    return;
+  }
+  const dlg = document.createElement("dialog");
+  dlg.className = "doc-viewer";
+  dlg.innerHTML = `<div class="dv-head"><div><b>${esc(d.title)}</b><small>${esc(KIND_LABEL[kind])}・${esc(fmtSize(d.fileSize))}</small></div>
+      <button type="button" class="dv-close" aria-label="閉じる">×</button></div>
+    <div class="dv-body"><p class="dv-loading">読み込み中…</p></div>
+    ${d.description ? `<p class="dv-desc">${esc(d.description)}</p>` : ""}`;
+  document.body.appendChild(dlg);
+  const close = () => { dlg.querySelectorAll("video, audio").forEach(m => m.pause()); dlg.close(); };
+  dlg.addEventListener("close", () => dlg.remove());
+  dlg.addEventListener("click", e => { if (e.target === dlg || e.target.closest(".dv-close")) close(); });
+  dlg.showModal();
+  try {
+    const url = await docFileUrl(d.filePath);
+    const body = dlg.querySelector(".dv-body");
+    body.innerHTML = kind === "video" ? '<video controls playsinline preload="metadata"></video>'
+      : kind === "audio" ? '<audio controls preload="metadata"></audio>' : `<img alt="${esc(d.title)}">`;
+    body.firstElementChild.src = url;
+    dlg.insertAdjacentHTML("beforeend", `<div class="dv-foot"><a class="lux-btn ghost sm" href="${esc(url)}" target="_blank" rel="noopener">新しいタブで開く</a></div>`);
+  } catch (err) {
+    console.error(err);
+    dlg.querySelector(".dv-body").innerHTML = '<p class="dv-loading">資料を開けませんでした。時間をおいてお試しください。</p>';
+  }
 }
 function renderDocs() {
   if (!state.docs) return `<div class="docs grid">${Array.from({ length: 6 }, () => '<div class="skel" style="height:200px;border-radius:20px"></div>').join("")}</div>`;

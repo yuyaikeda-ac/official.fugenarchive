@@ -978,3 +978,24 @@ body.scan-open { overflow: hidden; }
 .email-row input { flex: 1; min-width: 0; }
 .email-row .lux-btn { flex-shrink: 0; }
 .sig-dialog .field { margin-bottom: 14px; }
+
+/* ============ 資料室：アップロードされたファイル ============ */
+button.doc { width: 100%; font: inherit; text-align: left; cursor: pointer; }
+.doc-file.k-video .file { background: #fdecec; border-color: #f0c4c4; color: #9b1c1c; }
+.doc-file.k-audio .file { background: #f3ecfb; border-color: #d9c8ef; color: #6b4c9a; }
+.doc-file.k-image .file { background: #e9f5ee; border-color: #c2e0cd; color: #1e6b3a; }
+.doc-file.k-pdf .file { background: #fdf0e6; border-color: #f0d2b8; color: #a0522d; }
+.doc-viewer { width: min(920px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 0; border: 0; border-radius: 18px; background: #0b1424; color: #fff; overflow: hidden; display: flex; flex-direction: column; }
+.doc-viewer:not([open]) { display: none; }
+.doc-viewer::backdrop { background: rgba(4,10,20,.75); }
+.dv-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px 12px 18px; }
+.dv-head b { display: block; font-size: 15px; overflow-wrap: anywhere; }
+.dv-head small { color: #9aa8bd; font-size: 12px; }
+.dv-close { flex-shrink: 0; width: 38px; height: 38px; border: 0; border-radius: 50%; background: rgba(255,255,255,.12); color: #fff; font-size: 22px; cursor: pointer; }
+.dv-body { flex: 1; min-height: 0; display: grid; place-items: center; background: #000; }
+.dv-body video, .dv-body img { display: block; max-width: 100%; max-height: calc(100dvh - 190px); }
+.dv-body audio { width: min(560px, 92%); margin: 40px 0; }
+.dv-loading { margin: 0; padding: 60px 20px; color: #9aa8bd; }
+.dv-desc { margin: 0; padding: 12px 18px 0; color: #c9d3e1; font-size: 13px; white-space: pre-wrap; }
+.dv-foot { display: flex; justify-content: flex-end; padding: 12px 14px; }
+.dv-foot .lux-btn { background: transparent; color: #fff; border-color: rgba(255,255,255,.4); }

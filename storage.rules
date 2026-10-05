@@ -1,7 +1,8 @@
 rules_version = '2';
 // ============================================================
 //  Firebase Storage セキュリティルール
-//  - content/  : お知らせ・会員向けお知らせ・同意書に載せる画像（誰でも閲覧可、管理者のみアップロード）
+//  - content/     : お知らせ・会員向けお知らせ・同意書に載せる画像（誰でも閲覧可、管理者のみアップロード）
+//  - member_docs/ : 会員限定資料のファイル（有効な会員と管理者のみ閲覧、管理者のみアップロード）
 //  ※ 管理者かどうかは Firestore の admins コレクションで判定します
 // ============================================================
 service firebase.storage {
@@ -17,6 +18,18 @@ service firebase.storage {
       allow create, update: if isAdmin()
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
+      allow delete: if isAdmin();
+    }
+
+    // 会員限定資料（PDF・動画・音声・画像・Office ファイルなど）
+    // 閲覧は有効な会員と管理者のみ、アップロード・削除は管理者のみ（1 ファイル 2GB まで）
+    function isActiveMember() {
+      return request.auth != null
+        && firestore.get(/databases/(default)/documents/members/$(request.auth.uid)).data.status == 'active';
+    }
+    match /member_docs/{file=**} {
+      allow read: if isAdmin() || isActiveMember();
+      allow create, update: if isAdmin() && request.resource.size < 2 * 1024 * 1024 * 1024;
       allow delete: if isAdmin();
     }
 

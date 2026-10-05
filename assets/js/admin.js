@@ -11,6 +11,7 @@ import { adminApi, esc, fmtDate, isDemo, NEWS_CATEGORIES, db, app } from "./db.j
 import { getStudentId, OCCUPATIONS } from "./member-api.js";
 import { createRichEditor } from "./rich-editor.js";
 import { renderRich } from "./rich-view.js";
+import { uploadDocFile, deleteDocFile, docFileUrl, fmtSize, extOf, kindOf, KIND_LABEL, MAX_DOC_BYTES } from "./doc-files.js";
 import {
   formContentHash, verifySignature, verifyChain, fmtHash,
   AUDIENCE_LABEL, PURPOSE_LABEL, FORM_STATUS_LABEL, SIGNER_LABEL, EXTRA_FIELDS
@@ -64,7 +65,9 @@ const SCHEMA = {
       { key: "category", label: "分類（会議資料・活動報告 など）", type: "text", list: true, half: true },
       { key: "title", label: "資料名", type: "text", required: true, list: true },
       { key: "description", label: "説明", type: "textarea" },
-      { key: "url", label: "資料のURL（Google ドライブ・PDF など）", type: "url", required: true }
+      // ファイル（PDF・動画・音声・画像・Office など）をアップロード。または外部の URL を登録
+      { key: "file", label: "ファイル（PDF・動画・音声・画像・Word・Excel など）", type: "file", list: true },
+      { key: "url", label: "または 外部のURL（Google ドライブ・YouTube など）", type: "url" }
     ]
   },
   members: {
@@ -455,6 +458,7 @@ async function renderContent(name, sub = "") {
       <tbody></tbody></table></div>`;
   const cell = (c, r) => {
     if (c.type === "checkbox") return r[c.key] ? pill("ng", "重要") : "";
+    if (c.type === "file") return r.filePath ? `${pill("info", extOf(r.fileName))} ${esc(fmtSize(r.fileSize))}` : r.url ? pill("draft", "外部リンク") : "";
     if (c.options) return esc(c.options[r[c.key]] ?? r[c.key] ?? "");
     if (c.type === "date") return esc(fmtDate(r[c.key]));
     return esc(r[c.key] ?? "");
@@ -477,7 +481,11 @@ async function renderContent(name, sub = "") {
     if (del) {
       const r = rows.find(x => x.id === del);
       if (!window.confirm(`「${r.title || del}」を削除します。よろしいですか？`)) return;
-      try { await adminApi.remove(name, del); toast("削除しました。"); invalidate(name); route(); }
+      try {
+        await adminApi.remove(name, del);
+        if (r.filePath) await deleteDocFile(r.filePath).catch(err => console.warn("ファイルの削除に失敗", err));
+        toast("削除しました。"); invalidate(name); route();
+      }
       catch (err) { fail("削除に失敗しました")(err); }
     }
   });
@@ -493,6 +501,14 @@ function fieldHtml(f, row) {
   const req = f.required ? " required" : "";
   const reqMark = f.required ? '<span class="req">必須</span>' : "";
   if (f.type === "checkbox") return `<label class="check"><input type="checkbox" name="${f.key}"${row?.[f.key] ? " checked" : ""}> ${esc(f.label)}</label>`;
+  if (f.type === "file") return `<div class="fld"><span>${esc(f.label)}</span>
+    <div class="file-drop" data-file-box>
+      <input type="file" data-file-input hidden>
+      <div class="file-cur" data-file-cur>${row?.filePath ? fileChipHtml(row) : ""}</div>
+      <button type="button" class="btn" data-file-pick>${row?.filePath ? "別のファイルに差し替える" : "ファイルを選ぶ"}</button>
+      <span class="hint">ここにドラッグ＆ドロップもできます。1 ファイル ${fmtSize(MAX_DOC_BYTES)} まで。保存すると、会員だけが閲覧できる場所にアップロードされます。</span>
+      <div class="file-prog" data-file-prog hidden><i></i><b></b></div>
+    </div></div>`;
   if (f.type === "rich") return `<div class="fld"><span>${esc(f.label)}</span><div data-rich="${f.key}"></div>
     <span class="hint">画像はボタン・貼り付け・ドラッグ＆ドロップで挿入できます。画像をクリックすると、大きさ（小・中・大・全幅、右下の□をドラッグ）と位置（左・中央・右・回り込み）を変えられます。</span></div>`;
   let input;
@@ -503,6 +519,14 @@ function fieldHtml(f, row) {
   if (f.generate) input = `<div style="display:flex;gap:8px">${input}<button type="button" class="btn" data-generate="${f.key}">自動生成</button></div>`;
   return `<label class="fld"><span>${esc(f.label)}${reqMark}</span>${input}</label>`;
 }
+/** アップロード済み・選択中のファイルの表示 */
+function fileChipHtml(x) {
+  return `<div class="file-chip"><span class="ext">${esc(extOf(x.fileName))}</span><span class="nm">${esc(x.fileName)}</span>
+    <small>${esc(KIND_LABEL[kindOf(x.fileType, x.fileName)])}・${esc(fmtSize(x.fileSize))}</small>
+    ${x.filePath ? '<button type="button" class="btn btn-sm" data-file-open>開く</button>' : ""}
+    <button type="button" class="btn btn-sm btn-danger" data-file-clear>外す</button></div>`;
+}
+
 /** 項目を並べる（half: true の項目は 2 列） */
 function fieldsHtml(fields, row) {
   let out = "", buf = [];
@@ -547,6 +571,32 @@ async function openEditor(name, row) {
     const out = openModal("プレビュー", `<h2 style="margin-top:0">${esc(title)}</h2><div class="preview" id="pv"></div>`, { wide: true });
     await renderRich(out.querySelector("#pv"), { bodyHtml: ed?.getHtml() || "" });
   });
+  // ファイル欄（選ぶ・ドロップ・外す・開く）
+  let fileState = { pending: null, removed: false };
+  const fbox = form.querySelector("[data-file-box]");
+  if (fbox) {
+    const input = fbox.querySelector("[data-file-input]");
+    const cur = fbox.querySelector("[data-file-cur]");
+    const choose = (file) => {
+      if (!file) return;
+      if (file.size > MAX_DOC_BYTES) return toast(`ファイルが大きすぎます（${fmtSize(MAX_DOC_BYTES)} まで）。`, "error");
+      fileState.pending = file;
+      cur.innerHTML = fileChipHtml({ fileName: file.name, fileSize: file.size, fileType: file.type });
+      if (!form.elements.title.value.trim()) form.elements.title.value = file.name.replace(/\.[^.]+$/, "");
+    };
+    fbox.querySelector("[data-file-pick]").addEventListener("click", () => input.click());
+    input.addEventListener("change", () => choose(input.files[0]));
+    fbox.addEventListener("dragover", e => { e.preventDefault(); fbox.classList.add("is-over"); });
+    fbox.addEventListener("dragleave", () => fbox.classList.remove("is-over"));
+    fbox.addEventListener("drop", e => { e.preventDefault(); fbox.classList.remove("is-over"); choose(e.dataTransfer.files[0]); });
+    cur.addEventListener("click", async e => {
+      if (e.target.closest("[data-file-clear]")) { fileState = { pending: null, removed: true }; cur.innerHTML = ""; input.value = ""; }
+      if (e.target.closest("[data-file-open]") && row?.filePath) {
+        const w = window.open("", "_blank");
+        try { w.location = await docFileUrl(row.filePath); } catch (err) { w?.close(); fail("ファイルを開けませんでした")(err); }
+      }
+    });
+  }
   // 会員番号の「自動生成」
   form.addEventListener("click", async (e) => {
     const key = e.target.dataset.generate;
@@ -569,13 +619,30 @@ async function openEditor(name, row) {
         data[f.key] = ed.getText();
         continue;
       }
+      if (f.type === "file") continue;
       const el = form.elements[f.key];
       data[f.key] = f.type === "checkbox" ? el.checked : el.value.trim();
       if (f.required && !data[f.key]) { toast(`「${f.label.replace(/（.*）/, "")}」を入力してください。`, "error"); el.focus(); return; }
     }
+    // 会員限定資料：ファイルか URL のどちらかが必要
+    const hasFile = fbox && (fileState.pending || (row?.filePath && !fileState.removed));
+    if (fbox && !hasFile && !data.url) { toast("ファイルを選ぶか、外部のURLを入力してください。", "error"); return; }
     const btn = form.querySelector("#save-btn");
     btn.disabled = true;
+    let uploaded = null;
     try {
+      if (fbox && fileState.pending) {
+        const prog = fbox.querySelector("[data-file-prog]");
+        prog.hidden = false;
+        btn.innerHTML = '<span class="spin"></span> アップロード中…';
+        uploaded = await uploadDocFile(fileState.pending, p => {
+          prog.querySelector("i").style.width = `${Math.round(p * 100)}%`;
+          prog.querySelector("b").textContent = `${Math.round(p * 100)}%`;
+        });
+        Object.assign(data, uploaded);
+      } else if (fbox && fileState.removed) {
+        Object.assign(data, { filePath: "", fileName: "", fileSize: 0, fileType: "" });
+      }
       if (name === "members") {
         const members = await getRows("members");
         const member = members.find(r => r.id === row?.id);
@@ -586,9 +653,16 @@ async function openEditor(name, row) {
         if (dup) { toast(`会員番号「${data.memberNo}」は ${dup.name} さんが使用しています。別の番号にするか「自動生成」を押してください。`, "error"); btn.disabled = false; return; }
       }
       await adminApi.save(name, row?.id || null, data);
+      // 差し替え・取り外したときは、前のファイルを削除
+      if (fbox && row?.filePath && (uploaded || fileState.removed)) await deleteDocFile(row.filePath).catch(err => console.warn("前のファイルの削除に失敗", err));
       toast("保存しました。");
       closeDrawer(); invalidate(name); route();
-    } catch (err) { fail("保存に失敗しました")(err); btn.disabled = false; }
+    } catch (err) {
+      // 保存に失敗したら、アップロードしたファイルは消しておく
+      if (uploaded) deleteDocFile(uploaded.filePath).catch(() => {});
+      fail(err.code === "storage/unauthorized" ? "アップロードの権限がありません" : "保存に失敗しました")(err);
+      btn.disabled = false; btn.textContent = "保存";
+    }
   });
 }
 

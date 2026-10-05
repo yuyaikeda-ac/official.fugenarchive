@@ -40,6 +40,7 @@ assets/js/admin.js           管理画面の処理（デザインは assets/css/
 assets/js/rich-editor.js     高機能エディタ（Quill。画像は Firebase Storage へアップロード）
 assets/js/rich-view.js       エディタで作った本文の表示（DOMPurify で安全な形にしてから表示）
 assets/js/consent-core.js    電子同意書のハッシュ計算・手書きサイン入力欄・署名の保存
+assets/js/doc-files.js       会員限定資料のファイル（Storage の member_docs/。会員のみ閲覧、管理者のみアップロード）
 functions/consent.js         署名の封印（HMAC-SHA256・ハッシュチェーン）と検証
 functions/review.js          理事会による入会審査（承認依頼メール・回答の受付・全員承認／1人でも非承認で自動確定）
 storage.rules                Firebase Storage セキュリティルール（画像は管理者のみアップロード可）
@@ -125,7 +126,7 @@ firebase.json                Firebase Hosting 設定
 | `contacts` | `subject`, `name`, `email`, `message`, `createdAt`（自動） |
 | `members` | ドキュメントID = 会員の UID。`name`, `kana`, `email`, `type`（regular=正会員 / associate=準会員 / student=学生会員）, `status`（pending/active/suspended/rejected）, `memberNo`, `approvedAt`, `approvedBy`（承認した管理者の UID）, `validUntil`（任意） など |
 | `member_news` | `title`, `date`, `body`, `important` |
-| `member_docs` | `title`, `date`, `category`, `description`, `url` |
+| `member_docs` | `title`, `date`, `category`, `description`、ファイルなら `filePath`, `fileName`, `fileSize`, `fileType`（Storage の member_docs/）、外部リンクなら `url` |
 | `rsvps` | 行事の参加登録。ID = 行事ID_会員UID |
 | `admins` | 管理者。ID = UID。`role`（owner/admin）, `email`, `name`, `invitedBy`, `createdAt` |
 | `admin_invites` | 管理者への招待。ID = 小文字のメールアドレス |
