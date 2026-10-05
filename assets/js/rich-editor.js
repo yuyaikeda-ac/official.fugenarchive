@@ -78,6 +78,189 @@ function toEmbedUrl(url) {
   return null;
 }
 
+// ============================================================
+//  画像の大きさ・位置
+//  画像をクリックすると、画像の上に操作バーが出ます。
+//   ・大きさ：小（25%）／中（50%）／大（75%）／全幅（100%）／元のサイズ、右下の □ をドラッグして自由に変更
+//   ・位置　：左寄せ／中央／右寄せ／左に置いて文字を回り込み／右に置いて文字を回り込み
+//   ・代替テキスト（画像の説明。読み上げ・画像が出ないときに表示）、削除
+//  保存される HTML：<img src width="50%" data-align="center" alt="…">
+//  ※ 表示側の見た目は style.css / member.css / admin.css の .rich-body img[data-align]
+// ============================================================
+const IMG_ALIGNS = [
+  { v: "left", label: "左寄せ", icon: '<path d="M3 5h18M3 19h18"/><rect x="3" y="8" width="9" height="8" rx="1"/>' },
+  { v: "center", label: "中央", icon: '<path d="M3 5h18M3 19h18"/><rect x="7.5" y="8" width="9" height="8" rx="1"/>' },
+  { v: "right", label: "右寄せ", icon: '<path d="M3 5h18M3 19h18"/><rect x="12" y="8" width="9" height="8" rx="1"/>' },
+  { v: "float-left", label: "左に置いて文字を回り込み", icon: '<rect x="3" y="5" width="8" height="8" rx="1"/><path d="M14 6h7M14 10h7M3 16h18M3 20h18"/>' },
+  { v: "float-right", label: "右に置いて文字を回り込み", icon: '<rect x="13" y="5" width="8" height="8" rx="1"/><path d="M3 6h7M3 10h7M3 16h18M3 20h18"/>' }
+];
+const IMG_SIZES = [["25%", "小"], ["50%", "中"], ["75%", "大"], ["100%", "全幅"], ["", "元のサイズ"]];
+
+/** 画像に「位置（data-align）」を保存できるようにする（Quill の画像を拡張） */
+let flexImageRegistered = false;
+function registerFlexImage(Quill) {
+  if (flexImageRegistered) return;
+  flexImageRegistered = true;
+  const BaseImage = Quill.import("formats/image");
+  class FlexImage extends BaseImage {
+    static formats(node) {
+      const f = super.formats(node);
+      if (node.hasAttribute("data-align")) f.imgAlign = node.getAttribute("data-align");
+      return f;
+    }
+    format(name, value) {
+      if (name === "imgAlign") {
+        if (IMG_ALIGNS.some(a => a.v === value)) this.domNode.setAttribute("data-align", value);
+        else this.domNode.removeAttribute("data-align");
+      } else super.format(name, value);
+    }
+  }
+  Quill.register(FlexImage, true);
+}
+
+let imageToolStyle = false;
+function injectImageToolStyle() {
+  if (imageToolStyle) return;
+  imageToolStyle = true;
+  const st = document.createElement("style");
+  st.textContent = `
+  .rich-editor { position: relative; }
+  .re-imgbox { position: absolute; z-index: 5; pointer-events: none; outline: 2px solid #1d5590; outline-offset: 1px; border-radius: 4px; }
+  .re-imgbox .re-handle { position: absolute; right: -7px; bottom: -7px; width: 14px; height: 14px; border-radius: 3px; background: #1d5590; border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,.35); cursor: nwse-resize; pointer-events: auto; touch-action: none; }
+  .re-imgbox .re-size { position: absolute; left: 6px; bottom: 6px; padding: 2px 8px; border-radius: 99px; background: rgba(10,20,40,.78); color: #fff; font: 600 11px/1.6 sans-serif; }
+  .re-imgbar { position: absolute; z-index: 6; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; max-width: calc(100% - 8px); padding: 4px; border-radius: 10px;
+    background: #14233a; box-shadow: 0 10px 28px -8px rgba(0,0,0,.45); }
+  .re-imgbar button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 30px; height: 30px; padding: 0 8px; border: 0; border-radius: 7px;
+    background: transparent; color: #dfe6f0; font: 600 12px/1 sans-serif; cursor: pointer; white-space: nowrap; }
+  .re-imgbar button:hover { background: rgba(255,255,255,.12); color: #fff; }
+  .re-imgbar button.is-on { background: #3a6ea5; color: #fff; }
+  .re-imgbar button.danger:hover { background: #9b1c1c; }
+  .re-imgbar svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .re-imgbar i { width: 1px; height: 20px; margin: 0 4px; background: rgba(255,255,255,.2); }
+  .rich-editor .ql-editor img { cursor: pointer; }
+  /* 見出し・文字サイズの選択肢を日本語に */
+  .rich-editor .ql-snow .ql-picker.ql-header { width: 104px; }
+  .rich-editor .ql-snow .ql-picker.ql-size { width: 84px; }
+  .rich-editor .ql-snow .ql-picker.ql-header .ql-picker-label::before, .rich-editor .ql-snow .ql-picker.ql-header .ql-picker-item::before { content: "本文"; }
+  .rich-editor .ql-snow .ql-picker.ql-header [data-value="2"]::before { content: "大見出し" !important; }
+  .rich-editor .ql-snow .ql-picker.ql-header [data-value="3"]::before { content: "中見出し" !important; }
+  .rich-editor .ql-snow .ql-picker.ql-header [data-value="4"]::before { content: "小見出し" !important; }
+  .rich-editor .ql-snow .ql-picker.ql-size .ql-picker-label::before, .rich-editor .ql-snow .ql-picker.ql-size .ql-picker-item::before { content: "標準"; }
+  .rich-editor .ql-snow .ql-picker.ql-size [data-value="small"]::before { content: "小さく" !important; }
+  .rich-editor .ql-snow .ql-picker.ql-size [data-value="large"]::before { content: "大きく" !important; }
+  .rich-editor .ql-snow .ql-picker.ql-size [data-value="huge"]::before { content: "特大" !important; }`;
+  document.head.appendChild(st);
+}
+
+/** 画像をクリックしたときの操作バーとサイズ変更ハンドル */
+function bindImageTools(Quill, quill, host) {
+  injectImageToolStyle();
+  const box = document.createElement("div");
+  box.className = "re-imgbox";
+  box.hidden = true;
+  box.innerHTML = '<span class="re-size"></span><span class="re-handle" title="ドラッグして大きさを変更"></span>';
+  const bar = document.createElement("div");
+  bar.className = "re-imgbar";
+  bar.hidden = true;
+  bar.setAttribute("role", "toolbar");
+  bar.setAttribute("aria-label", "画像の大きさと位置");
+  bar.innerHTML =
+    IMG_SIZES.map(([w, l]) => `<button type="button" data-w="${w}" title="幅 ${w || "元のサイズ"}">${l}</button>`).join("") + "<i></i>" +
+    IMG_ALIGNS.map(a => `<button type="button" data-a="${a.v}" title="${a.label}" aria-label="${a.label}"><svg viewBox="0 0 24 24">${a.icon}</svg></button>`).join("") + "<i></i>" +
+    '<button type="button" data-act="alt" title="代替テキスト（画像の説明）">説明</button>' +
+    '<button type="button" data-act="del" class="danger" title="画像を削除" aria-label="画像を削除"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>';
+  host.append(box, bar);
+
+  let img = null;
+  const blotIndex = () => { const b = img && Quill.find(img); return b ? quill.getIndex(b) : -1; };
+
+  function place() {
+    if (!img || !img.isConnected) return hide();
+    const h = host.getBoundingClientRect(), r = img.getBoundingClientRect();
+    Object.assign(box.style, { left: `${r.left - h.left}px`, top: `${r.top - h.top}px`, width: `${r.width}px`, height: `${r.height}px` });
+    box.querySelector(".re-size").textContent = img.getAttribute("width") || `${img.naturalWidth}px`;
+    // 操作バーは画像の上（入らなければ下）に
+    const barH = bar.offsetHeight || 40;
+    let top = r.top - h.top - barH - 8;
+    if (r.top - barH - 8 < h.top + 44) top = r.bottom - h.top + 8;
+    bar.style.top = `${top}px`;
+    bar.style.left = `${Math.max(4, Math.min(r.left - h.left, h.width - bar.offsetWidth - 4))}px`;
+    const w = img.getAttribute("width") || "", a = img.getAttribute("data-align") || "";
+    bar.querySelectorAll("[data-w]").forEach(b => b.classList.toggle("is-on", b.dataset.w === w));
+    bar.querySelectorAll("[data-a]").forEach(b => b.classList.toggle("is-on", b.dataset.a === a));
+  }
+  function show(target) {
+    img = target;
+    box.hidden = bar.hidden = false;
+    place();
+  }
+  function hide() {
+    img = null;
+    box.hidden = bar.hidden = true;
+  }
+  const apply = (name, value) => {
+    const i = blotIndex();
+    if (i < 0) return hide();
+    const keep = img;
+    quill.formatText(i, 1, name, value, "user");
+    // 書式を変えると画像の要素が作り直されることがあるので選び直す
+    const again = keep.isConnected ? keep : quill.getLeaf(i + 1)[0]?.domNode;
+    if (again?.tagName === "IMG") show(again); else hide();
+  };
+
+  quill.root.addEventListener("click", e => { if (e.target.tagName === "IMG") { e.preventDefault(); show(e.target); } else hide(); });
+  document.addEventListener("pointerdown", e => { if (img && !host.contains(e.target)) hide(); });
+  quill.root.addEventListener("keydown", () => hide());
+  quill.on("text-change", () => requestAnimationFrame(place));
+  quill.root.addEventListener("load", e => { if (e.target === img) place(); }, true); // 画像の読み込み完了で位置を合わせ直す
+  quill.root.addEventListener("scroll", place);
+  host.closest(".panel-body, .slide-body, [data-scroll]")?.addEventListener("scroll", place);
+  window.addEventListener("resize", place);
+
+  bar.addEventListener("mousedown", e => e.preventDefault()); // エディタの選択を保つ
+  bar.addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (!b || !img) return;
+    if (b.dataset.w !== undefined) apply("width", b.dataset.w || false);
+    else if (b.dataset.a) apply("imgAlign", img.getAttribute("data-align") === b.dataset.a ? false : b.dataset.a);
+    else if (b.dataset.act === "alt") {
+      const t = window.prompt("画像の説明（代替テキスト）を入力してください", img.getAttribute("alt") || "");
+      if (t !== null) apply("alt", t.trim() || false);
+    } else if (b.dataset.act === "del") {
+      const i = blotIndex();
+      if (i >= 0) quill.deleteText(i, 1, "user");
+      hide();
+    }
+  });
+
+  // 右下の □ をドラッグして大きさを変更（エディタの幅に対する % で保存、5% 刻み）
+  const handle = box.querySelector(".re-handle");
+  handle.addEventListener("pointerdown", e => {
+    if (!img) return;
+    e.preventDefault();
+    handle.setPointerCapture(e.pointerId);
+    const startX = e.clientX, startW = img.getBoundingClientRect().width;
+    const full = quill.root.clientWidth - 30; // 本文の左右の余白を除いた幅
+    let pct = null;
+    const move = ev => {
+      const w = Math.max(40, startW + (ev.clientX - startX));
+      pct = Math.max(10, Math.min(100, Math.round((w / full) * 100 / 5) * 5));
+      img.setAttribute("width", `${pct}%`);
+      place();
+    };
+    const up = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", up);
+      handle.removeEventListener("pointercancel", up);
+      if (pct) apply("width", `${pct}%`);
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", up);
+    handle.addEventListener("pointercancel", up);
+  });
+}
+
 /**
  * エディタを作る
  * @param host  エディタを置く要素
@@ -85,6 +268,7 @@ function toEmbedUrl(url) {
  */
 export async function createRichEditor(host, { html = "", placeholder = "本文を入力…", minHeight = 320, onChange, notify } = {}) {
   const Quill = await loadQuill();
+  registerFlexImage(Quill);
   const say = notify || ((m, err) => (err ? console.error : console.info)(m));
 
   host.classList.add("rich-editor");
@@ -169,16 +353,7 @@ export async function createRichEditor(host, { html = "", placeholder = "本文�
     if (files.length) { e.preventDefault(); e.stopPropagation(); insertImages(files); }
   }, true);
 
-  // 画像をダブルクリック → 幅を % で指定（Quill の width 属性として保存される）
-  quill.root.addEventListener("dblclick", e => {
-    if (e.target.tagName !== "IMG") return;
-    const blot = Quill.find(e.target);
-    if (!blot) return;
-    const w = window.prompt("画像の幅を % で入力してください（例：50）。空欄で元の大きさ", (e.target.getAttribute("width") || "").replace("%", ""));
-    if (w === null) return;
-    const n = parseInt(w, 10);
-    quill.formatText(quill.getIndex(blot), 1, "width", n > 0 && n <= 100 ? `${n}%` : false, "user");
-  });
+  bindImageTools(Quill, quill, host);
 
   if (html) quill.clipboard.dangerouslyPasteHTML(html, "silent");
   quill.history.clear();

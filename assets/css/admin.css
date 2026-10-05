@@ -322,3 +322,17 @@ dialog::backdrop { background: rgba(10,18,32,.55); backdrop-filter: blur(2px); }
   .cert .sig { max-height: 28mm; max-width: 90mm; }
   .cert-foot { margin-top: 8mm; padding-top: 3mm; border-top: .3mm solid #d9dee6; font-size: 8.5pt; color: #666; }
 }
+
+/* 画像の位置（エディタの画像操作バーで指定。data-align） */
+.rich-body img[data-align="left"], .rich-body img[data-align="center"], .rich-body img[data-align="right"],
+.ql-editor img[data-align="left"], .ql-editor img[data-align="center"], .ql-editor img[data-align="right"] { display: block; }
+.rich-body img[data-align="center"], .ql-editor img[data-align="center"] { margin-left: auto; margin-right: auto; }
+.rich-body img[data-align="right"], .ql-editor img[data-align="right"] { margin-left: auto; }
+.rich-body img[data-align="float-left"], .ql-editor img[data-align="float-left"] { float: left; margin: .3em 1.4em .8em 0; }
+.rich-body img[data-align="float-right"], .ql-editor img[data-align="float-right"] { float: right; margin: .3em 0 .8em 1.4em; }
+.rich-body::after { content: ""; display: block; clear: both; }
+@media (max-width: 600px) {
+  /* スマホでは回り込みをやめて全幅に近い大きさで表示 */
+  .rich-body img[data-align^="float"] { float: none; display: block; margin: 1em auto; max-width: 100%; }
+  .rich-body img[width] { min-width: 50%; }
+}
