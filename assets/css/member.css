@@ -1071,3 +1071,5 @@ button.doc { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 .still .emblem::after, .still .emblem .orbit { animation: none; }
 .still .faq .a { animation: none; }
 .still .reveal { opacity: 1; transform: none; transition: none; }
+/* 入会の流れ：番号なしの小さな点（線の高さ 34px に中心を合わせる） */
+.flow .dot:empty { width: 16px; height: 16px; margin: 26px auto 22px; border-width: 3px; background: var(--navy); box-shadow: 0 0 0 5px #fff; }
