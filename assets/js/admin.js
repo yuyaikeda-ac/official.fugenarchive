@@ -524,7 +524,7 @@ async function renderContent(name, sub = "") {
     const q = $("q").value.trim().toLowerCase();
     const list = rows.filter(r => !q || `${r.title} ${r.body || ""} ${r.place || ""} ${r.category || ""}`.toLowerCase().includes(q));
     $("tbl").querySelector("tbody").innerHTML = list.length ? list.map(r => `<tr>
-      ${cols.map(c => `<td${c.key === "title" ? ' class="main"' : c.type === "checkbox" ? "" : ` data-label="${esc(c.label.replace(/（.*）/, ""))}"`}>${c.key === "title" ? `<b>${cell(c, r)}</b>${r.bodyHtml ? ' <span class="pill info">装飾つき</span>' : ""}` : cell(c, r)}</td>`).join("")}
+      ${cols.map(c => `<td${c.key === "title" ? ' class="main"' : c.type === "checkbox" ? "" : ` data-label="${esc(c.label.replace(/（.*）/, ""))}"`}>${c.key === "title" ? `<b>${cell(c, r)}</b>${r.bodyHtml ? ' <span class="pill info">装飾つき</span>' : ""}${r.notifiedAt ? ` <span class="pill ok" title="${esc(fmtDT(r.notifiedAt))}">メール送信済み</span>` : ""}` : cell(c, r)}</td>`).join("")}
       ${rsvpBy ? `<td data-label="参加登録">${(rsvpBy[r.id] || []).length} 名${r.capacity ? ` ／ 定員 ${esc(r.capacity)} 名` : ""}
         <span class="sub">${r.date && r.date < new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" }) ? pill("draft", "終了") : r.rsvpOpen !== false ? (r.capacity && (rsvpBy[r.id] || []).length >= r.capacity ? pill("ng", "満員") : pill("ok", "受付中")) : pill("draft", "受付なし")}${r.rsvpDeadline ? ` 締切 ${esc(fmtDate(r.rsvpDeadline))}` : ""}</span></td>` : ""}
       <td class="act">${rsvpBy ? `<button class="btn btn-sm" data-attend="${esc(r.id)}">参加者</button>` : ""}<button class="btn btn-sm" data-edit="${esc(r.id)}">編集</button><button class="btn btn-sm btn-danger" data-del="${esc(r.id)}">削除</button></td></tr>`).join("")
@@ -628,12 +628,23 @@ function fieldsHtml(fields, row) {
 }
 
 /** 編集パネルを開く（お知らせ・行事・会員など） */
+// 投稿時に会員へメールで知らせられる種類
+const NOTIFY_KINDS = { member_news: "会員向けお知らせ", events: "行事", member_docs: "会員限定資料" };
+function notifyFieldHtml(name, row) {
+  if (!NOTIFY_KINDS[name]) return "";
+  const done = row?.notifiedAt ? `<span class="hint">前回の送信：${fmtDT(row.notifiedAt)}（${esc(row.notifiedCount || 0)} 名）</span>` : "";
+  return `<div class="notify-box">
+    <label class="check"><input type="checkbox" name="__notify"${row ? "" : " checked"}> 保存したら、会員にメールで知らせる</label>
+    <span class="hint">有効な会員のうち「お知らせメールを受け取る」にしている方へ送ります。${row ? "編集のときは、内容を大きく変えた場合などに使ってください。" : ""}</span>${done}
+  </div>`;
+}
 async function openEditor(name, row) {
   const s = SCHEMA[name];
   const hasRich = s.fields.some(f => f.type === "rich");
   const body = openDrawer(`${s.label}を${row ? "編集" : "新規作成"}`, `
     <form id="edit-form" novalidate>
       ${fieldsHtml(s.fields, row)}
+      ${notifyFieldHtml(name, row)}
       <div class="drawer-foot">
         ${hasRich ? '<button type="button" class="btn" id="preview-btn">プレビュー</button>' : ""}
         <span style="flex:1"></span>
@@ -740,10 +751,17 @@ async function openEditor(name, row) {
         const dup = data.memberNo && members.find(r => r.id !== row?.id && r.memberNo === data.memberNo);
         if (dup) { toast(`会員番号「${data.memberNo}」は ${dup.name} さんが使用しています。別の番号にするか「自動生成」を押してください。`, "error"); btn.disabled = false; return; }
       }
-      await adminApi.save(name, row?.id || null, data);
+      const savedId = await adminApi.save(name, row?.id || null, data);
       // 差し替え・取り外したときは、前のファイルを削除
       if (fbox && row?.filePath && (uploaded || fileState.removed)) await deleteDocFile(row.filePath).catch(err => console.warn("前のファイルの削除に失敗", err));
-      toast("保存しました。");
+      // 会員へメールで知らせる
+      if (form.elements.__notify?.checked && savedId) {
+        btn.innerHTML = '<span class="spin"></span> メールを送信中…';
+        try {
+          const res = (await httpsCallable(getFunctions(app, "asia-northeast1"), "notifyMembers", { timeout: 300000 })({ collection: name, id: savedId })).data;
+          toast(res.sent ? `保存し、会員 ${res.sent} 名にメールで知らせました。` : `保存しました。${res.message || ""}`);
+        } catch (err) { console.error(err); toast("保存しましたが、メールを送れませんでした：" + err.message, "error"); }
+      } else toast("保存しました。");
       closeDrawer(); invalidate(name); route();
     } catch (err) {
       // 保存に失敗したら、アップロードしたファイルは消しておく

@@ -97,8 +97,8 @@ export const adminApi = {
   list,
   async save(name, id, data) {
     if (isDemo) throw new Error("デモモードでは保存できません。firebase-config.js を設定してください。");
-    if (id) await updateDoc(doc(db, name, id), data);
-    else await addDoc(collection(db, name), data);
+    if (id) { await updateDoc(doc(db, name, id), data); return id; }
+    return (await addDoc(collection(db, name), data)).id;
   },
   async remove(name, id) {
     if (isDemo) throw new Error("デモモードでは削除できません。");

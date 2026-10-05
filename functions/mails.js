@@ -558,4 +558,50 @@ ${signature()}`
   }];
 }
 
-module.exports = { CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided , contactAiReply, passwordResetByAi, contactAiNotify, contactStaffReply , ticketReplyToCustomer, ticketToStaff , loginGuideByAi , eventRsvpMail };
+// ---------- 会員へのお知らせ（会員向けお知らせ・行事・会員限定資料の投稿時） ----------
+function memberNotice({ to, name, kind, item: it }) {
+  const plain = String(it.body || it.description || "").replace(/\s+\n/g, "\n").trim();
+  const excerpt = plain.length > 400 ? plain.slice(0, 400) + "…" : plain;
+  const fmtDay = (v) => { const [y, mo, d] = String(v || "").split("-"); return y ? `${y}年${Number(mo)}月${Number(d)}日（${"日月火水木金土"[new Date(v + "T00:00:00+09:00").getDay()]}）` : ""; };
+  let head = "", detail = "", link = "", label = "";
+  if (kind === "events") {
+    label = "新しい行事";
+    head = `新しい行事のご案内です。`;
+    const cap = Number(it.capacity) || 0;
+    detail = `■ 行事　：${it.title}
+■ 日時　：${fmtDay(it.date)}${it.startTime ? " " + it.startTime + (it.endTime ? "〜" + it.endTime : "") : ""}
+■ 会場　：${it.place || "—"}${cap ? `\n■ 定員　：${cap} 名（先着順）` : ""}${it.rsvpDeadline ? `\n■ 申込締切：${fmtDay(it.rsvpDeadline)}` : ""}${excerpt ? `\n\n${excerpt}` : ""}
+
+${it.rsvpOpen === false ? "" : "会員サイトから、ワンクリックで参加登録できます。\n"}`;
+    link = `${CONFIG.siteUrl}/member.html#events`;
+  } else if (kind === "member_docs") {
+    label = "新しい会員限定資料";
+    head = `会員限定資料室に、新しい資料を掲載しました。`;
+    detail = `■ 資料名：${it.title}${it.category ? `\n■ 分類　：${it.category}` : ""}${excerpt ? `\n\n${excerpt}` : ""}\n`;
+    link = `${CONFIG.siteUrl}/member.html#docs`;
+  } else {
+    label = it.important ? "【重要】会員向けのお知らせ" : "会員向けのお知らせ";
+    head = `会員向けのお知らせを掲載しました。`;
+    detail = `■ ${it.title}\n■ 掲載日：${fmtDay(it.date)}${excerpt ? `\n\n${excerpt}` : ""}\n`;
+    link = `${CONFIG.siteUrl}/member.html#news/${it.id}`;
+  }
+  return [{
+    to,
+    subject: `【${CONFIG.orgName}】${label}：${it.title}`,
+    text:
+`${name ? name + " 様" : "会員の皆さまへ"}
+
+${CONFIG.orgName}です。
+${head}
+
+${detail}
+▼ 会員サイトで見る（ログインが必要です）
+${link}
+
+※ このメールは「会員向けのお知らせをメールで受け取る」に設定している会員の皆さまにお送りしています。
+　 受け取りの設定は、会員サイトの「プロフィール設定」で変更できます。
+${signature()}`
+  }];
+}
+
+module.exports = {CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided , contactAiReply, passwordResetByAi, contactAiNotify, contactStaffReply , ticketReplyToCustomer, ticketToStaff , loginGuideByAi , eventRsvpMail, memberNotice };
