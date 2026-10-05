@@ -1028,9 +1028,7 @@ function renderProfile() {
           <p class="mfa-panel-head"><b>2 段階認証</b><span class="mfa-badge" id="mfa-state">確認中…</span></p>
           <p style="color:var(--muted);font-size:13px;margin:0 0 10px">ログインのときに、パスワード（または Google）に加えて、認証アプリかメールの 6 桁のコードを確認します。</p>
           <button class="lux-btn ghost sm" id="mfa-settings">2段階認証を設定する</button>
-        </div>
-        <button class="lux-btn ghost sm" data-action="logout" style="margin-top:10px">ログアウト</button>
-      </section>
+        </div>      </section>
       <section class="panel" id="type-panel">
         <div class="panel-head"><h3>会員種別の変更</h3></div>
         ${m.typeRequest ? `
