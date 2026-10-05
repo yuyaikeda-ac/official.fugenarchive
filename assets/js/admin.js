@@ -16,7 +16,7 @@ import {
   AUDIENCE_LABEL, PURPOSE_LABEL, FORM_STATUS_LABEL, SIGNER_LABEL, EXTRA_FIELDS
 } from "./consent-core.js";
 import {
-  collection, query, where, getDocs, getDoc, doc, addDoc, updateDoc, setDoc, deleteDoc
+  collection, query, where, getDocs, getDoc, doc, addDoc, updateDoc, setDoc, deleteDoc, deleteField
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 
@@ -360,7 +360,8 @@ $("scrim").addEventListener("click", () => $("app").classList.remove("nav-open")
 /** メニューの「審査待ち」の数 */
 async function refreshBadges() {
   try {
-    const n = (await getRows("members")).filter(r => r.status === "pending").length;
+    const rows = await getRows("members");
+    const n = rows.filter(r => r.status === "pending" || r.signatureRewrite === "requested").length;
     document.querySelectorAll('[data-badge="pending"]').forEach(b => { b.hidden = !n; b.textContent = n; });
   } catch (e) { console.warn(e); }
 }
@@ -379,8 +380,16 @@ async function renderDashboard() {
   const published = forms.filter(f => f.status === "published").length;
   const recentContacts = [...contacts].sort((a, b) => (toDate(b.createdAt) || 0) - (toDate(a.createdAt) || 0)).slice(0, 5);
 
+  const sigRequests = members.filter(m => m.signatureRewrite === "requested");
   $("page").innerHTML = `
     <p class="page-intro">${esc(currentAdmin.email)} さん、お疲れさまです。最新の状況です。</p>
+    ${sigRequests.length ? `<section class="card sigreq-card">
+      <div class="card-head"><h2>会員証の署名の書き直し申請（${sigRequests.length}件）</h2><a class="btn btn-sm" href="#members">会員管理へ</a></div>
+      <ul class="mini-list">${sigRequests.map(m => `<li><div class="t"><b>${esc(m.name)}</b><small>${esc(m.memberNo || "")}・${fmtD(m.signatureRewriteAt)} 申請</small></div>
+        <button class="btn btn-sm" data-sigview="${esc(m.id)}">現在の署名</button>
+        <button class="btn btn-sm btn-ok" data-sigallow="${esc(m.id)}">許可</button>
+        <button class="btn btn-sm btn-danger" data-sigdeny="${esc(m.id)}">却下</button></li>`).join("")}</ul>
+    </section>` : ""}
     <div class="stats">
       <a class="card stat warn${pending.length ? " has" : ""}" href="#members"><div class="ic">${icon("users")}</div><div class="k">審査待ちの入会申込</div><div class="v">${pending.length}<small>件</small></div></a>
       <a class="card stat ok" href="#members"><div class="ic">${icon("shield")}</div><div class="k">有効会員</div><div class="v">${active}<small>名</small></div></a>
@@ -610,7 +619,8 @@ async function renderMembers() {
       .filter(r => !q || `${r.name} ${r.kana || ""} ${r.email} ${r.memberNo || ""} ${r.affiliation || ""} ${r.occupation || ""}`.toLowerCase().includes(q))
       .sort((a, b) => (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1));
     $("tbl").querySelector("tbody").innerHTML = list.length ? list.map(r => `<tr>
-      <td class="st">${pill(r.status, MEMBER_STATUS[r.status] || r.status)}${reviewBadge(reviewOf(reviews, r.id))}</td>
+      <td class="st">${pill(r.status, MEMBER_STATUS[r.status] || r.status)}${reviewBadge(reviewOf(reviews, r.id))}${
+        r.signatureRewrite === "requested" ? pill("pending", "署名の書き直し申請中") : r.signatureRewrite === "allowed" ? pill("info", "署名の書き直し許可済み") : ""}</td>
       <td class="main"><b>${esc(r.name)}</b>（${esc(r.kana || "")}）<span class="sub"><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></span>${r.occupation || r.affiliation ? `<span class="sub">${esc([r.occupation, r.affiliation].filter(Boolean).join("／"))}</span>` : ""}</td>
       <td data-label="種別">${esc(MEMBER_TYPE[r.type] || r.type)}${r.memberNo ? `<span class="sub">${esc(r.memberNo)}</span>` : r.status === "pending" ? '<span class="sub hide-sm">承認時に自動付与</span>' : ""}
         ${r.type === "student" && r.status === "pending" ? `<button class="btn btn-sm" data-sid="${esc(r.id)}" style="margin-top:4px">学生証を見る</button>` : ""}</td>
@@ -618,6 +628,9 @@ async function renderMembers() {
       <td class="act">
         ${reviewOf(reviews, r.id) || (r.status === "pending" && hasGroup) ? `<button class="btn btn-sm" data-review="${esc(r.id)}">審査状況</button>` : ""}
         ${r.status === "pending" ? `<button class="btn btn-sm btn-ok" data-approve="${esc(r.id)}">承認</button><button class="btn btn-sm btn-danger" data-reject="${esc(r.id)}">否認</button>` : ""}
+        ${r.signatureRewrite === "requested" ? `<button class="btn btn-sm btn-ok" data-sigallow="${esc(r.id)}">署名の書き直しを許可</button><button class="btn btn-sm btn-danger" data-sigdeny="${esc(r.id)}">却下</button>` : ""}
+        ${r.signatureRewrite === "allowed" ? `<button class="btn btn-sm" data-sigdeny="${esc(r.id)}">許可を取り消す</button>` : ""}
+        ${r.cardSignature ? `<button class="btn btn-sm" data-sigview="${esc(r.id)}">署名</button>` : ""}
         ${r.status === "active" ? `<button class="btn btn-sm" data-suspend="${esc(r.id)}">停止</button>` : ""}
         ${r.status === "suspended" ? `<button class="btn btn-sm" data-activate="${esc(r.id)}">再開</button>` : ""}
         <button class="btn btn-sm" data-edit="${esc(r.id)}">編集</button>
@@ -650,13 +663,33 @@ const removeStudentId = (id) => adminApi.remove("student_ids", id).catch(err => 
 $("page").addEventListener("click", async (e) => {
   const t = e.target.closest("button");
   if (!t) return;
-  const { sid, approve, reject, suspend, activate, review } = t.dataset;
+  const { sid, approve, reject, suspend, activate, review, sigallow, sigdeny, sigview } = t.dataset;
   const isMembers = location.hash.startsWith("#members");
   const del = isMembers ? t.dataset.del : null, edit = isMembers ? t.dataset.edit : null;
-  if (!(sid || approve || reject || suspend || activate || del || edit || review)) return;
+  if (!(sid || approve || reject || suspend || activate || del || edit || review || sigallow || sigdeny || sigview)) return;
   const members = await getRows("members");
-  const r = members.find(x => x.id === (sid || approve || reject || suspend || activate || del || edit || review));
+  const r = members.find(x => x.id === (sid || approve || reject || suspend || activate || del || edit || review || sigallow || sigdeny || sigview));
   if (!r) return;
+  // 会員証の署名の書き直し（申請の許可・却下、現在の署名の確認）
+  if (sigview) {
+    const body = openModal(`${r.name} さんの会員証の署名`, '<div class="sig-view"><img alt="署名"></div>');
+    body.querySelector("img").src = r.cardSignature || "";
+    return;
+  }
+  if (sigallow || sigdeny) {
+    const allow = !!sigallow;
+    const msg = allow ? `${r.name} さんの会員証の署名の書き直しを許可します（1 回のみ）。よろしいですか？`
+      : r.signatureRewrite === "allowed" ? `${r.name} さんへの書き直しの許可を取り消します。よろしいですか？` : `${r.name} さんの書き直しの申請を却下します。よろしいですか？`;
+    if (!window.confirm(msg)) return;
+    try {
+      await updateDoc(doc(db, "members", r.id), allow
+        ? { signatureRewrite: "allowed", signatureRewriteBy: currentAdmin.uid, signatureRewriteAt: new Date() }
+        : { signatureRewrite: deleteField(), signatureRewriteBy: currentAdmin.uid, signatureRewriteAt: new Date() });
+      toast(allow ? "書き直しを許可しました。本人にメールでお知らせします。" : "取り消しました。");
+      invalidate("members"); refreshBadges(); route();
+    } catch (err) { console.error(err); toast("更新に失敗しました：" + err.message, "error"); }
+    return;
+  }
   // 理事会の審査中かどうか（管理者が手動で確定するときは確認文に添える）
   const underReview = (approve || reject) ? reviewOf(await getRows("reviews").catch(() => []), r.id)?.status === "open" : false;
   const boardNote = underReview ? BOARD_NOTE : "";

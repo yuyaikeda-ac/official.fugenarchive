@@ -95,6 +95,14 @@ exports.mailOnMemberReviewed = onDocumentUpdated({ document: "members/{uid}", ..
   }
 });
 
+// ---------- 会員証の署名の書き直し：申請 → 委員会へ通知／許可 → 本人へ通知 ----------
+exports.mailOnSignatureRewrite = onDocumentUpdated({ document: "members/{uid}", ...opts }, async (event) => {
+  const before = event.data?.before.data(), after = event.data?.after.data();
+  if (!before || !after || before.signatureRewrite === after.signatureRewrite) return;
+  if (after.signatureRewrite === "requested") await sendAll(mails.signatureRewriteRequested(after), "署名の書き直し申請");
+  if (after.signatureRewrite === "allowed") await sendAll(mails.signatureRewriteAllowed(after), "署名の書き直し許可");
+});
+
 // ---------- お問い合わせ → 委員会へ通知 ＋ 送信者へ自動返信 ----------
 exports.mailOnContact = onDocumentCreated({ document: "contacts/{id}", ...opts }, async (event) => {
   const c = event.data?.data();

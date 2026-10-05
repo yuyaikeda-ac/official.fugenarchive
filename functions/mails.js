@@ -274,4 +274,41 @@ ${signature()}`;
   return Object.values(r.voters).map(v => ({ to: v.email, subject: `【${CONFIG.orgName}】入会審査の結果：${m.name} 様（${approved ? "承認" : "否認"}）`, text }));
 }
 
-module.exports = { CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult };
+// ---------- 会員証の署名の書き直し申請（委員会へ） ----------
+function signatureRewriteRequested(m) {
+  return [{
+    to: CONFIG.notifyTo,
+    subject: `【会員証】署名の書き直し申請：${m.name} 様（${m.memberNo || ""}）`,
+    text:
+`会員から、デジタル会員証の署名の書き直し申請がありました。
+管理画面の「会員管理」から、許可または却下してください（許可すると本人が 1 回だけ書き直せます）。
+
+■ お名前　：${m.name}
+■ 会員番号：${m.memberNo || "—"}
+■ メール　：${m.email}
+
+▼ 管理画面
+${CONFIG.siteUrl}/admin.html#members
+`
+  }];
+}
+
+// ---------- 会員証の署名の書き直しを許可（本人へ） ----------
+function signatureRewriteAllowed(m) {
+  return [{
+    to: m.email,
+    subject: `【${CONFIG.orgName}】会員証の署名の書き直しが許可されました`,
+    text:
+`${m.name} 様
+
+${CONFIG.orgName}です。
+デジタル会員証の署名の書き直しを許可しました。
+会員サイトの「会員証」から「署名を書き直す」を押して、新しい署名を登録してください（書き直しは 1 回のみです）。
+
+▼ 会員サイト（会員証）
+${CONFIG.siteUrl}/member.html#card
+${signature()}`
+  }];
+}
+
+module.exports = { CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed };

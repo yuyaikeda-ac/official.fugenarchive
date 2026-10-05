@@ -2,11 +2,11 @@
 //  会員機能のデータ処理（入会申込・ログイン・会員ポータル）
 // ============================================================
 import {
-  doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, orderBy, serverTimestamp
+  doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, collection, getDocs, query, where, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
-  onAuthStateChanged, sendPasswordResetEmail
+  onAuthStateChanged, sendPasswordResetEmail, verifyBeforeUpdateEmail, reauthenticateWithCredential, EmailAuthProvider
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { db, auth, isDemo, signInWithGoogle } from "./db.js";
 
@@ -123,9 +123,38 @@ export async function getMember(uid) {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
-/** 会員証の裏面に印字する直筆の署名（PNG の data URL）を保存 */
-export async function saveCardSignature(uid, image) {
-  await updateDoc(doc(db, "members", uid), { cardSignature: image });
+/**
+ * 会員証の裏面に印字する直筆の署名（PNG の data URL）を保存
+ * 書き直し（管理者の許可あり）の場合は、許可を使い切る（signatureRewrite を消す）
+ */
+export async function saveCardSignature(uid, image, { rewrite = false } = {}) {
+  await updateDoc(doc(db, "members", uid), rewrite
+    ? { cardSignature: image, signatureRewrite: deleteField(), signatureRewriteAt: serverTimestamp() }
+    : { cardSignature: image });
+}
+/** 署名の書き直しを管理者に申請 */
+export async function requestSignatureRewrite(uid) {
+  await updateDoc(doc(db, "members", uid), { signatureRewrite: "requested", signatureRewriteAt: serverTimestamp() });
+}
+
+// ---------- メールアドレスの変更 ----------
+/** ログイン方法がパスワードかどうか（Google だけの場合は変更不可） */
+export const canChangeEmail = (user) => user.providerData.some(p => p.providerId === "password");
+/**
+ * 新しいメールアドレスに確認メールを送る（リンクを開いた時点でログイン用のアドレスが切り替わる）
+ * 安全のため、現在のパスワードで本人確認してから送信
+ */
+export async function requestEmailChange(user, newEmail, password) {
+  requireFirebase();
+  await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+  await verifyBeforeUpdateEmail(user, newEmail, { url: `${location.origin}/member-login.html` });
+}
+/** ログイン用のアドレスが変わっていたら、会員データのメールアドレスも合わせる */
+export async function syncMemberEmail(user, member) {
+  if (!user.email || !user.emailVerified || user.email === member.email) return false;
+  await updateDoc(doc(db, "members", user.uid), { email: user.email });
+  member.email = user.email;
+  return true;
 }
 
 export async function updateProfile(uid, data) {
@@ -168,6 +197,8 @@ export function errorMessage(e) {
     "member/exists": "この Google アカウントは既にお申込み済みです。会員ログインから状況をご確認ください。",
     "auth/operation-not-allowed": "このログイン方法は現在ご利用いただけません。委員会までお問い合わせください。",
     "auth/popup-blocked": "ポップアップがブロックされました。ブラウザの設定でポップアップを許可してください。",
+    "auth/requires-recent-login": "安全のため、もう一度ログインしてからお試しください。",
+    "auth/missing-password": "現在のパスワードを入力してください。",
     "auth/account-exists-with-different-credential": "このメールアドレスは別の方法で登録されています。メールアドレスとパスワードでログインしてください。"
   };
   return map[e?.code] || e?.message || "エラーが発生しました。";

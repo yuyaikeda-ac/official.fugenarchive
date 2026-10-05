@@ -3,7 +3,8 @@
 // ============================================================
 import {
   onAuth, logout, resetPassword, getMember, updateProfile, getMemberNews, getMemberDocs,
-  getEvents, getMyRsvps, rsvp, errorMessage, MEMBER_TYPES, STATUS_LABEL, OCCUPATIONS, saveCardSignature
+  getEvents, getMyRsvps, rsvp, errorMessage, MEMBER_TYPES, STATUS_LABEL, OCCUPATIONS, saveCardSignature,
+  requestSignatureRewrite, canChangeEmail, requestEmailChange, syncMemberEmail
 } from "./member-api.js";
 import { esc, isDemo, app } from "./db.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
@@ -77,6 +78,9 @@ onAuth(async (user) => {
   if (state.member.status === "pending") return gate("pending");
   if (state.member.status === "rejected") return gate("rejected");
   if (state.member.status !== "active") return gate("suspended");
+  // メールアドレスを変更した直後（確認リンクを開いた後）は、会員データのアドレスも合わせる
+  try { if (await syncMemberEmail(user, state.member)) setTimeout(() => toast("メールアドレスの変更を反映しました"), 800); }
+  catch (e) { console.warn("メールアドレスを会員データに反映できませんでした", e); }
   startPortal();
   ensureCardToken();
 });
@@ -438,6 +442,17 @@ routeOf("card").after = () => {
   $("print-card")?.addEventListener("click", printCard);
   $("scan-card")?.addEventListener("click", openScan);
   document.querySelectorAll("[data-card-sign]").forEach(b => b.addEventListener("click", openCardSign));
+  document.querySelector("[data-sign-request]")?.addEventListener("click", async (e) => {
+    const b = e.currentTarget;
+    if (!window.confirm("会員証の署名の書き直しを申請します。管理者が許可すると、1 回だけ書き直せます。よろしいですか？")) return;
+    b.disabled = true;
+    try {
+      await requestSignatureRewrite(state.member.id);
+      state.member.signatureRewrite = "requested";
+      rerender();
+      toast("書き直しを申請しました。許可されるとメールでお知らせします");
+    } catch (err) { console.error(err); toast(errorMessage(err), true); b.disabled = false; }
+  });
 };
 
 // ============================================================
@@ -447,8 +462,8 @@ function openCardSign() {
   const dlg = document.createElement("dialog");
   dlg.className = "sig-dialog";
   dlg.innerHTML = `<form method="dialog">
-      <h3>会員証の署名</h3>
-      <p>枠の中に、指・マウス・ペンでお名前を手書きしてください。デジタル会員証の裏面（印刷にも）に表示されます。</p>
+      <h3>会員証の署名${state.member.cardSignature ? "（書き直し）" : ""}</h3>
+      <p>枠の中に、指・マウス・ペンでお名前を手書きしてください。デジタル会員証の裏面（印刷にも）に表示されます。${state.member.cardSignature ? "<br><b>書き直しは 1 回のみです。</b>登録後にもう一度書き直すには、改めて申請が必要です。" : "登録後の書き直しには管理者の許可が必要です。"}</p>
       <div data-pad-box>${padHtml()}</div>
       <p class="sig-err" hidden>署名欄に署名してください</p>
       <div class="sig-actions">
@@ -466,8 +481,10 @@ function openCardSign() {
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> 保存中…';
     try {
       const image = pad.toDataURL();
-      await saveCardSignature(state.member.id, image);
+      const rewrite = !!state.member.cardSignature;
+      await saveCardSignature(state.member.id, image, { rewrite });
       state.member.cardSignature = image;
+      if (rewrite) delete state.member.signatureRewrite;
       dlg.close();
       rerender();
       toast("会員証の署名を登録しました");
@@ -563,7 +580,10 @@ function renderCard() {
     <div class="card-actions">
       <button class="lux-btn sm" id="scan-card"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg>スキャン用表示</button>
       <button class="lux-btn ghost sm" id="print-card">印刷する</button>
-      ${m.cardSignature ? '<button class="lux-btn ghost sm" type="button" data-card-sign>署名を書き直す</button>' : ""}
+      ${!m.cardSignature ? ""
+        : m.signatureRewrite === "allowed" ? '<button class="lux-btn ghost sm" type="button" data-card-sign>署名を書き直す</button>'
+        : m.signatureRewrite === "requested" ? '<span class="sig-pending">署名の書き直しを申請中（管理者の承認待ち）</span>'
+        : '<button class="lux-btn ghost sm" type="button" data-sign-request>署名の書き直しを申請</button>'}
     </div>
   </div>`;
 }
@@ -680,11 +700,66 @@ routeOf("profile").after = () => {
       btn.disabled = false; btn.textContent = "変更を保存";
     }
   });
+  $("email-change")?.addEventListener("click", openEmailChange);
   $("pw-reset").addEventListener("click", async () => {
     try { await resetPassword(state.member.email || state.user.email); toast("パスワード再設定メールを送信しました"); }
     catch (err) { console.error(err); toast(errorMessage(err), true); }
   });
 };
+// メールアドレスの変更（新しいアドレスに確認メール → リンクを開くと切り替え → 次回ログイン時に会員データへ反映）
+function openEmailChange() {
+  const dlg = document.createElement("dialog");
+  dlg.className = "sig-dialog";
+  dlg.innerHTML = `<form id="email-form" novalidate>
+      <h3>メールアドレスの変更</h3>
+      <p>新しいメールアドレスに確認メールをお送りします。メール内のリンクを開くと変更が完了し、次回からは新しいアドレスでログインします。本人確認のため、現在のパスワードを入力してください。</p>
+      <div class="field"><label for="ne-email">新しいメールアドレス</label><input id="ne-email" type="email" autocomplete="email" required maxlength="200"></div>
+      <div class="field"><label for="ne-email2">新しいメールアドレス（確認）</label><input id="ne-email2" type="email" autocomplete="off" required maxlength="200"></div>
+      <div class="field"><label for="ne-pw">現在のパスワード</label><input id="ne-pw" type="password" autocomplete="current-password" required></div>
+      <p class="sig-err" hidden></p>
+      <div class="sig-actions">
+        <button class="lux-btn ghost sm" type="button" data-cancel>キャンセル</button>
+        <button class="lux-btn sm" type="submit">確認メールを送る</button>
+      </div>
+    </form>`;
+  document.body.appendChild(dlg);
+  dlg.addEventListener("close", () => dlg.remove());
+  dlg.querySelector("[data-cancel]").addEventListener("click", () => dlg.close());
+  dlg.showModal();
+  const err = dlg.querySelector(".sig-err");
+  const fail = (msg) => { err.textContent = msg; err.hidden = false; };
+  dlg.querySelector("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = dlg.querySelector("#ne-email").value.trim().toLowerCase();
+    const email2 = dlg.querySelector("#ne-email2").value.trim().toLowerCase();
+    const pw = dlg.querySelector("#ne-pw").value;
+    if (!/^[^s@]+@[^s@]+.[^s@]+$/.test(email)) return fail("正しいメールアドレスを入力してください。");
+    if (email !== email2) return fail("確認用のメールアドレスが一致しません。");
+    if (email === (state.user.email || "").toLowerCase()) return fail("現在と同じメールアドレスです。");
+    if (!pw) return fail("現在のパスワードを入力してください。");
+    const btn = e.submitter || dlg.querySelector("[type=submit]");
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> 送信中…';
+    try {
+      await requestEmailChange(state.user, email, pw);
+      dlg.querySelector("form").innerHTML = `<h3>確認メールを送信しました</h3>
+        <p><b>${esc(email)}</b> あてに確認メールをお送りしました。メール内のリンクを開くと変更が完了します。<br>
+        変更が完了するまでは、これまでのメールアドレスでログインできます。完了後は、新しいメールアドレスでもう一度ログインしてください。</p>
+        <div class="sig-actions"><button class="lux-btn sm" type="button" data-cancel>閉じる</button></div>`;
+      dlg.querySelector("[data-cancel]").addEventListener("click", () => dlg.close());
+    } catch (ex) {
+      console.error(ex);
+      const map = {
+        "auth/wrong-password": "パスワードが正しくありません。", "auth/invalid-credential": "パスワードが正しくありません。",
+        "auth/email-already-in-use": "このメールアドレスは、すでに別のアカウントで使われています。",
+        "auth/invalid-email": "メールアドレスの形式が正しくありません。",
+        "auth/too-many-requests": "試行回数が多すぎます。しばらく時間をおいてからお試しください。"
+      };
+      fail(map[ex.code] || errorMessage(ex));
+      btn.disabled = false; btn.textContent = "確認メールを送る";
+    }
+  });
+}
+
 function renderProfile() {
   const m = state.member;
   const f = (name, label, attrs = "") => `<div class="field"><label for="p-${name}">${label}</label><input id="p-${name}" name="${name}" value="${esc(m[name] || "")}" ${attrs}></div>`;
@@ -693,7 +768,9 @@ function renderProfile() {
       <div class="panel-head"><h3>登録情報</h3></div>
       <form id="profile-form" novalidate>
         <div class="grid-2">${f("name", "お名前", 'autocomplete="name" maxlength="100" required')}${f("kana", "フリガナ", 'maxlength="100"')}</div>
-        <div class="field"><label>メールアドレス</label><input value="${esc(m.email || state.user.email)}" disabled><p class="hint">メールアドレスの変更は委員会までご連絡ください</p></div>
+        <div class="field"><label>メールアドレス</label>
+          <div class="email-row"><input value="${esc(state.user.email || m.email)}" disabled>${canChangeEmail(state.user) ? '<button class="lux-btn ghost sm" type="button" id="email-change">変更する</button>' : ""}</div>
+          <p class="hint">${canChangeEmail(state.user) ? "変更すると、新しいアドレスに確認メールが届きます。メール内のリンクを開いた時点で切り替わります。" : "Google アカウントでログインしているため、ここでは変更できません。変更が必要な場合は委員会までご連絡ください。"}</p></div>
         <div class="field"><label for="p-occupation">ご職業</label><select id="p-occupation" name="occupation"><option value="">選択してください</option>${OCCUPATIONS.map(g =>
           `<optgroup label="${esc(g.group)}">${g.items.map(v => `<option${m.occupation === v ? " selected" : ""}>${esc(v)}</option>`).join("")}</optgroup>`).join("")}</select></div>
         ${f("affiliation", "ご所属", 'autocomplete="organization" maxlength="200"')}

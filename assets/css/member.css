@@ -968,3 +968,8 @@ body.scan-open { overflow: hidden; }
 .sig-dialog p { margin: 0 0 14px; font-size: 13px; color: var(--muted); }
 .sig-dialog .sig-err { margin: 8px 0 0; color: var(--danger); font-weight: 500; }
 .sig-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+.sig-pending { display: inline-flex; align-items: center; padding: 8px 14px; border-radius: 999px; background: var(--gold-soft); border: 1px solid #ecdcb2; color: var(--gold-dark); font-size: 12.5px; font-weight: 500; }
+.email-row { display: flex; gap: 8px; align-items: center; }
+.email-row input { flex: 1; min-width: 0; }
+.email-row .lux-btn { flex-shrink: 0; }
+.sig-dialog .field { margin-bottom: 14px; }

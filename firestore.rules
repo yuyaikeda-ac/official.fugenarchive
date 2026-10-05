@@ -93,6 +93,22 @@ service cloud.firestore {
     }
 
     // ---------- 会員 ----------
+    // 会員証の署名の登録・書き直し（本人による更新）
+    //  ・まだ署名が無ければ自由に登録できる
+    //  ・登録済みの署名の書き直しは、管理者が許可（signatureRewrite = 'allowed'）した場合のみ 1 回。
+    //    書き直すときに許可を消す（使い切り）
+    //  ・本人ができるのは「書き直しを申請（'requested'）」まで
+    function selfSignatureOk() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let sigChanged = after.get('cardSignature', null) != before.get('cardSignature', null);
+      let rwBefore = before.get('signatureRewrite', null);
+      let rwAfter = after.get('signatureRewrite', null);
+      return (!sigChanged || before.get('cardSignature', null) == null || (rwBefore == 'allowed' && rwAfter == null))
+        && (rwAfter == rwBefore
+            || (rwAfter == 'requested' && rwBefore == null && !sigChanged)
+            || (rwAfter == null && rwBefore == 'allowed' && sigChanged));
+    }
     // 会員証の裏面の直筆署名（任意項目。PNG 画像・300KB まで）
     function validCardSignature(d) {
       return !('cardSignature' in d)
@@ -122,8 +138,12 @@ service cloud.firestore {
           && (request.resource.data.status != 'active' || request.resource.data.approvedBy is string))
         || (signedIn() && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['name', 'kana', 'occupation', 'affiliation', 'phone', 'address', 'newsletter', 'cardSignature'])
+             .hasOnly(['name', 'kana', 'occupation', 'affiliation', 'phone', 'address', 'newsletter', 'cardSignature', 'signatureRewrite', 'signatureRewriteAt', 'email'])
         && validCardSignature(request.resource.data)
+        && selfSignatureOk()
+        // メールアドレスは、ログイン中のアカウント（確認済み）のアドレスに合わせる場合のみ
+        && (request.resource.data.get('email', '') == resource.data.get('email', '')
+            || (request.auth.token.email_verified == true && request.resource.data.email == request.auth.token.email))
         && str(request.resource.data.name, 100));
 
       allow delete: if isAdmin();
