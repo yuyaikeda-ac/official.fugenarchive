@@ -104,13 +104,13 @@ h1, h2, h3, h4 { line-height: 1.4; }
 /* News のタブ（区分） */
 /* ---------- News のタブ ----------
    各区分の色は下の --c で指定（ラベルの色と合わせています） */
-.news-tabs { display: flex; margin: 0 20px; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+.news-tabs { display: flex; margin: 0 20px; border-bottom: 1px solid var(--border); overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; }
 .news-tabs::-webkit-scrollbar { display: none; }
 .news-tabs [role=tab] { --c: var(--main); flex: 1 0 auto; position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   padding: 13px 14px 12px; border: 0; background: transparent; font: 500 14px var(--font); color: var(--text-sub); cursor: pointer; white-space: nowrap;
   transition: color .2s, background .2s; }
 .news-tabs [role=tab]::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c); opacity: .55; transition: opacity .2s, transform .2s; }
-.news-tabs [role=tab]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--c); transform: scaleX(0); transition: transform .25s ease; }
+.news-tabs [role=tab]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 0; height: 3px; border-radius: 3px 3px 0 0; background: var(--c); transform: scaleX(0); transition: transform .25s ease; }
 .news-tabs [role=tab]:hover { color: var(--c); background: #f7f9fc; }
 .news-tabs [role=tab]:hover::after { transform: scaleX(.4); }
 .news-tabs [role=tab].is-active { color: var(--c); font-weight: 700; background: linear-gradient(180deg, transparent, rgba(11,58,110,.04)); }
