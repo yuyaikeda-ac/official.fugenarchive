@@ -96,7 +96,7 @@ service cloud.firestore {
 
       // 入会申込（本人・審査中のみ）
       allow create: if signedIn() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['name', 'kana', 'email', 'type', 'affiliation', 'phone',
+        && request.resource.data.keys().hasOnly(['name', 'kana', 'email', 'type', 'occupation', 'affiliation', 'phone',
              'address', 'message', 'newsletter', 'status', 'createdAt'])
         && request.resource.data.status == 'pending'
         && request.resource.data.type in ['regular', 'associate', 'student']
@@ -104,6 +104,7 @@ service cloud.firestore {
         && str(request.resource.data.kana, 100)
         && str(request.resource.data.email, 200)
         && str(request.resource.data.message, 2000)
+        && str(request.resource.data.occupation, 50)
         && request.resource.data.createdAt == request.time;
 
       // 委員会承認制：状態（status）を変えられるのは管理者のみ。
@@ -113,7 +114,7 @@ service cloud.firestore {
           && (request.resource.data.status != 'active' || request.resource.data.approvedBy is string))
         || (signedIn() && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['name', 'kana', 'affiliation', 'phone', 'address', 'newsletter'])
+             .hasOnly(['name', 'kana', 'occupation', 'affiliation', 'phone', 'address', 'newsletter'])
         && str(request.resource.data.name, 100));
 
       allow delete: if isAdmin();

@@ -3,7 +3,7 @@
 // ============================================================
 import {
   onAuth, logout, resetPassword, getMember, updateProfile, getMemberNews, getMemberDocs,
-  getEvents, getMyRsvps, rsvp, errorMessage, MEMBER_TYPES, STATUS_LABEL
+  getEvents, getMyRsvps, rsvp, errorMessage, MEMBER_TYPES, STATUS_LABEL, OCCUPATIONS
 } from "./member-api.js";
 import { esc, isDemo } from "./db.js";
 import { memberCardHtml, bindCard, printSheetHtml } from "./card.js";
@@ -449,7 +449,7 @@ ROUTES[5].after = () => {
     const f = form.elements;
     if (!f.name.value.trim()) { f.name.focus(); return toast("お名前を入力してください", true); }
     const data = {
-      name: f.name.value.trim(), kana: f.kana.value.trim(), affiliation: f.affiliation.value.trim(),
+      name: f.name.value.trim(), kana: f.kana.value.trim(), occupation: f.occupation.value, affiliation: f.affiliation.value.trim(),
       phone: f.phone.value.trim(), address: f.address.value.trim(), newsletter: f.newsletter.checked
     };
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> 保存中…';
@@ -479,6 +479,8 @@ function renderProfile() {
       <form id="profile-form" novalidate>
         <div class="grid-2">${f("name", "お名前", 'autocomplete="name" maxlength="100" required')}${f("kana", "フリガナ", 'maxlength="100"')}</div>
         <div class="field"><label>メールアドレス</label><input value="${esc(m.email || state.user.email)}" disabled><p class="hint">メールアドレスの変更は委員会までご連絡ください</p></div>
+        <div class="field"><label for="p-occupation">ご職業</label><select id="p-occupation" name="occupation"><option value="">選択してください</option>${OCCUPATIONS.map(g =>
+          `<optgroup label="${esc(g.group)}">${g.items.map(v => `<option${m.occupation === v ? " selected" : ""}>${esc(v)}</option>`).join("")}</optgroup>`).join("")}</select></div>
         ${f("affiliation", "ご所属", 'autocomplete="organization" maxlength="200"')}
         <div class="grid-2">${f("phone", "電話番号", 'type="tel" autocomplete="tel" maxlength="30"')}${f("address", "ご住所", 'autocomplete="street-address" maxlength="300"')}</div>
         <div class="field"><label class="check"><input type="checkbox" name="newsletter"${m.newsletter ? " checked" : ""}> 会員向けのお知らせをメールで受け取る</label></div>

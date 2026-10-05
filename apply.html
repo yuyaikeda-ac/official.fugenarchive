@@ -48,17 +48,6 @@
               <label><input type="radio" name="type" value="associate"><div><strong>準会員</strong><small>本会の活動を応援する方・無料</small></div></label>
               <label><input type="radio" name="type" value="student"><div><strong>学生会員</strong><small>学生の方・無料</small></div></label>
             </div>
-            <!-- 学生会員のみ：学生証（表面）の画像 -->
-            <div class="field student-id" id="student-id-field" hidden>
-              <label for="f-sid">学生証の画像（表面のみ）<span class="req">必須</span></label>
-              <label class="sid-drop" for="f-sid">
-                <img id="sid-preview" alt="学生証のプレビュー" hidden>
-                <span id="sid-empty">タップして撮影・画像を選択</span>
-              </label>
-              <input id="f-sid" name="studentId" type="file" accept="image/*">
-              <p class="hint">学生証の<strong>表面</strong>をお名前・学校名・有効期限が読み取れるように撮影してください。裏面は不要です。画像は審査にのみ使用し、委員会の管理者だけが確認します。</p>
-              <p class="err" id="sid-err">学生証（表面）の画像を選んでください</p>
-            </div>
           </div>
 
           <!-- STEP 2 -->
@@ -70,10 +59,22 @@
               <div class="field"><label for="f-kana">フリガナ<span class="req">必須</span></label><input id="f-kana" name="kana" placeholder="フゲン タロウ" required maxlength="100" data-kana><p class="err">カタカナで入力してください</p></div>
             </div>
             <div class="field"><label for="f-email">メールアドレス<span class="req">必須</span></label><input id="f-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required maxlength="200"><p class="hint">ご連絡先・ログインIDとして使用します（Google で申し込む場合は Google アカウントのアドレスになります）</p><p class="err">正しいメールアドレスを入力してください</p></div>
+            <div class="field"><label for="f-occ">現在のご職業<span class="req">必須</span></label><select id="f-occ" name="occupation" required></select><p class="err">ご職業を選んでください</p></div>
             <div class="field"><label for="f-aff">ご所属（勤務先・学校名など）</label><input id="f-aff" name="affiliation" autocomplete="organization" maxlength="200"></div>
             <div class="grid-2">
               <div class="field"><label for="f-phone">電話番号</label><input id="f-phone" name="phone" type="tel" autocomplete="tel" placeholder="090-0000-0000" maxlength="30"></div>
               <div class="field"><label for="f-address">ご住所</label><input id="f-address" name="address" autocomplete="street-address" maxlength="300"></div>
+            </div>
+            <!-- 学生会員のみ：学生証（表面）の画像 -->
+            <div class="field student-id" id="student-id-field" hidden>
+              <label for="f-sid">学生証の画像（表面のみ）<span class="req">必須</span></label>
+              <label class="sid-drop" for="f-sid">
+                <img id="sid-preview" alt="学生証のプレビュー" hidden>
+                <span id="sid-empty">タップして撮影・画像を選択</span>
+              </label>
+              <input id="f-sid" name="studentId" type="file" accept="image/*">
+              <p class="hint">学生証の<strong>表面</strong>をお名前・学校名・有効期限が読み取れるように撮影してください。裏面は不要です。画像は審査にのみ使用し、委員会の管理者だけが確認します。</p>
+              <p class="err" id="sid-err">学生証（表面）の画像を選んでください</p>
             </div>
           </div>
 
@@ -127,7 +128,7 @@
 <footer id="site-footer"></footer>
 
 <script type="module">
-  import { apply, applyWithGoogle, errorMessage, compressImage, MEMBER_TYPES } from "./assets/js/member-api.js";
+  import { apply, applyWithGoogle, errorMessage, compressImage, MEMBER_TYPES, OCCUPATIONS } from "./assets/js/member-api.js";
   import { esc } from "./assets/js/db.js";
 
   // ---------- ウィザード ----------
@@ -162,6 +163,10 @@
     document.getElementById("google-note").hidden = !useGoogle();
   }));
 
+  // ---------- 現在のご職業（選択肢は member-api.js の OCCUPATIONS） ----------
+  F.occupation.innerHTML = '<option value="">選択してください</option>' + OCCUPATIONS.map(g =>
+    `<optgroup label="${esc(g.group)}">${g.items.map(v => `<option>${esc(v)}</option>`).join("")}</optgroup>`).join("");
+
   // ---------- 学生証（学生会員のみ） ----------
   const isStudent = () => F.type.value === "student";
   const sidField = document.getElementById("student-id-field");
@@ -194,6 +199,7 @@
   // ---------- 入力チェック ----------
   const rules = {
     studentId: () => !isStudent() || !!studentIdImage,
+    occupation: v => !!v,
     name: v => v.trim().length > 0,
     kana: v => /^[ァ-ヶーぁ-ゖ\s　]+$/.test(v.trim()),
     email: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()),
@@ -211,7 +217,7 @@
     return ok;
   }
   function validateStep(n) {
-    const els = [...panels[n - 1].querySelectorAll("input, textarea")].filter(el => rules[el.name]);
+    const els = [...panels[n - 1].querySelectorAll("input, textarea, select")].filter(el => rules[el.name]);
     const results = els.map(check);
     const firstBad = els[results.indexOf(false)];
     if (firstBad) firstBad.focus();
@@ -243,7 +249,7 @@
   }));
 
   // ---------- 下書き保存（パスワードは保存しません） ----------
-  const DRAFT_FIELDS = ["type", "name", "kana", "email", "affiliation", "phone", "address", "message"];
+  const DRAFT_FIELDS = ["type", "name", "kana", "email", "occupation", "affiliation", "phone", "address", "message"];
   function saveDraft() {
     try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(Object.fromEntries(DRAFT_FIELDS.map(k => [k, F[k].value])))); } catch {}
   }
@@ -265,7 +271,7 @@
   function renderConfirm() {
     const rows = [
       ["会員種別", `${MEMBER_TYPES[F.type.value].label}（入会金・年会費 無料）`],
-      ["お名前", F.name.value], ["フリガナ", F.kana.value], ["メールアドレス", F.email.value],
+      ["お名前", F.name.value], ["フリガナ", F.kana.value], ["メールアドレス", F.email.value], ["ご職業", F.occupation.value],
       ["ご所属", F.affiliation.value || "—"], ["電話番号", F.phone.value || "—"], ["ご住所", F.address.value || "—"],
       ["メッセージ", F.message.value || "—"], ["お知らせメール", F.newsletter.checked ? "受け取る" : "受け取らない"],
       ["ログイン方法", useGoogle() ? "Googleアカウント（確定時にGoogleのログイン画面が開きます）" : "メールアドレスとパスワード"]
@@ -284,7 +290,7 @@
     try {
       const data = {
         type: F.type.value, name: F.name.value.trim(), kana: F.kana.value.trim(), email: F.email.value.trim(),
-        affiliation: F.affiliation.value.trim(), phone: F.phone.value.trim(), address: F.address.value.trim(),
+        occupation: F.occupation.value, affiliation: F.affiliation.value.trim(), phone: F.phone.value.trim(), address: F.address.value.trim(),
         message: F.message.value.trim(), newsletter: F.newsletter.checked, password: F.password.value,
         studentId: isStudent() ? studentIdImage : ""
       };

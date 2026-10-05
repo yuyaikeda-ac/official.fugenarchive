@@ -136,7 +136,7 @@
 
 <script type="module">
   import { adminApi, esc, fmtDate, isDemo, NEWS_CATEGORIES } from "./assets/js/db.js";
-  import { getStudentId } from "./assets/js/member-api.js";
+  import { getStudentId, OCCUPATIONS } from "./assets/js/member-api.js";
 
   // ============================================================
   //  コレクションごとの入力項目
@@ -176,6 +176,7 @@
         { key: "name", label: "お名前", type: "text", required: true },
         { key: "kana", label: "フリガナ", type: "text" },
         { key: "email", label: "メールアドレス", type: "text" },
+        { key: "occupation", label: "職業", type: "select", options: Object.fromEntries([["", "（未選択）"], ...OCCUPATIONS.flatMap(g => g.items).map(v => [v, v])]) },
         { key: "affiliation", label: "所属", type: "text" },
         { key: "phone", label: "電話番号", type: "text" },
         { key: "address", label: "住所", type: "text" },
@@ -405,7 +406,7 @@
     $("admin-table").innerHTML = `<tr><th>状態</th><th>お名前 / メール</th><th>種別・会員番号</th><th>申込日 / 承認日</th><th></th></tr>` +
       (sorted.length ? sorted.map(r => `<tr>
         <td><strong style="color:${statusColor[r.status] || "inherit"}">${esc(MEMBER_STATUS[r.status] || r.status)}</strong></td>
-        <td>${esc(r.name)}（${esc(r.kana || "")}）<br><a href="mailto:${esc(r.email)}">${esc(r.email)}</a>${r.affiliation ? `<br><small>${esc(r.affiliation)}</small>` : ""}</td>
+        <td>${esc(r.name)}（${esc(r.kana || "")}）<br><a href="mailto:${esc(r.email)}">${esc(r.email)}</a>${r.occupation || r.affiliation ? `<br><small>${esc([r.occupation, r.affiliation].filter(Boolean).join("／"))}</small>` : ""}</td>
         <td>${esc(MEMBER_TYPE[r.type] || r.type)}<br><small>${r.memberNo ? esc(r.memberNo) : r.status === "pending" ? '<span style="color:var(--text-sub)">承認時に自動付与</span>' : "—"}</small>
           ${r.type === "student" ? `<br><button class="btn" data-sid="${esc(r.id)}">学生証を見る</button>` : ""}</td>
         <td>${esc(r.createdAt?.toDate ? r.createdAt.toDate().toLocaleDateString("ja-JP") : "")}<br><small>${esc(r.approvedAt?.toDate ? r.approvedAt.toDate().toLocaleDateString("ja-JP") : "—")}</small></td>
@@ -492,7 +493,10 @@
       let no = r.memberNo;
       try { if (!no) no = await issueMemberNo(); }
       catch (err) { console.error(err); notice("admin-msg", "error", "会員番号の採番に失敗しました：" + err.message); return; }
-      return setMember(approve, { status: "active", memberNo: no, approvedAt: new Date(), approvedBy: currentAdmin.uid }, `${r.name} さんを承認しました（${no}）。`);
+      await setMember(approve, { status: "active", memberNo: no, approvedAt: new Date(), approvedBy: currentAdmin.uid }, `${r.name} さんを承認しました（${no}）。`);
+      // 承認後は学生証の画像は不要なので削除（審査にのみ使用）
+      if (r.type === "student") await adminApi.remove("student_ids", approve).catch(err => console.warn("学生証の削除に失敗", err));
+      return;
     }
     if (reject) {
       const r = rows.find(x => x.id === reject);

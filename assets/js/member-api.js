@@ -18,10 +18,19 @@ export const MEMBER_TYPES = {
   student: { label: "学生会員" }
 };
 
+// ★ 現在の職業の選択肢。変える場合はここを編集してください（保存されるのは表示名そのもの）
+export const OCCUPATIONS = [
+  { group: "お勤めの方", items: ["会社員（正社員）", "会社員（契約・派遣）", "会社経営・役員", "公務員", "団体職員・NPO職員", "パート・アルバイト"] },
+  { group: "専門・技術", items: ["教員・保育士・教育関係", "研究者・大学教員", "医療・看護・介護・福祉", "IT・エンジニア・技術職", "士業（弁護士・税理士など）", "建築・設計・土木", "報道・出版・メディア", "芸術・デザイン・クリエイター", "学芸員・図書館・文化財関係", "宗教関係"] },
+  { group: "自営・一次産業", items: ["自営業・個人事業主", "商業・サービス業", "製造・建設・運輸", "農業・林業・漁業", "観光・宿泊・飲食"] },
+  { group: "学生", items: ["大学生・大学院生", "短大・専門学校生", "高校生", "中学生以下"] },
+  { group: "その他", items: ["主婦・主夫", "退職・年金生活", "求職中", "その他"] }
+];
+
 export const STATUS_LABEL = { pending: "審査中", active: "有効", suspended: "停止中", rejected: "否認" };
 
 // 本人が後から編集できる項目（firestore.rules と揃えています）
-export const EDITABLE_FIELDS = ["name", "kana", "affiliation", "phone", "address", "newsletter"];
+export const EDITABLE_FIELDS = ["name", "kana", "occupation", "affiliation", "phone", "address", "newsletter"];
 
 function requireFirebase() {
   if (isDemo) throw new Error("Firebase が未設定です。assets/js/firebase-config.js を設定してください。");
@@ -58,7 +67,7 @@ export async function applyWithGoogle(form) {
 async function saveApplication(uid, form, email) {
   await setDoc(doc(db, "members", uid), {
     name: form.name, kana: form.kana, email, type: form.type,
-    affiliation: form.affiliation || "", phone: form.phone || "", address: form.address || "",
+    occupation: form.occupation || "", affiliation: form.affiliation || "", phone: form.phone || "", address: form.address || "",
     message: form.message || "", newsletter: !!form.newsletter,
     status: "pending", createdAt: serverTimestamp()
   });

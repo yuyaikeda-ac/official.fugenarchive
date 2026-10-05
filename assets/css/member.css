@@ -209,7 +209,7 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
 .step-sub { color: var(--muted); font-size: 14px; margin: 0 0 28px; }
 .type-select { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 8px; }
 .type-select.two { grid-template-columns: repeat(2, 1fr); }
-.type-select label { position: relative; cursor: pointer; padding: 24px 18px; border-radius: 14px; border: 1.5px solid var(--line-soft); background: #fff; text-align: center; transition: .25s var(--ease); }
+.type-select label { position: relative; cursor: pointer; padding: 24px 18px; border-radius: 14px; border: 1.5px solid var(--line-soft); background: #fff; text-align: left; transition: .25s var(--ease); }
 .type-select input { position: absolute; opacity: 0; pointer-events: none; }
 .type-select strong { display: block; font-family: var(--serif); font-size: 17px; margin-bottom: 4px; color: var(--navy); }
 .type-select small { color: var(--muted); font-size: 12px; }

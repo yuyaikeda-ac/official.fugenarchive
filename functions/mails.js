@@ -37,6 +37,7 @@ function memberApplied(m) {
 ■ 会員種別：${type}
 ■ お名前　：${m.name}（${m.kana || ""}）
 ■ メール　：${m.email}
+■ ご職業　：${m.occupation || "—"}
 ■ ご所属　：${m.affiliation || "—"}
 ■ 電話番号：${m.phone || "—"}
 ■ ご住所　：${m.address || "—"}
