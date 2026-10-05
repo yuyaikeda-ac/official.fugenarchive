@@ -48,6 +48,17 @@
               <label><input type="radio" name="type" value="associate"><div><strong>準会員</strong><small>本会の活動を応援する方・無料</small></div></label>
               <label><input type="radio" name="type" value="student"><div><strong>学生会員</strong><small>学生の方・無料</small></div></label>
             </div>
+            <!-- 学生会員のみ：学生証（表面）の画像 -->
+            <div class="field student-id" id="student-id-field" hidden>
+              <label for="f-sid">学生証の画像（表面のみ）<span class="req">必須</span></label>
+              <label class="sid-drop" for="f-sid">
+                <img id="sid-preview" alt="学生証のプレビュー" hidden>
+                <span id="sid-empty">タップして撮影・画像を選択</span>
+              </label>
+              <input id="f-sid" name="studentId" type="file" accept="image/*">
+              <p class="hint">学生証の<strong>表面</strong>をお名前・学校名・有効期限が読み取れるように撮影してください。裏面は不要です。画像は審査にのみ使用し、委員会の管理者だけが確認します。</p>
+              <p class="err" id="sid-err">学生証（表面）の画像を選んでください</p>
+            </div>
           </div>
 
           <!-- STEP 2 -->
@@ -116,7 +127,7 @@
 <footer id="site-footer"></footer>
 
 <script type="module">
-  import { apply, applyWithGoogle, errorMessage, MEMBER_TYPES } from "./assets/js/member-api.js";
+  import { apply, applyWithGoogle, errorMessage, compressImage, MEMBER_TYPES } from "./assets/js/member-api.js";
   import { esc } from "./assets/js/db.js";
 
   // ---------- ウィザード ----------
@@ -151,8 +162,38 @@
     document.getElementById("google-note").hidden = !useGoogle();
   }));
 
+  // ---------- 学生証（学生会員のみ） ----------
+  const isStudent = () => F.type.value === "student";
+  const sidField = document.getElementById("student-id-field");
+  const sidPreview = document.getElementById("sid-preview");
+  const sidErr = document.getElementById("sid-err");
+  let studentIdImage = "";   // 縮小済みの画像（data URL）
+  const syncStudentField = () => { sidField.hidden = !isStudent(); };
+  form.querySelectorAll("input[name=type]").forEach(r => r.addEventListener("change", syncStudentField));
+  F.studentId.addEventListener("change", async () => {
+    const file = F.studentId.files[0];
+    if (!file) return;
+    sidErr.textContent = "画像を読み込んでいます…";
+    try {
+      studentIdImage = await compressImage(file);
+      sidPreview.src = studentIdImage;
+      sidPreview.hidden = false;
+      document.getElementById("sid-empty").textContent = "タップして画像を選び直す";
+      check(F.studentId);
+    } catch (err) {
+      console.error(err);
+      studentIdImage = "";
+      sidPreview.hidden = true;
+      sidErr.textContent = "この画像は読み込めませんでした。JPEG または PNG の画像を選んでください";
+      sidField.classList.add("is-invalid");
+      return;
+    }
+    sidErr.textContent = "学生証（表面）の画像を選んでください";
+  });
+
   // ---------- 入力チェック ----------
   const rules = {
+    studentId: () => !isStudent() || !!studentIdImage,
     name: v => v.trim().length > 0,
     kana: v => /^[ァ-ヶーぁ-ゖ\s　]+$/.test(v.trim()),
     email: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()),
@@ -166,7 +207,7 @@
     const ok = rule(el.value, el);
     const field = el.closest(".field");
     field.classList.toggle("is-invalid", !ok);
-    field.classList.toggle("is-valid", ok && el.type !== "checkbox" && el.type !== "password");
+    field.classList.toggle("is-valid", ok && el.type !== "checkbox" && el.type !== "password" && el.type !== "file");
     return ok;
   }
   function validateStep(n) {
@@ -182,7 +223,7 @@
     if (e.target.name === "password") strength(e.target.value);
     saveDraft();
   });
-  form.addEventListener("focusout", e => { if (e.target.value) check(e.target); });
+  form.addEventListener("focusout", e => { if (e.target.value && e.target.type !== "file") check(e.target); });
 
   function strength(v) {
     let s = 0;
@@ -218,6 +259,7 @@
   const typeParam = new URLSearchParams(location.search).get("type");
   const typeRadio = typeParam && form.querySelector(`input[name=type][value="${CSS.escape(typeParam)}"]`);
   if (typeRadio) typeRadio.checked = true;
+  syncStudentField();
 
   // ---------- 確認画面 ----------
   function renderConfirm() {
@@ -228,7 +270,8 @@
       ["メッセージ", F.message.value || "—"], ["お知らせメール", F.newsletter.checked ? "受け取る" : "受け取らない"],
       ["ログイン方法", useGoogle() ? "Googleアカウント（確定時にGoogleのログイン画面が開きます）" : "メールアドレスとパスワード"]
     ];
-    document.getElementById("confirm").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
+    document.getElementById("confirm").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("") +
+      (isStudent() ? `<dt>学生証（表面）</dt><dd><img src="${studentIdImage}" alt="学生証" class="sid-confirm"></dd>` : "");
   }
 
   // ---------- 送信 ----------
@@ -242,7 +285,8 @@
       const data = {
         type: F.type.value, name: F.name.value.trim(), kana: F.kana.value.trim(), email: F.email.value.trim(),
         affiliation: F.affiliation.value.trim(), phone: F.phone.value.trim(), address: F.address.value.trim(),
-        message: F.message.value.trim(), newsletter: F.newsletter.checked, password: F.password.value
+        message: F.message.value.trim(), newsletter: F.newsletter.checked, password: F.password.value,
+        studentId: isStudent() ? studentIdImage : ""
       };
       await (useGoogle() ? applyWithGoogle(data) : apply(data));
       try { sessionStorage.removeItem(DRAFT_KEY); } catch {}

@@ -32,6 +32,11 @@
   .invite-box summary { cursor: pointer; font-weight: 500; color: var(--main); }
   .role-badge { display: inline-block; padding: 1px 10px; border-radius: 10px; font-size: 11px; color: #fff; background: var(--main); }
   .role-badge.owner { background: var(--accent); }
+  .sid-dialog { max-width: min(720px, 94vw); padding: 20px; border: 0; border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+  .sid-dialog::backdrop { background: rgba(10,20,40,.6); }
+  .sid-dialog h3 { margin: 0 0 12px; font-size: 16px; }
+  .sid-dialog img { display: block; max-width: 100%; max-height: 70vh; margin: 0 auto 14px; border-radius: 6px; }
+  .sid-dialog form { text-align: right; }
   @media (max-width: 768px) { .admin-table th:nth-child(n+3), .admin-table td:nth-child(n+3):not(:last-child) { display: none; } }
 </style>
 </head>
@@ -122,8 +127,16 @@
 
 <footer id="site-footer"></footer>
 
+<!-- 学生証の確認（会員一覧の「学生証を見る」） -->
+<dialog class="sid-dialog" id="sid-dialog">
+  <h3 id="sid-title">学生証</h3>
+  <img id="sid-img" alt="学生証（表面）">
+  <form method="dialog"><button class="btn">閉じる</button></form>
+</dialog>
+
 <script type="module">
   import { adminApi, esc, fmtDate, isDemo, NEWS_CATEGORIES } from "./assets/js/db.js";
+  import { getStudentId } from "./assets/js/member-api.js";
 
   // ============================================================
   //  コレクションごとの入力項目
@@ -393,7 +406,8 @@
       (sorted.length ? sorted.map(r => `<tr>
         <td><strong style="color:${statusColor[r.status] || "inherit"}">${esc(MEMBER_STATUS[r.status] || r.status)}</strong></td>
         <td>${esc(r.name)}（${esc(r.kana || "")}）<br><a href="mailto:${esc(r.email)}">${esc(r.email)}</a>${r.affiliation ? `<br><small>${esc(r.affiliation)}</small>` : ""}</td>
-        <td>${esc(MEMBER_TYPE[r.type] || r.type)}<br><small>${r.memberNo ? esc(r.memberNo) : r.status === "pending" ? '<span style="color:var(--text-sub)">承認時に自動付与</span>' : "—"}</small></td>
+        <td>${esc(MEMBER_TYPE[r.type] || r.type)}<br><small>${r.memberNo ? esc(r.memberNo) : r.status === "pending" ? '<span style="color:var(--text-sub)">承認時に自動付与</span>' : "—"}</small>
+          ${r.type === "student" ? `<br><button class="btn" data-sid="${esc(r.id)}">学生証を見る</button>` : ""}</td>
         <td>${esc(r.createdAt?.toDate ? r.createdAt.toDate().toLocaleDateString("ja-JP") : "")}<br><small>${esc(r.approvedAt?.toDate ? r.approvedAt.toDate().toLocaleDateString("ja-JP") : "—")}</small></td>
         <td>
           ${r.status === "pending" ? `<button class="btn btn-primary" data-approve="${esc(r.id)}">承認</button> <button class="btn btn-danger" data-reject="${esc(r.id)}">否認</button>` : ""}
@@ -447,7 +461,18 @@
   }
 
   $("admin-table").addEventListener("click", async (e) => {
-    const { edit: editId, del: delId, approve, reject, suspend, activate, deladmin, delinvite } = e.target.dataset;
+    const { edit: editId, del: delId, approve, reject, suspend, activate, deladmin, delinvite, sid } = e.target.dataset;
+    if (sid) {
+      const r = rows.find(x => x.id === sid);
+      try {
+        const image = await getStudentId(sid);
+        if (!image) return notice("admin-msg", "error", `${r.name} さんの学生証の画像は登録されていません。`);
+        $("sid-title").textContent = `${r.name} さんの学生証（表面）`;
+        $("sid-img").src = image;
+        $("sid-dialog").showModal();
+      } catch (err) { console.error(err); notice("admin-msg", "error", "学生証の読み込みに失敗しました：" + err.message); }
+      return;
+    }
     if (deladmin) {
       const a = rows.find(x => x.id === deladmin);
       if (!window.confirm(`${a.name || a.email} さんを管理者から外します。よろしいですか？`)) return;
@@ -479,7 +504,12 @@
     if (delId) {
       const r = rows.find(x => x.id === delId);
       if (!window.confirm(`「${r.title || r.name || delId}」を削除します。よろしいですか？`)) return;
-      try { await adminApi.remove(current, delId); notice("admin-msg", "success", "削除しました。"); load(); }
+      try {
+        await adminApi.remove(current, delId);
+        // 学生会員は学生証の画像も一緒に削除
+        if (current === "members" && r.type === "student") await adminApi.remove("student_ids", delId).catch(() => {});
+        notice("admin-msg", "success", "削除しました。"); load();
+      }
       catch (err) { console.error(err); notice("admin-msg", "error", "削除に失敗しました：" + err.message); }
     }
   });

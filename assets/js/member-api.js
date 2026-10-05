@@ -39,6 +39,7 @@ export async function apply(form) {
   requireFirebase();
   const cred = await createUserWithEmailAndPassword(auth, form.email, form.password);
   await saveApplication(cred.user.uid, form, form.email);
+  await saveStudentId(cred.user.uid, form.studentId);
   return cred.user;
 }
 
@@ -50,6 +51,7 @@ export async function applyWithGoogle(form) {
     const err = new Error("already"); err.code = "member/exists"; throw err;
   }
   await saveApplication(cred.user.uid, form, cred.user.email);
+  await saveStudentId(cred.user.uid, form.studentId);
   return cred.user;
 }
 
@@ -60,6 +62,49 @@ async function saveApplication(uid, form, email) {
     message: form.message || "", newsletter: !!form.newsletter,
     status: "pending", createdAt: serverTimestamp()
   });
+}
+
+// ---------- 学生証（学生会員の申込時のみ・表面の画像） ----------
+// 画像は Firestore の student_ids/{uid} に保存します（本人と管理者のみ閲覧可。firestore.rules 参照）
+async function saveStudentId(uid, image) {
+  if (!image) return;
+  await setDoc(doc(db, "student_ids", uid), { image, createdAt: serverTimestamp() });
+}
+
+/**
+ * 画像ファイルを縮小して JPEG の data URL にする（Firestore の 1 件あたりの上限 1MB に収める）
+ * 読み込めない形式（HEIC など）のときはエラーを投げます
+ */
+export async function compressImage(file, { maxSide = 1600, maxBytes = 700_000 } = {}) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    let side = maxSide, quality = 0.85, out = "";
+    for (let i = 0; i < 8; i++) {
+      const scale = Math.min(1, side / Math.max(img.naturalWidth, img.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.naturalWidth * scale);
+      canvas.height = Math.round(img.naturalHeight * scale);
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      out = canvas.toDataURL("image/jpeg", quality);
+      if (out.length <= maxBytes) return out;
+      if (quality > 0.6) quality -= 0.1; else side = Math.round(side * 0.8);
+    }
+    return out;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** 学生証の画像（管理者・本人のみ）。無ければ null */
+export async function getStudentId(uid) {
+  const snap = await getDoc(doc(db, "student_ids", uid));
+  return snap.exists() ? snap.data().image : null;
 }
 
 // ---------- 会員情報 ----------

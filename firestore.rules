@@ -7,6 +7,7 @@ rules_version = '2';
 //  - members        : 本人が「審査中」で申込、本人は一部項目のみ編集可、承認は管理者
 //  - member_news / member_docs : 有効な会員のみ閲覧、管理者のみ書き込み
 //  - rsvps          : 有効な会員が自分の参加登録のみ作成・取消
+//  - student_ids    : 学生会員の学生証（表面）の画像。本人が申込時に登録、閲覧は本人と管理者
 // ============================================================
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -115,6 +116,21 @@ service cloud.firestore {
              .hasOnly(['name', 'kana', 'affiliation', 'phone', 'address', 'newsletter'])
         && str(request.resource.data.name, 100));
 
+      allow delete: if isAdmin();
+    }
+
+    // ---------- 学生証の画像（ID = 会員の UID、学生会員の申込時のみ） ----------
+    // 本人が審査中の間だけ登録・差し替え可。閲覧は本人と管理者、削除は管理者のみ
+    match /student_ids/{uid} {
+      allow read: if (signedIn() && request.auth.uid == uid) || isAdmin();
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && get(/databases/$(database)/documents/members/$(uid)).data.status == 'pending'
+        && get(/databases/$(database)/documents/members/$(uid)).data.type == 'student'
+        && request.resource.data.keys().hasOnly(['image', 'createdAt'])
+        && request.resource.data.image is string
+        && request.resource.data.image.size() <= 900000
+        && request.resource.data.image.matches('^data:image/jpeg;base64,.*')
+        && request.resource.data.createdAt == request.time;
       allow delete: if isAdmin();
     }
 

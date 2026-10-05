@@ -216,6 +216,14 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
 .type-select label:hover { border-color: #b8c4d6; }
 .type-select label:has(input:checked) { border-color: var(--navy); background: var(--ink-3); box-shadow: 0 0 0 4px rgba(11,58,110,.08); }
 .type-select label:has(input:checked)::after { content: "✓"; position: absolute; top: 10px; right: 12px; width: 22px; height: 22px; border-radius: 50%; background: var(--navy); color: #fff; font-size: 12px; display: grid; place-items: center; }
+/* 学生証のアップロード（学生会員のみ） */
+.student-id { margin-top: 26px; }
+.student-id input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.field > .sid-drop { display: grid; margin-bottom: 0; font-weight: 500; letter-spacing: .04em; place-items: center; min-height: 150px; padding: 14px; border: 1.5px dashed #b8c4d6; border-radius: 14px; background: #fff; color: var(--navy); font-size: 14px; text-align: center; cursor: pointer; transition: .2s; }
+.sid-drop:hover, .student-id:has(input:focus-visible) .sid-drop { border-color: var(--navy); background: var(--ink-3); }
+.sid-drop img { max-width: 100%; max-height: 260px; border-radius: 8px; margin-bottom: 10px; }
+.student-id.is-invalid .sid-drop { border-color: var(--danger); }
+.sid-confirm { display: block; max-width: 240px; border-radius: 8px; border: 1px solid var(--line-soft); }
 .type-select label:has(input:focus-visible) { outline: 2px solid var(--navy-2); outline-offset: 3px; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
 .wizard-nav { display: flex; justify-content: space-between; gap: 12px; margin-top: 18px; padding-top: 26px; border-top: 1px solid var(--line-soft); }

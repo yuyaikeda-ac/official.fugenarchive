@@ -9,7 +9,7 @@ const SITE = {
   name: "普賢アーカイブ運営委員会",
   nameEn: "Fugen Archive Development Committee",
   address: "〒000-0000 ○○県○○市 ○○○ 0-0-0",
-  email: "info@example.jp",
+  email: "fugen.archive.info@gmail.com",
   // ★ 普賢アーカイブ（別サイト）のURL。ここを変えると全ページのリンクが変わります。
   archiveUrl: "https://archive.example.jp/"
 };
