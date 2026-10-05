@@ -69,6 +69,7 @@ async function saveApplication(uid, form, email) {
     name: form.name, kana: form.kana, email, type: form.type,
     occupation: form.occupation || "", affiliation: form.affiliation || "", phone: form.phone || "", address: form.address || "",
     message: form.message || "", newsletter: !!form.newsletter,
+    ...(form.cardSignature ? { cardSignature: form.cardSignature } : {}),
     status: "pending", createdAt: serverTimestamp()
   });
 }
@@ -120,6 +121,11 @@ export async function getStudentId(uid) {
 export async function getMember(uid) {
   const snap = await getDoc(doc(db, "members", uid));
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+/** 会員証の裏面に印字する直筆の署名（PNG の data URL）を保存 */
+export async function saveCardSignature(uid, image) {
+  await updateDoc(doc(db, "members", uid), { cardSignature: image });
 }
 
 export async function updateProfile(uid, data) {

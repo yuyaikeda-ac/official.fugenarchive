@@ -63,7 +63,7 @@ function backHtml(m) {
           <span>Fugen Archive Development Committee</span>
         </div>
         <div class="mb-sign">
-          <span class="mb-sign-line">${esc(m.name)}</span>
+          <span class="mb-sign-line">${m.cardSignature ? `<img class="mb-sign-img" src="${esc(m.cardSignature)}" alt="署名">` : esc(m.name)}</span>
           <span class="mb-sign-label">Signature</span>
         </div>
         <ul class="mb-terms">

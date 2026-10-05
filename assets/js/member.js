@@ -3,14 +3,14 @@
 // ============================================================
 import {
   onAuth, logout, resetPassword, getMember, updateProfile, getMemberNews, getMemberDocs,
-  getEvents, getMyRsvps, rsvp, errorMessage, MEMBER_TYPES, STATUS_LABEL, OCCUPATIONS
+  getEvents, getMyRsvps, rsvp, errorMessage, MEMBER_TYPES, STATUS_LABEL, OCCUPATIONS, saveCardSignature
 } from "./member-api.js";
 import { esc, isDemo, app } from "./db.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 import { memberCardHtml, bindCard, printSheetHtml, qrSvg, verifyUrl } from "./card.js";
 import { renderRich, htmlToText } from "./rich-view.js";
 import { listMemberForms, listMySignatures } from "./consent-core.js";
-import { docBoxHtml, fillDoc, signFormHtml, bindSignForm, receiptHtml, bindReceipt, isPastDeadline, fmtDateTime } from "./consent-ui.js";
+import { docBoxHtml, fillDoc, signFormHtml, bindSignForm, receiptHtml, bindReceipt, isPastDeadline, fmtDateTime, padHtml, mountPad } from "./consent-ui.js";
 
 // ---------- アイコン ----------
 const I = {
@@ -437,7 +437,47 @@ routeOf("card").after = () => {
   bindCard($("mcard"));
   $("print-card")?.addEventListener("click", printCard);
   $("scan-card")?.addEventListener("click", openScan);
+  document.querySelectorAll("[data-card-sign]").forEach(b => b.addEventListener("click", openCardSign));
 };
+
+// ============================================================
+//  会員証の裏面の直筆署名（登録・書き直し）
+// ============================================================
+function openCardSign() {
+  const dlg = document.createElement("dialog");
+  dlg.className = "sig-dialog";
+  dlg.innerHTML = `<form method="dialog">
+      <h3>会員証の署名</h3>
+      <p>枠の中に、指・マウス・ペンでお名前を手書きしてください。デジタル会員証の裏面（印刷にも）に表示されます。</p>
+      <div data-pad-box>${padHtml()}</div>
+      <p class="sig-err" hidden>署名欄に署名してください</p>
+      <div class="sig-actions">
+        <button class="lux-btn ghost sm" value="cancel" type="submit">キャンセル</button>
+        <button class="lux-btn sm" type="button" data-save>この署名で登録</button>
+      </div>
+    </form>`;
+  document.body.appendChild(dlg);
+  dlg.addEventListener("close", () => dlg.remove());
+  dlg.showModal();
+  const pad = mountPad(dlg.querySelector("[data-pad-box]"), p => { if (!p.isEmpty()) dlg.querySelector(".sig-err").hidden = true; });
+  dlg.querySelector("[data-save]").addEventListener("click", async (e) => {
+    if (pad.isEmpty()) { dlg.querySelector(".sig-err").hidden = false; return; }
+    const btn = e.currentTarget;
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> 保存中…';
+    try {
+      const image = pad.toDataURL();
+      await saveCardSignature(state.member.id, image);
+      state.member.cardSignature = image;
+      dlg.close();
+      rerender();
+      toast("会員証の署名を登録しました");
+    } catch (err) {
+      console.error(err);
+      toast(errorMessage(err), true);
+      btn.disabled = false; btn.textContent = "この署名で登録";
+    }
+  });
+}
 
 // ============================================================
 //  スキャン用表示：受付などで読み取ってもらうため、QRコードと会員情報を画面いっぱいに表示
@@ -513,6 +553,7 @@ function renderCard() {
   return `<div class="card-stage">
     ${cardHtml()}
     <p class="card-hint">カードを押すと裏面を表示します。表面のQRコードを読み取ると、会員資格を確認できます。</p>
+    ${m.cardSignature ? "" : `<div class="sig-notice"><span>会員証の裏面の署名が未登録です。スマホなら指で直筆の署名を登録できます。</span><button class="lux-btn sm" type="button" data-card-sign>署名を登録する</button></div>`}
     <dl class="card-info">
       <div><dt>会員番号</dt><dd>${esc(m.memberNo || "—")}</dd></div>
       <div><dt>会員種別</dt><dd>${esc(MEMBER_TYPES[m.type]?.label || "")}</dd></div>
@@ -522,6 +563,7 @@ function renderCard() {
     <div class="card-actions">
       <button class="lux-btn sm" id="scan-card"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg>スキャン用表示</button>
       <button class="lux-btn ghost sm" id="print-card">印刷する</button>
+      ${m.cardSignature ? '<button class="lux-btn ghost sm" type="button" data-card-sign>署名を書き直す</button>' : ""}
     </div>
   </div>`;
 }

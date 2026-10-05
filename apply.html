@@ -103,6 +103,13 @@
             </div>
             <div class="field"><label for="f-msg">入会の動機・メッセージ（任意）</label><textarea id="f-msg" name="message" maxlength="2000" placeholder="普賢との関わりや、活動への想いなどをお聞かせください"></textarea></div>
             <div class="field"><label class="check"><input type="checkbox" name="newsletter" checked> 会員向けのお知らせをメールで受け取る</label></div>
+            <!-- 会員証の裏面に印字する直筆の署名（入会規約の署名欄がある場合はそちらの署名を使うので非表示） -->
+            <div class="field" id="card-sig-field">
+              <label>会員証の署名<span class="req">必須</span></label>
+              <div id="card-sig-box"></div>
+              <p class="hint">枠の中に、指・マウス・ペンでお名前を手書きしてください。デジタル会員証の裏面の署名欄に表示されます。</p>
+              <p class="err">署名欄に署名してください</p>
+            </div>
             <!-- 入会規約への署名（管理画面で「入会時の規約同意」の同意書を公開しているときだけ表示） -->
             <div class="terms-sign" id="terms-sign" hidden></div>
             <div class="field"><label class="check"><input type="checkbox" name="agree" required> <span id="agree-text"><a href="about.html#rules" target="_blank">運営規程</a>および<a href="privacy.html" target="_blank">プライバシーポリシー</a>に同意します</span></label><p class="err">同意が必要です</p></div>
@@ -225,23 +232,30 @@
     const results = els.map(check);
     const firstBad = els[results.indexOf(false)];
     // 入会規約の署名欄
-    const sigBad = n === 3 && termsForm && termsPad.isEmpty();
-    if (termsForm && n === 3) document.getElementById("terms-sig-field").classList.toggle("is-invalid", sigBad);
+    // 署名欄（入会規約の署名、または会員証の署名）
+    const sigField = document.getElementById(termsForm ? "terms-sig-field" : "card-sig-field");
+    const sigBad = n === 3 && (termsForm ? termsPad : cardPad).isEmpty();
+    if (n === 3) sigField.classList.toggle("is-invalid", sigBad);
     if (firstBad) firstBad.focus();
-    else if (sigBad) document.getElementById("terms-sig-field").scrollIntoView({ behavior: "smooth", block: "center" });
+    else if (sigBad) sigField.scrollIntoView({ behavior: "smooth", block: "center" });
     return !firstBad && !sigBad;
   }
 
   // ---------- 入会規約への署名（電子同意書） ----------
   // 公開中の「入会時の規約同意」があれば、本文と署名欄を表示し、申込後に署名を記録します
   let termsForm = null, termsPad = null;
+  // 会員証の署名（入会規約の署名欄が出たときは、その署名を会員証にも使う）
+  document.getElementById("card-sig-box").innerHTML = padHtml();
+  const cardPad = mountPad(document.getElementById("card-sig-box"), p => { if (!p.isEmpty()) document.getElementById("card-sig-field").classList.remove("is-invalid"); });
+  const signatureImage = () => (termsForm ? termsPad : cardPad).toDataURL();
   getMembershipForm().then(f => {
     if (!f) return;
     termsForm = f;
+    document.getElementById("card-sig-field").hidden = true;
     const box = document.getElementById("terms-sign");
     box.innerHTML = docBoxHtml(f, { scroll: true }) +
       `<div class="field" id="terms-sig-field"><label>署名<span class="req">必須</span></label>${padHtml()}
-        <p class="hint">上の規約をお読みのうえ、枠の中に指・マウス・ペンでお名前を手書きしてください。</p>
+        <p class="hint">上の規約をお読みのうえ、枠の中に指・マウス・ペンでお名前を手書きしてください。この署名はデジタル会員証の裏面にも表示されます。</p>
         <p class="err">署名欄に署名してください</p></div>`;
     box.hidden = false;
     fillDoc(box, f);
@@ -303,7 +317,8 @@
     ];
     document.getElementById("confirm").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("") +
       (isStudent() ? `<dt>学生証（表面）</dt><dd><img src="${studentIdImage}" alt="学生証" class="sid-confirm"></dd>` : "") +
-      (termsForm ? `<dt>規約への署名</dt><dd>${esc(termsForm.title)}（第 ${esc(termsForm.version || 1)} 版）に同意<img src="${termsPad.toDataURL()}" alt="署名" class="confirm-sig"></dd>` : "");
+      (termsForm ? `<dt>規約への署名</dt><dd>${esc(termsForm.title)}（第 ${esc(termsForm.version || 1)} 版）に同意<img src="${termsPad.toDataURL()}" alt="署名" class="confirm-sig"><small class="hint">会員証の裏面にも表示されます</small></dd>`
+        : `<dt>会員証の署名</dt><dd><img src="${cardPad.toDataURL()}" alt="署名" class="confirm-sig"></dd>`);
   }
 
   // ---------- 送信 ----------
@@ -318,7 +333,8 @@
         type: F.type.value, name: F.name.value.trim(), kana: F.kana.value.trim(), email: F.email.value.trim(),
         occupation: F.occupation.value, affiliation: F.affiliation.value.trim(), phone: F.phone.value.trim(), address: F.address.value.trim(),
         message: F.message.value.trim(), newsletter: F.newsletter.checked, password: F.password.value,
-        studentId: isStudent() ? studentIdImage : ""
+        studentId: isStudent() ? studentIdImage : "",
+        cardSignature: signatureImage()
       };
       const user = await (useGoogle() ? applyWithGoogle(data) : apply(data));
       // 入会規約への署名を記録（失敗しても申込自体は完了しているので、そのまま完了ページへ）
@@ -327,7 +343,7 @@
         try {
           await submitSignature(termsForm, {
             signerType: "applicant", uid: user.uid, name: data.name, email: useGoogle() ? user.email : data.email
-          }, termsPad.toDataURL());
+          }, data.cardSignature);
         } catch (sigErr) { console.error("入会規約の署名を保存できませんでした", sigErr); }
       }
       try { sessionStorage.removeItem(DRAFT_KEY); } catch {}

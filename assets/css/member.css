@@ -555,6 +555,9 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
 .mb-head span { font-family: var(--display); font-weight: 600; font-size: 1.7cqw; letter-spacing: .14em; color: #c9a144; }
 .mb-sign { display: flex; flex-direction: column; gap: .8cqw; margin-top: 4cqw; }
 .mb-sign-line { padding: 0 .4cqw 1cqw; border-bottom: 1px solid rgba(255,255,255,.55); font-family: var(--serif); font-size: 3.6cqw; letter-spacing: .14em; color: #fff; }
+/* 直筆の署名（会員登録時・会員サイトで登録。濃い色の線を白く反転して表示） */
+.mb-sign-line:has(.mb-sign-img) { padding-bottom: .4cqw; }
+.mb-sign-img { display: block; height: 8cqw; max-width: 70%; object-fit: contain; object-position: left bottom; filter: invert(1) brightness(1.15); }
 .mb-sign-label { font-family: var(--display); font-weight: 600; font-size: 1.7cqw; letter-spacing: .24em; text-transform: uppercase; color: #8d8a84; }
 .mb-terms { list-style: none; margin: auto 0 0; padding: 0; font-size: 1.95cqw; line-height: 1.8; color: #b9b5ad; }
 .mb-terms li { position: relative; padding-left: 2.4cqw; }
@@ -955,3 +958,13 @@ body.scan-open { overflow: hidden; }
 .scan-side { display: contents; }
 @media (orientation: landscape) and (max-height: 560px) { .scan-side { display: flex; flex-direction: column; align-items: center; min-width: 0; } }
 @media print { .scan-view { display: none !important; } }
+
+/* ============ 会員証の署名（登録・書き直し） ============ */
+.sig-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; width: min(520px, 100%); padding: 14px 18px; border-radius: 14px; background: var(--gold-soft); border: 1px solid #ecdcb2; font-size: 13.5px; color: var(--gold-dark); }
+.sig-dialog { width: min(560px, calc(100vw - 24px)); padding: 0; border: 0; border-radius: 20px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.5); }
+.sig-dialog::backdrop { background: rgba(7,22,41,.6); }
+.sig-dialog form { padding: 22px 20px 18px; }
+.sig-dialog h3 { margin: 0 0 6px; font-family: var(--serif); font-size: 19px; color: var(--navy); }
+.sig-dialog p { margin: 0 0 14px; font-size: 13px; color: var(--muted); }
+.sig-dialog .sig-err { margin: 8px 0 0; color: var(--danger); font-weight: 500; }
+.sig-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
