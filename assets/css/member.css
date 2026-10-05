@@ -622,7 +622,7 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
 /* 印刷（会員証）：A4 専用シート（#print-sheet、assets/js/card.js の printSheetHtml）だけを印刷 */
 #print-sheet { display: none; }
 @media print {
-  @page { size: A4 portrait; margin: 12mm; }
+  @page { size: A4 portrait; margin: 14mm; }
   body > *:not(#print-sheet) { display: none !important; }
   body { background: #fff !important; }
   #print-sheet { display: block; color: #14233a; font-family: var(--sans); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -632,21 +632,23 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
   .ps-head span { font-family: var(--display); font-size: 9pt; letter-spacing: .12em; color: #6b7686; }
   .ps-head h1 { margin: 0 0 0 auto; font-family: var(--serif); font-size: 20pt; letter-spacing: .3em; color: #0b2a4f; }
   #print-sheet h2 { margin: 0 0 2mm; font-family: var(--serif); font-size: 12pt; letter-spacing: .1em; color: #0b2a4f; }
-  .ps-cards { margin-top: 9mm; }
-  .ps-note { margin: 0 0 6mm; font-size: 9pt; color: #4a5568; }
-  .ps-row { display: flex; justify-content: center; gap: 8mm; }
+  .ps-note { margin: 7mm 0 6mm; font-size: 9pt; color: #4a5568; }
+  /* 左に表・裏を縦に並べ、右に会員情報。幅が足りないときは会員情報が下に回る */
+  .ps-body { display: flex; flex-wrap: wrap; gap: 8mm 9mm; align-items: flex-start; }
+  .ps-cards { flex: 0 0 auto; }
+  .ps-row { display: flex; flex-direction: column; gap: 5mm; }
   .ps-row figure { margin: 0; text-align: center; }
-  .ps-row figcaption { margin-top: 4mm; font-size: 9pt; color: #6b7686; letter-spacing: .2em; }
+  .ps-row figcaption { margin-top: 2mm; font-size: 9pt; color: #6b7686; letter-spacing: .2em; }
   /* 実物大（クレジットカードと同じ 85.6mm × 54mm）。点線は切り取り線 */
-  .mcard.is-print { width: 85.6mm; text-align: left; cursor: default; outline: .3mm dashed #9aa3b0; outline-offset: 2mm; }
+  .ps-cut { padding: 2mm; border: .3mm dashed #9aa3b0; }
+  .mcard.is-print { width: 85.6mm; text-align: left; cursor: default; }
   .mcard.is-print .mcard-face { transform: none; visibility: visible; transition: none; box-shadow: none; }
   .mcard.is-print .mc-shine { display: none; }
-  .ps-info { margin-top: 14mm; display: flex; gap: 10mm; align-items: flex-start; flex-wrap: wrap; }
-  .ps-info h2 { flex-basis: 100%; }
-  .ps-info table { flex: 1; border-collapse: collapse; font-size: 10.5pt; }
+  .ps-info { flex: 1 1 62mm; min-width: 62mm; }
+  .ps-info table { width: 100%; border-collapse: collapse; font-size: 10.5pt; }
   .ps-info th, .ps-info td { padding: 3mm 4mm; border-bottom: .3mm solid #d9dee6; text-align: left; }
-  .ps-info th { width: 28mm; color: #6b7686; font-weight: 500; background: #f5f7fa; }
-  .ps-qr { width: 46mm; text-align: center; }
+  .ps-info th { width: 24mm; white-space: nowrap; color: #6b7686; font-weight: 500; background: #f5f7fa; }
+  .ps-qr { margin-top: 8mm; text-align: center; }
   .ps-qr svg { width: 38mm; height: 38mm; }
   .ps-qr p { margin: 2mm 0 0; font-size: 8.5pt; color: #4a5568; }
   .ps-qr small { font-size: 6.5pt; word-break: break-all; color: #8a94a3; }

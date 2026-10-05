@@ -101,12 +101,12 @@ export function printSheetHtml(m, info) {
     <div><b>普賢アーカイブ運営委員会</b><span>Fugen Archive Development Committee</span></div>
     <h1>会員証</h1>
   </div>
+  <p class="ps-note">会員証は実物大です。点線に沿って切り取り、表面と裏面を貼り合わせてお使いください。</p>
+  <div class="ps-body">
   <section class="ps-cards">
-    <h2>会員証（実物大）</h2>
-    <p class="ps-note">点線に沿って切り取り、表面と裏面を貼り合わせてお使いください。</p>
     <div class="ps-row">
-      <figure><div class="mcard is-print"><div class="mcard-tilt">${frontHtml(m, false)}</div></div><figcaption>表面</figcaption></figure>
-      <figure><div class="mcard is-print"><div class="mcard-tilt">${backHtml(m)}</div></div><figcaption>裏面</figcaption></figure>
+      <figure><div class="ps-cut"><div class="mcard is-print"><div class="mcard-tilt">${frontHtml(m, false)}</div></div></div><figcaption>表面</figcaption></figure>
+      <figure><div class="ps-cut"><div class="mcard is-print"><div class="mcard-tilt">${backHtml(m)}</div></div></div><figcaption>裏面</figcaption></figure>
     </div>
   </section>
   <section class="ps-info">
@@ -120,6 +120,7 @@ export function printSheetHtml(m, info) {
     </table>
     ${qr ? `<div class="ps-qr">${qr}<p>会員資格の確認用QRコード<br><small>${esc(url)}</small></p></div>` : ""}
   </section>
+  </div>
   <p class="ps-foot">発行日 ${issued}　／　本書は会員専用サイトから印刷されたものです。</p>`;
 }
 
