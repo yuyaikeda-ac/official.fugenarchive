@@ -604,4 +604,57 @@ ${signature()}`
   }];
 }
 
-module.exports = {CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided , contactAiReply, passwordResetByAi, contactAiNotify, contactStaffReply , ticketReplyToCustomer, ticketToStaff , loginGuideByAi , eventRsvpMail, memberNotice };
+// ============================================================
+//  投票・アンケート（polls.js）
+// ============================================================
+const pollWhen = (s) => { if (!s) return ""; const d = new Date(`${s}:00+09:00`); return `${d.toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "long", day: "numeric", weekday: "short" })} ${s.slice(11, 16)}`; };
+const POLL_KIND = { resolution: "総会の議決", survey: "アンケート" };
+
+// ---------- 投票の案内（公開時・対象の会員へ） ----------
+function pollOpened({ to, name, poll: p }) {
+  return [{
+    to,
+    subject: `【${CONFIG.orgName}】${POLL_KIND[p.kind] || "投票"}のお願い：${p.title}`,
+    text:
+`${name ? name + " 様" : "会員の皆さまへ"}
+
+${CONFIG.orgName}です。
+${p.kind === "resolution" ? "総会の議案について、オンラインでの議決権の行使（投票）を受け付けています。" : "アンケートへのご協力をお願いいたします。"}
+
+■ 件名　　：${p.title}
+■ 受付期間：${p.opensAt ? pollWhen(p.opensAt) + " 〜 " : "受付中 〜 "}${pollWhen(p.closesAt)}
+■ 方式　　：${p.anonymous ? "無記名（だれが何に投票したかは記録されません）" : "記名"}
+
+▼ 会員サイトで回答する（ログインが必要です）
+${CONFIG.siteUrl}/member.html#votes/${p.id}
+
+投票は 1 人 1 回です。投票すると、控え（受付番号・ハッシュ値）をメールでお送りします。
+${signature()}`
+  }];
+}
+
+// ---------- 投票の控え（投票した会員へ） ----------
+function voteReceipt({ to, name, poll: p, ballotId, receipt, seq, castAtIso }) {
+  return [{
+    to,
+    subject: `【${CONFIG.orgName}】投票の控え：${p.title}`,
+    text:
+`${name} 様
+
+${CONFIG.orgName}です。
+「${p.title}」への投票を受け付けました。このメールは投票の控えです。大切に保管してください。
+
+■ 件名　　　：${p.title}（${POLL_KIND[p.kind] || ""}）
+■ 受付日時　：${new Date(castAtIso).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}
+■ 受付番号　：${ballotId}
+■ 受付ハッシュ：${receipt}
+■ 連番　　　：${seq}
+${p.anonymous ? "\n※ 無記名投票のため、投票内容はこのメールにも記録にも、あなたの名前と結びつけて保存していません。\n" : ""}
+受付番号と受付ハッシュで、あなたの票が改ざんされずに集計に含まれているかを、会員サイトの「投票・アンケート」で確認できます。
+▼ 会員サイト
+${CONFIG.siteUrl}/member.html#votes/${p.id}
+${signature()}`
+  }];
+}
+
+module.exports = {CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided , contactAiReply, passwordResetByAi, contactAiNotify, contactStaffReply , ticketReplyToCustomer, ticketToStaff , loginGuideByAi , eventRsvpMail, memberNotice, pollOpened, voteReceipt };

@@ -128,6 +128,12 @@ Object.assign(exports, require("./tickets")({
   ANTHROPIC_API_KEY: aiOperator.ANTHROPIC_API_KEY, mailSecrets: opts.secrets
 }));
 
+// ---------- 投票・アンケート（総会の議決権行使など。中身は polls.js） ----------
+Object.assign(exports, require("./polls")({
+  onCall, HttpsError, getFirestore, FieldValue, logger, sendAll, mails, mailSecrets: opts.secrets,
+  SEAL_KEY: defineSecret("CONSENT_SEAL_KEY")
+}));
+
 // ---------- 会員へのお知らせメール（中身は notify.js） ----------
 Object.assign(exports, require("./notify")({ onCall, HttpsError, getFirestore, FieldValue, logger, sendAll, mails, mailSecrets: opts.secrets }));
 

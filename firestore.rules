@@ -206,6 +206,21 @@ service cloud.firestore {
     // ※ 理事は review.html（Cloud Functions 経由）で自分の回答だけを扱う。申込者は読めない
     match /reviews/{id} { allow read: if isAdmin(); allow write: if false; }
 
+    // ---------- 投票・アンケート ----------
+    // 下書きの作成・編集は管理者。公開・終了・確定と票の記録は Cloud Functions（polls.js）のみ
+    // 会員は「受付中・終了・確定」の投票のうち、自分の会員種別が対象のものを読める
+    function memberType() { return get(/databases/$(database)/documents/members/$(request.auth.uid)).data.type; }
+    match /polls/{id} {
+      allow read: if isAdmin()
+        || (resource.data.status in ['open', 'closed', 'final'] && isActiveMember() && memberType() in resource.data.audience);
+      allow create: if isAdmin() && request.resource.data.status == 'draft';
+      allow update: if isAdmin() && resource.data.status == 'draft' && request.resource.data.status == 'draft';
+      allow delete: if isAdmin() && (resource.data.status == 'draft' || isOwner());
+      match /ballots/{b} { allow read: if isAdmin(); allow write: if false; }
+      match /voters/{uid} { allow read: if isAdmin() || (signedIn() && request.auth.uid == uid); allow write: if false; }
+      match /private/{doc} { allow read: if isAdmin(); allow write: if false; }
+    }
+
     // ---------- 電子同意書 ----------
     // 公開後は本文・版・ハッシュなどを変更できない（改ざん防止）。状態（公開中→受付終了）などは変更可
     match /consent_forms/{id} {

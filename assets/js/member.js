@@ -14,6 +14,7 @@ import { renderRich, htmlToText } from "./rich-view.js";
 import { docFileUrl, kindOf, KIND_LABEL, extOf, fmtSize } from "./doc-files.js";
 import { listMemberForms, listMySignatures } from "./consent-core.js";
 import { docBoxHtml, fillDoc, signFormHtml, bindSignForm, receiptHtml, bindReceipt, isPastDeadline, fmtDateTime, padHtml, mountPad } from "./consent-ui.js";
+import * as Poll from "./poll-ui.js";
 
 // ---------- アイコン ----------
 const I = {
@@ -30,6 +31,7 @@ const I = {
   list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
   out: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
   sign: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  vote: '<path d="M9 12l2 2 4-4"/><path d="M5 7h14l2 4v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-8z"/><path d="M8 7V4h8v3"/>',
   inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>'
 };
 const icon = (name, sw = 1.6) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[name]}</svg>`;
@@ -41,6 +43,7 @@ const ROUTES = [
   { id: "events", label: "行事・参加登録", short: "行事", icon: "cal", render: renderEvents },
   { id: "docs", label: "会員限定資料室", short: "資料室", icon: "book", render: renderDocs },
   { id: "consent", label: "同意書・電子署名", short: "同意書", icon: "sign", render: renderConsent },
+  { id: "votes", label: "投票・アンケート", short: "投票", icon: "vote", render: renderVotes },
   { id: "card", label: "デジタル会員証", short: "会員証", icon: "card", render: renderCard },
   { id: "profile", label: "プロフィール設定", short: "設定", icon: "user", render: renderProfile }
 ];
@@ -50,7 +53,7 @@ const routeOf = (id) => ROUTES.find(r => r.id === id);
 
 // ---------- 状態 ----------
 const $ = (id) => document.getElementById(id);
-const state = { user: null, member: null, news: null, docs: null, events: null, rsvps: new Set(), consentForms: null, mySigs: null, route: "dashboard", errors: {} };
+const state = { user: null, member: null, news: null, docs: null, events: null, rsvps: new Set(), consentForms: null, mySigs: null, polls: null, pollVotes: {}, pollReceipts: {}, route: "dashboard", errors: {} };
 const today = () => new Date().toISOString().slice(0, 10);
 const store = {
   get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
@@ -155,7 +158,8 @@ async function startPortal() {
     load("docs", getMemberDocs),
     load("events", getEvents),
     getMyRsvps(m.id).then(s => state.rsvps = s).catch(console.error),
-    loadConsent().then(updateBadges)
+    loadConsent().then(updateBadges),
+    loadVotes().then(updateBadges)
   ]);
   updateBadges();
   rerender();
@@ -173,6 +177,7 @@ async function refreshBadgeData() {
     const changed = JSON.stringify(news.map(n => n.id)) !== JSON.stringify((state.news || []).map(n => n.id));
     state.news = news;
     await loadConsent();
+    await loadVotes({ background: true });
     updateBadges();
     if (changed && ["dashboard", "news"].includes(state.route)) rerender();
   } catch (e) { console.warn(e); }
@@ -226,6 +231,8 @@ function updateBadges() {
   document.querySelectorAll('[data-badge="news"]').forEach(b => { b.hidden = !n; b.textContent = n; });
   const c = todoForms().length;
   document.querySelectorAll('[data-badge="consent"]').forEach(b => { b.hidden = !c; b.textContent = c; });
+  const v = Poll.todoCount(state);
+  document.querySelectorAll('[data-badge="votes"]').forEach(b => { b.hidden = !v; b.textContent = v; });
 }
 
 // ============================================================
@@ -255,6 +262,7 @@ function renderDashboard() {
     <a class="mini-card" href="#card" aria-label="会員証を表示">${cardHtml(true)}</a>
   </section>
   ${todoForms().length ? `<a class="notice-bar" href="#consent">${icon("sign")}<span>署名が必要な同意書が <b>${todoForms().length} 件</b> あります</span><span>確認する →</span></a>` : ""}
+  ${Poll.todoCount(state) ? `<a class="notice-bar" href="#votes">${icon("vote")}<span>受付中の投票・アンケートが <b>${Poll.todoCount(state)} 件</b> あります</span><span>投票する →</span></a>` : ""}
 
   <div class="quick">
     <a href="#news"><span class="ico">${icon("bell")}</span><strong>お知らせ</strong><small>${state.news ? (unread ? `未読 ${unread} 件` : "すべて既読") : "読み込み中…"}</small></a>
@@ -780,6 +788,28 @@ function renderConsent() {
     </div>`;
   }).join("")}</div>`;
 }
+
+// ============================================================
+//  画面：投票・アンケート（中身は poll-ui.js）
+// ============================================================
+async function loadVotes({ background = false } = {}) {
+  try {
+    const polls = await Poll.loadPolls(state.member);
+    state.pollVotes = { ...(state.pollVotes || {}), ...(await Poll.loadMyVotes(polls)) };
+    state.polls = polls;
+    delete state.errors.votes;
+  } catch (e) {
+    console.error(e);
+    state.polls = state.polls || [];
+    state.errors.votes = errorMessage(e);
+  }
+  // 入力中の投票画面は書き換えない（定期更新のとき）
+  const inPoll = state.route === "votes" && location.hash.split("/").length > 1;
+  if ((state.route === "votes" || state.route === "dashboard") && !(background && inPoll)) rerender();
+}
+const pollCtx = () => ({ state, rerender, toast, icon, emptyState, updateBadges });
+function renderVotes() { return Poll.render(pollCtx()); }
+routeOf("votes").after = () => Poll.after(pollCtx());
 
 // ============================================================
 //  画面：プロフィール

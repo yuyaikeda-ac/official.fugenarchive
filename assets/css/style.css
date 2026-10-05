@@ -376,21 +376,6 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
   .rich-body img[width] { min-width: 50%; }
 }
 
-/* ============================================================
-   AI チャット（お問い合わせ）への入口ボタン（common.js で全ページに追加）
-   ============================================================ */
-.chat-fab { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 60; display: inline-flex; align-items: center; gap: 8px; padding: 12px 18px 12px 14px; border-radius: 999px; background: var(--main); color: #fff; text-decoration: none; font-size: 14px; font-weight: 700; box-shadow: 0 10px 28px -8px rgba(7,39,72,.55); transition: transform .2s, background .2s; }
-.chat-fab:hover { background: var(--main-dark); color: #fff; transform: translateY(-2px); }
-.chat-fab:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
-.chat-fab svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
-.chat-fab .chat-fab-s { display: none; }
-.has-chat-fab .pagetop { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 64px); right: max(20px, env(safe-area-inset-right)); }
-.has-chat-fab .footer-main { padding-bottom: 88px; }
-@media (max-width: 640px) {
-  .chat-fab { padding: 11px 14px 11px 12px; font-size: 13px; gap: 6px; }
-  .chat-fab .chat-fab-l { display: none; }
-  .chat-fab .chat-fab-s { display: inline; }
-}
 
 /* ============================================================
    お問い合わせ（チケット）：開始フォーム（contact.html）

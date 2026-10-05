@@ -5,6 +5,7 @@
 //  ・会員の審査（承認・否認・停止・再開）、学生証の確認
 //  ・電子同意書の作成・公開・署名の確認・検証（ハッシュ／封印）
 //  ・理事会（理事のグループ・入会審査の担当）と、理事会による審査状況の確認
+//  ・投票・アンケート（総会の議決・無記名投票・集計の確定・ハッシュチェーンの検証）
 //  ・管理者の招待（オーナーのみ）
 // ============================================================
 import { adminApi, esc, fmtDate, isDemo, NEWS_CATEGORIES, db, app } from "./db.js";
@@ -130,7 +131,8 @@ const ICONS = {
   mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
   shield: '<path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/>',
   board: '<path d="M3 21h18M5 21V10l7-6 7 6v11"/><path d="M9 21v-6h6v6"/>',
-  plus: '<path d="M12 5v14M5 12h14"/>'
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  vote: '<path d="M4 13h16v8H4zM8 13V5h8v8"/><path d="m10 8 1.5 1.5L14 7"/>'
 };
 const icon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</svg>`;
 const NAV = [
@@ -144,6 +146,7 @@ const NAV = [
   { id: "members", label: "会員管理", icon: "users", badge: "pending" },
   { id: "consent", label: "電子同意書", icon: "sign" },
   { id: "board", label: "理事会", icon: "board" },
+  { id: "polls", label: "投票・アンケート", icon: "vote" },
   { group: "受信" },
   { id: "contacts", label: "お問い合わせ", icon: "mail", badge: "contacts" },
   { group: "設定", owner: true },
@@ -358,6 +361,7 @@ const VIEWS = {
   members: { title: "会員管理", render: renderMembers },
   consent: { title: "電子同意書", render: renderConsent },
   board: { title: "理事会", render: renderBoard },
+  polls: { title: "投票・アンケート", render: renderPolls },
   contacts: { title: "お問い合わせ", render: renderContacts },
   admins: { title: "管理者", render: renderAdmins, owner: true }
 };
@@ -1890,4 +1894,463 @@ function exportCsv(f, sigs) {
   a.download = `署名一覧_${(f.title || "同意書").replace(/[\\/:*?"<>|]/g, "_")}_第${f.version || 1}版.csv`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// ============================================================
+//  投票・アンケート（総会の議決・アンケート）
+//   #polls            … 一覧
+//   #polls/<ID>       … 詳細（公開・受付終了・集計の確定・検証・印刷）
+//  ・下書きはこの画面から直接保存。公開以降の状態の変更・集計はすべて Cloud Functions（pollAdmin）
+//  ・無記名の投票では、だれが何に投票したかは保存されない（票と投票者を結びつけない）
+//  ★ 状態・種類の表示名は POLL_STATUS / POLL_KIND
+// ============================================================
+const POLL_STATUS = { draft: ["draft", "下書き"], open: ["ok", "受付中"], closed: ["closed", "受付終了（集計前）"], final: ["gold", "確定"] };
+const POLL_KIND = { resolution: "総会の議決", survey: "アンケート" };
+const POLL_AUD = { regular: "正会員", associate: "準会員", student: "学生会員" };
+const Q_TYPE = { single: "単一選択", multi: "複数選択", text: "自由記述" };
+const VOTE_OPTIONS = ["賛成", "反対", "棄権"];
+const pollPill = (st) => pill(...(POLL_STATUS[st] || ["draft", st || "—"]));
+const fmtLocal = (s) => s ? String(s).replace("T", " ").replace(/-/g, "/") : "";
+const hash8 = (h) => String(h || "").replace(/(.{8})(?=.)/g, "$1 ");
+
+/** 新しい下書きの初期値 */
+function pollPreset(kind) {
+  if (kind === "resolution") return {
+    title: "", kind, audience: ["regular"], anonymous: true, showResults: "after_final", opensAt: "", closesAt: "",
+    questions: [{ id: "q1", text: "議案第1号 ○○の件", type: "single", options: [...VOTE_OPTIONS], required: true }]
+  };
+  return {
+    title: "", kind: "survey", audience: ["regular", "associate", "student"], anonymous: false, showResults: "after_final", opensAt: "", closesAt: "",
+    questions: [{ id: "q1", text: "", type: "single", options: ["", ""], required: true }]
+  };
+}
+
+async function renderPolls(sub = "") {
+  if (sub) return renderPollDetail(sub);
+  const polls = (await adminApi.listAll("polls")).sort((a, b) => (toDate(b.updatedAt || b.createdAt) || 0) - (toDate(a.updatedAt || a.createdAt) || 0));
+  $("page").innerHTML = `
+    <p class="page-intro">総会の議決（オンライン投票）やアンケートを作成できます。公開すると内容はSHA-256でハッシュ化されて変更できなくなり、票はサーバーで封印されてハッシュチェーンでつながります。<b>無記名</b>にすると、だれが何に投票したかは記録されません。</p>
+    <div class="toolbar">
+      <input class="search" id="q" type="search" placeholder="タイトルで検索">
+      <span class="spacer"></span>
+      <button class="btn" id="new-survey">${icon("plus").replace("<svg", '<svg width="16" height="16"')} アンケートを作成</button>
+      <button class="btn btn-primary" id="new-resolution">${icon("plus").replace("<svg", '<svg width="16" height="16"')} 総会の議決を作成</button>
+    </div>
+    <div class="card table-wrap"><table class="tbl cards" id="tbl">
+      <thead><tr><th>状態</th><th>タイトル</th><th>種類</th><th>受付期間</th><th>投票数</th><th></th></tr></thead><tbody></tbody></table></div>`;
+  const draw = () => {
+    const q = $("q").value.trim().toLowerCase();
+    const list = polls.filter(p => !q || (p.title || "").toLowerCase().includes(q));
+    $("tbl").querySelector("tbody").innerHTML = list.length ? list.map(p => `<tr class="clickable" data-open="${esc(p.id)}">
+      <td class="st">${pollPill(p.status)}${p.anonymous ? pill("info", "無記名") : ""}</td>
+      <td class="main"><b>${esc(p.title || "（無題）")}</b><span class="sub">${(p.audience || []).map(a => esc(POLL_AUD[a] || a)).join("・")}</span></td>
+      <td data-label="種類">${p.kind === "resolution" ? pill("gold", POLL_KIND.resolution) : esc(POLL_KIND[p.kind] || p.kind || "")}</td>
+      <td data-label="受付期間">${p.opensAt ? esc(fmtLocal(p.opensAt)) : "公開時"} 〜 ${esc(fmtLocal(p.closesAt) || "—")}</td>
+      <td data-label="投票数">${esc(p.voteCount ?? 0)} 票</td>
+      <td class="act"><button class="btn btn-sm" data-open="${esc(p.id)}">開く</button></td></tr>`).join("")
+      : '<tr><td colspan="6" class="empty">投票・アンケートはまだありません。右上のボタンから作成できます。</td></tr>';
+  };
+  draw();
+  $("q").addEventListener("input", draw);
+  $("new-resolution").addEventListener("click", () => openPollEditor(null, pollPreset("resolution")));
+  $("new-survey").addEventListener("click", () => openPollEditor(null, pollPreset("survey")));
+  $("tbl").addEventListener("click", e => {
+    const id = e.target.closest("[data-open]")?.dataset.open;
+    if (id) location.hash = `#polls/${encodeURIComponent(id)}`;
+  });
+}
+
+// ---------- 下書きの作成・編集 ----------
+function questionHtml(q, i, total) {
+  const opts = (q.options || []).map((o, j) => `<div class="pq-opt">
+      <input data-opt value="${esc(o)}" maxlength="100" placeholder="選択肢 ${j + 1}">
+      <button type="button" class="btn btn-sm" data-act="opt-up" data-j="${j}" title="上へ"${j === 0 ? " disabled" : ""}>↑</button>
+      <button type="button" class="btn btn-sm" data-act="opt-down" data-j="${j}" title="下へ"${j === q.options.length - 1 ? " disabled" : ""}>↓</button>
+      <button type="button" class="btn btn-sm btn-danger" data-act="opt-del" data-j="${j}" title="削除">✕</button></div>`).join("");
+  return `<div class="pq" data-i="${i}">
+    <div class="pq-head"><b>設問 ${i + 1}</b><span class="spacer"></span>
+      <button type="button" class="btn btn-sm" data-act="q-up"${i === 0 ? " disabled" : ""}>↑</button>
+      <button type="button" class="btn btn-sm" data-act="q-down"${i === total - 1 ? " disabled" : ""}>↓</button>
+      <button type="button" class="btn btn-sm btn-danger" data-act="q-del"${total === 1 ? " disabled" : ""}>削除</button></div>
+    <label class="fld"><span>設問文<span class="req">必須</span></span><textarea data-q="text" rows="2" maxlength="1000">${esc(q.text || "")}</textarea></label>
+    <div class="row2">
+      <label class="fld"><span>回答の形式</span><select data-q="type">${Object.entries(Q_TYPE).map(([k, l]) => `<option value="${k}"${q.type === k ? " selected" : ""}>${l}</option>`).join("")}</select></label>
+      <div class="fld"><span>&nbsp;</span><div class="pq-flags">
+        <label class="check"><input type="checkbox" data-q="required"${q.required ? " checked" : ""}> 回答必須</label>
+        ${q.type === "multi" ? `<label class="pq-max">最大 <input type="number" data-q="maxChoices" min="1" max="20" value="${esc(q.maxChoices || "")}" placeholder="制限なし"> 個まで</label>` : ""}
+      </div></div>
+    </div>
+    ${q.type === "text" ? '<p class="hint">自由記述は、確定後の結果では件数だけが集計されます（内容は管理者のみ確認）。</p>' : `
+    <div class="fld"><span>選択肢（1〜20 個）</span><div class="pq-opts">${opts}</div>
+      <div class="pq-optbtns"><button type="button" class="btn btn-sm" data-act="opt-add">＋ 選択肢を追加</button>
+      <button type="button" class="btn btn-sm" data-act="opt-vote">賛成・反対・棄権にする</button></div></div>`}
+  </div>`;
+}
+
+async function openPollEditor(p, preset) {
+  const d = p || preset;
+  let questions = JSON.parse(JSON.stringify(d.questions || []));
+  const body = openDrawer(p ? "下書きを編集" : `${POLL_KIND[d.kind] || "投票"}を作成`, `
+    <form id="pl-form" novalidate>
+      <div class="note info" style="margin-bottom:16px">下書きの間は自由に編集できます。<b>公開すると内容は変更できません</b>（改ざん防止のため）。修正が必要になったら「コピーして新規作成」から作り直します。</div>
+      <label class="fld"><span>タイトル<span class="req">必須</span></span><input name="title" required maxlength="200" value="${esc(d.title || "")}" placeholder="${d.kind === "resolution" ? "例：2026年度 定時総会 議決" : "例：行事についてのアンケート"}"></label>
+      <div class="row2">
+        <label class="fld"><span>種類</span><select name="kind">${Object.entries(POLL_KIND).map(([k, l]) => `<option value="${k}"${d.kind === k ? " selected" : ""}>${l}</option>`).join("")}</select></label>
+        <label class="fld"><span>結果の公開</span><select name="showResults">
+          <option value="after_final"${d.showResults !== "never" ? " selected" : ""}>確定後に会員へ公開</option>
+          <option value="never"${d.showResults === "never" ? " selected" : ""}>公開しない（管理者のみ）</option></select></label>
+      </div>
+      <div class="fld"><span>投票できる会員</span>
+        <div>${Object.entries(POLL_AUD).map(([k, l]) => `<label class="check" style="display:inline-flex;margin-right:18px"><input type="checkbox" name="audience" value="${k}"${(d.audience || []).includes(k) ? " checked" : ""}> ${l}</label>`).join("")}</div>
+        <span class="hint" id="aud-note"></span></div>
+      <label class="check pl-anon"><input type="checkbox" name="anonymous"${d.anonymous ? " checked" : ""}> 無記名で投票する</label>
+      <p class="hint" style="margin:-4px 0 14px">無記名：だれが投票したか（投票済みかどうか）は記録しますが、<b>だれが何に投票したかは保存しません</b>。記名：管理者は各会員の回答を確認できます。</p>
+      <div class="row2">
+        <label class="fld"><span>受付開始（空欄で公開と同時）</span><input type="datetime-local" name="opensAt" value="${esc(d.opensAt || "")}"></label>
+        <label class="fld"><span>受付終了<span class="req">必須</span></span><input type="datetime-local" name="closesAt" value="${esc(d.closesAt || "")}"></label>
+      </div>
+      <div class="fld"><span>説明</span><div data-rich="body"></div></div>
+      <h3 class="fld-section">設問</h3>
+      <div id="pq-list"></div>
+      <div class="pq-add">
+        <button type="button" class="btn" id="add-motion">＋ 議案を追加（賛成・反対・棄権）</button>
+        <button type="button" class="btn" id="add-q">＋ 設問を追加</button>
+      </div>
+      <div class="drawer-foot">
+        <button type="button" class="btn" id="preview-btn">プレビュー</button>
+        ${p ? '<button type="button" class="btn btn-danger" id="del-btn">削除</button>' : ""}
+        <span style="flex:1"></span>
+        <button type="button" class="btn" data-close>キャンセル</button>
+        <button type="submit" class="btn btn-primary" id="save-btn">下書きを保存</button>
+      </div>
+    </form>`);
+  const form = body.querySelector("#pl-form");
+  const list = body.querySelector("#pq-list");
+
+  // 画面の入力を questions に読み込む（並べ替え・追加の前に必ず呼ぶ）
+  const readQs = () => {
+    list.querySelectorAll(".pq").forEach(el => {
+      const q = questions[+el.dataset.i];
+      q.text = el.querySelector('[data-q="text"]').value;
+      q.type = el.querySelector('[data-q="type"]').value;
+      q.required = el.querySelector('[data-q="required"]').checked;
+      const mx = el.querySelector('[data-q="maxChoices"]');
+      q.maxChoices = mx && parseInt(mx.value, 10) > 0 ? parseInt(mx.value, 10) : undefined;
+      if (q.type !== "text") q.options = [...el.querySelectorAll("[data-opt]")].map(x => x.value);
+    });
+  };
+  const drawQs = () => { list.innerHTML = questions.map((q, i) => questionHtml(q, i, questions.length)).join(""); };
+  drawQs();
+  const syncKind = () => {
+    const resolution = form.elements.kind.value === "resolution";
+    body.querySelector("#add-motion").hidden = !resolution;
+    body.querySelector("#aud-note").textContent = resolution ? "総会の議決権は正会員のみです（会則で別の定めがある場合は変更してください）。" : "";
+  };
+  syncKind();
+  form.elements.kind.addEventListener("change", syncKind);
+
+  list.addEventListener("change", e => {
+    if (e.target.matches('[data-q="type"]')) {
+      readQs();
+      const q = questions[+e.target.closest(".pq").dataset.i];
+      if (q.type !== "text" && !(q.options || []).length) q.options = ["", ""];
+      drawQs();
+    }
+  });
+  list.addEventListener("click", e => {
+    const b = e.target.closest("[data-act]");
+    if (!b) return;
+    readQs();
+    const i = +b.closest(".pq").dataset.i, j = +b.dataset.j;
+    const q = questions[i];
+    const swap = (arr, a, c) => { [arr[a], arr[c]] = [arr[c], arr[a]]; };
+    switch (b.dataset.act) {
+      case "q-up": swap(questions, i, i - 1); break;
+      case "q-down": swap(questions, i, i + 1); break;
+      case "q-del": if (window.confirm(`設問 ${i + 1} を削除しますか？`)) questions.splice(i, 1); break;
+      case "opt-up": swap(q.options, j, j - 1); break;
+      case "opt-down": swap(q.options, j, j + 1); break;
+      case "opt-del": q.options.splice(j, 1); break;
+      case "opt-add": if (q.options.length < 20) q.options.push(""); else toast("選択肢は 20 個までです。", "error"); break;
+      case "opt-vote": q.options = [...VOTE_OPTIONS]; q.type = "single"; break;
+    }
+    drawQs();
+  });
+  body.querySelector("#add-q").addEventListener("click", () => { readQs(); questions.push({ text: "", type: "single", options: ["", ""], required: true }); drawQs(); list.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "center" }); });
+  body.querySelector("#add-motion").addEventListener("click", () => {
+    readQs();
+    const n = questions.filter(q => /^議案第/.test(q.text || "")).length + 1;
+    questions.push({ text: `議案第${n}号 ○○の件`, type: "single", options: [...VOTE_OPTIONS], required: true });
+    drawQs();
+    list.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+
+  // 説明の高機能エディタ
+  const host = body.querySelector("[data-rich]");
+  host.innerHTML = '<div class="loading"><span class="spin"></span> エディタを読み込み中…</div>';
+  let editor = null;
+  try { editor = await createRichEditor(host, { html: d.bodyHtml || textToHtml(d.bodyText || ""), placeholder: d.kind === "resolution" ? "議案の内容・参考資料・注意事項など" : "アンケートの目的・回答のお願いなど", notify: (m, isErr) => toast(m, isErr ? "error" : "info") }); }
+  catch (e) { host.innerHTML = `<div class="note error">${esc(e.message)}</div>`; }
+
+  body.querySelector("#preview-btn").addEventListener("click", async () => {
+    readQs();
+    const out = openModal("プレビュー（会員に表示される内容）", `<h2 style="margin-top:0">${esc(form.elements.title.value)}</h2><div class="preview" id="pv"></div>
+      ${questions.map((q, i) => `<div class="pv-q"><b>${i + 1}. ${esc(q.text)}</b>${q.required ? ' <span class="pill ng">必須</span>' : ""}
+        <div class="muted small">${Q_TYPE[q.type]}${q.type === "multi" && q.maxChoices ? `（${q.maxChoices} 個まで）` : ""}</div>
+        ${q.type === "text" ? '<div class="pv-text">（自由記述）</div>' : `<ul>${(q.options || []).map(o => `<li>${q.type === "multi" ? "☐" : "○"} ${esc(o)}</li>`).join("")}</ul>`}</div>`).join("")}`, { wide: true });
+    await renderRich(out.querySelector("#pv"), { bodyHtml: editor?.getHtml() || "" });
+  });
+
+  body.querySelector("#del-btn")?.addEventListener("click", async () => {
+    if (!window.confirm(`下書き「${p.title || "（無題）"}」を削除します。よろしいですか？`)) return;
+    try { await deleteDoc(doc(db, "polls", p.id)); toast("削除しました。"); closeDrawer(); location.hash = "#polls"; route(); }
+    catch (err) { fail("削除に失敗しました")(err); }
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    readQs();
+    const err = (msg, el) => { toast(msg, "error"); el?.focus(); };
+    const title = form.elements.title.value.trim();
+    if (!title) return err("タイトルを入力してください。", form.elements.title);
+    const audience = [...form.querySelectorAll('[name="audience"]:checked')].map(x => x.value);
+    if (!audience.length) return err("投票できる会員の種別を 1 つ以上選んでください。");
+    const opensAt = form.elements.opensAt.value, closesAt = form.elements.closesAt.value;
+    if (!closesAt) return err("受付終了の日時を入力してください。", form.elements.closesAt);
+    if (opensAt && opensAt >= closesAt) return err("受付終了は受付開始より後にしてください。", form.elements.closesAt);
+    if (!questions.length) return err("設問を 1 つ以上追加してください。");
+    const qs = [];
+    for (const [i, q] of questions.entries()) {
+      const text = (q.text || "").trim();
+      if (!text) return err(`設問 ${i + 1} の設問文を入力してください。`);
+      if (text.length > 1000) return err(`設問 ${i + 1} の設問文は 1000 文字以内にしてください。`);
+      const out = { id: `q${i + 1}`, text, type: q.type, required: !!q.required };
+      if (q.type !== "text") {
+        const opts = (q.options || []).map(o => o.trim()).filter(Boolean);
+        if (!opts.length) return err(`設問 ${i + 1} に選択肢を入力してください。`);
+        if (opts.length > 20) return err(`設問 ${i + 1} の選択肢は 20 個までです。`);
+        if (opts.some(o => o.length > 100)) return err(`設問 ${i + 1} の選択肢は 1 つ 100 文字以内にしてください。`);
+        if (new Set(opts).size !== opts.length) return err(`設問 ${i + 1} に同じ選択肢があります。`);
+        out.options = opts;
+        if (q.type === "multi" && q.maxChoices) out.maxChoices = Math.min(q.maxChoices, opts.length);
+      }
+      qs.push(out);
+    }
+    const data = {
+      title, kind: form.elements.kind.value, audience, anonymous: form.elements.anonymous.checked,
+      opensAt: opensAt || "", closesAt, showResults: form.elements.showResults.value,
+      bodyHtml: editor?.getHtml() || "", bodyText: editor?.getText() || "",
+      questions: qs, status: "draft", version: 1, updatedAt: new Date()
+    };
+    const btn = form.querySelector("#save-btn");
+    btn.disabled = true;
+    try {
+      let id = p?.id;
+      if (id) await updateDoc(doc(db, "polls", id), data);
+      else id = (await addDoc(collection(db, "polls"), { ...data, voteCount: 0, createdAt: new Date(), createdBy: currentAdmin.uid })).id;
+      toast("下書きを保存しました。");
+      closeDrawer();
+      if (location.hash === `#polls/${id}`) route(); else location.hash = `#polls/${encodeURIComponent(id)}`;
+    } catch (err) { fail("保存に失敗しました")(err); btn.disabled = false; }
+  });
+}
+
+// ---------- 詳細 ----------
+async function renderPollDetail(id) {
+  const snap = await getDoc(doc(db, "polls", id));
+  if (!snap.exists()) { $("page").innerHTML = '<div class="note error">投票・アンケートが見つかりません。</div><p><a href="#polls">← 一覧へ戻る</a></p>'; return; }
+  const p = { id: snap.id, ...snap.data() };
+  const st = p.status || "draft";
+  let finalResults = p.results || null;
+  if (st === "final" && !finalResults) {
+    try { const r = await getDoc(doc(db, "polls", id, "private", "results")); if (r.exists()) finalResults = r.data(); } catch (e) { console.warn(e); }
+  }
+  $("page").innerHTML = `
+    <p style="margin:0 0 10px"><a href="#polls">← 投票・アンケートの一覧</a></p>
+    <div class="form-head">
+      <div>
+        <div class="meta">${pollPill(st)} ${p.kind === "resolution" ? pill("gold", POLL_KIND.resolution) : pill("info", POLL_KIND[p.kind] || "")} ${p.anonymous ? pill("info", "無記名") : pill("closed", "記名")}</div>
+        <h2>${esc(p.title || "（無題）")}</h2>
+        <div class="muted small">受付 ${p.opensAt ? esc(fmtLocal(p.opensAt)) : "公開時"} 〜 ${esc(fmtLocal(p.closesAt) || "—")}　／　対象 ${(p.audience || []).map(a => esc(POLL_AUD[a] || a)).join("・")}　／　結果 ${p.showResults === "never" ? "会員に非公開" : "確定後に会員へ公開"}${p.publishedAt ? `　／　公開 ${fmtDT(p.publishedAt)}` : ""}${p.finalizedAt ? `　／　確定 ${fmtDT(p.finalizedAt)}` : ""}</div>
+      </div>
+      <div class="form-actions">
+        ${st === "draft" ? '<button class="btn" id="edit-btn">編集</button><button class="btn btn-ok" id="publish-btn">公開して受付開始</button>' : ""}
+        ${st === "open" ? '<button class="btn" id="close-btn">受付を終了</button>' : ""}
+        ${st === "closed" ? '<button class="btn" id="reopen-btn">受付を再開</button><button class="btn btn-ok" id="final-btn">集計を確定</button>' : ""}
+        <button class="btn" id="copy-btn">コピーして新規作成</button>
+        ${st !== "draft" ? '<button class="btn" id="verify-btn">ハッシュチェーンを検証</button>' : ""}
+      </div>
+    </div>
+    ${p.contentHash ? `<div class="hashbox" style="margin-bottom:16px"><b>内容のハッシュ<br>SHA-256</b><span class="mono">${esc(hash8(p.contentHash))}</span></div>` : ""}
+    ${st === "draft" ? '<div class="note warn" style="margin-bottom:16px">下書きです。会員にはまだ表示されていません。内容を確認して「公開して受付開始」を押してください。</div>' : ""}
+    ${st !== "draft" ? `<section class="card" style="margin-bottom:16px"><div class="card-head"><h3>投票状況</h3><span class="muted small">${esc(p.voteCount ?? 0)} 票</span></div><div class="card-body" id="turnout"><div class="loading"><span class="spin"></span> 読み込み中…</div></div></section>` : ""}
+    ${st === "final" && finalResults ? `<section class="card" style="margin-bottom:16px"><div class="card-head"><h3>確定した結果</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-sm" id="csv-btn">CSV</button><button class="btn btn-sm btn-primary" id="print-btn">結果を印刷</button></div></div>
+        <div class="card-body">${resultsHtml(p, finalResults, true)}</div></section>` : ""}
+    ${st === "open" || st === "closed" ? `<section class="card" style="margin-bottom:16px"><div class="card-head"><h3>集計</h3><button class="btn btn-sm" id="tally-btn">途中集計を表示</button></div>
+        <div class="card-body" id="tally"><p class="muted small" style="margin:0">途中集計は管理者だけが見られます。確定すると結果が封印されます。</p></div></section>` : ""}
+    ${st !== "draft" && !p.anonymous ? `<section class="card" style="margin-bottom:16px"><div class="card-head"><h3>回答一覧（記名）</h3><button class="btn btn-sm" id="ballot-csv" disabled>CSV</button></div>
+        <div class="card-body" id="ballots"><div class="loading"><span class="spin"></span> 読み込み中…</div></div></section>` : ""}
+    <section class="card"><div class="card-head"><h3>内容</h3></div><div class="card-body">
+      ${p.bodyHtml || p.bodyText ? '<div class="preview" id="pv-body"></div>' : '<p class="muted small" style="margin:0">（説明はありません）</p>'}
+      ${(p.questions || []).map((q, i) => `<div class="pv-q"><b>${i + 1}. ${esc(q.text)}</b>${q.required ? ' <span class="pill ng">必須</span>' : ""}
+        <div class="muted small">${Q_TYPE[q.type] || q.type}${q.type === "multi" && q.maxChoices ? `（${esc(q.maxChoices)} 個まで）` : ""}</div>
+        ${q.type === "text" ? "" : `<ul>${(q.options || []).map(o => `<li>${esc(o)}</li>`).join("")}</ul>`}</div>`).join("")}
+    </div></section>`;
+  if ($("pv-body")) renderRich($("pv-body"), { bodyHtml: p.bodyHtml || "", body: p.bodyText || "" });
+
+  const act = async (action, label, extra = {}) => {
+    try { const r = await callFn("pollAdmin", { action, id, ...extra }); toast(label); route(); return r; }
+    catch (err) { fail("実行できませんでした")(err); }
+  };
+  $("edit-btn")?.addEventListener("click", () => openPollEditor(p));
+  $("publish-btn")?.addEventListener("click", () => {
+    const body = openModal("公開して受付開始", `
+      <p>「${esc(p.title)}」を公開します。公開すると内容（説明・設問・選択肢・対象・期間）は<b>変更できません</b>。</p>
+      <label class="check"><input type="checkbox" id="pub-notify" checked> 対象の会員にメールで案内する</label>
+      <div class="drawer-foot" style="margin-top:16px"><span style="flex:1"></span><button class="btn" data-close>キャンセル</button><button class="btn btn-ok" id="pub-go">公開する</button></div>`);
+    body.querySelector("#pub-go").addEventListener("click", async (e) => {
+      e.target.disabled = true; e.target.innerHTML = '<span class="spin"></span> 公開中…';
+      const r = await act("publish", "公開しました。", { notify: body.querySelector("#pub-notify").checked });
+      $("modal").close();
+      if (r?.notified) toast(`対象の会員 ${r.notified} 名にメールで案内しました。`);
+    });
+  });
+  $("close-btn")?.addEventListener("click", () => { if (window.confirm("受付を終了します。終了後は会員が投票できなくなります（確定前なら再開できます）。よろしいですか？")) act("close", "受付を終了しました。"); });
+  $("reopen-btn")?.addEventListener("click", () => { if (window.confirm("受付を再開します。よろしいですか？")) act("reopen", "受付を再開しました。"); });
+  $("final-btn")?.addEventListener("click", () => {
+    if (!window.confirm("集計を確定します。\n\n確定後は変更できません。受付の再開もできなくなります。\n結果はハッシュ化・封印され、設定に応じて会員に公開されます。")) return;
+    if (!window.confirm("本当に確定しますか？（元に戻せません）")) return;
+    act("finalize", "集計を確定しました。");
+  });
+  $("copy-btn").addEventListener("click", () => {
+    const { title, kind, audience, anonymous, showResults, bodyHtml, bodyText, questions } = p;
+    openPollEditor(null, { title: `${title}（コピー）`, kind, audience, anonymous, showResults, bodyHtml, bodyText, questions, opensAt: "", closesAt: "" });
+  });
+  $("verify-btn")?.addEventListener("click", async () => {
+    const body = openModal("ハッシュチェーンの検証", '<div class="loading"><span class="spin"></span> すべての票を検証しています…</div>');
+    try {
+      const r = await callFn("pollAdmin", { action: "verify", id });
+      const broken = Array.isArray(r?.broken) ? r.broken : [];
+      body.innerHTML = `<div class="note ${r?.ok ? "success" : "error"}"><b>${r?.ok ? "改ざんは見つかりませんでした" : "問題が見つかりました"}</b><br>${esc(r?.summary || "")}</div>
+        <p class="muted small">検証した票：${esc(r?.total ?? "—")} 票</p>
+        ${broken.length ? `<ul class="checks">${broken.map(b => `<li class="ng"><span class="mk">!</span><div>${esc([b.seq != null ? `#${b.seq}` : "", b.ballotId || "", (b.problems || []).join("・")].filter(Boolean).join("　"))}</div></li>`).join("")}</ul>` : ""}`;
+    } catch (e) { body.innerHTML = `<div class="note error">検証できませんでした：${esc(e.message)}</div>`; }
+  });
+
+  // 投票状況
+  if ($("turnout")) {
+    callFn("pollAdmin", { action: "turnout", id }).then(t => {
+      const pct = t.eligible ? Math.round(t.voted / t.eligible * 100) : 0;
+      const nv = t.notVoted || [];
+      $("turnout").innerHTML = `
+        <div class="turnout"><b>${esc(t.voted)}</b> / ${esc(t.eligible)} 名が投票（${pct}%）</div>
+        <div class="tbar"><i style="width:${pct}%"></i></div>
+        ${nv.length ? `<details class="nv"><summary>未投票の会員（${nv.length} 名）</summary>
+          <div style="margin:8px 0"><button class="btn btn-sm" id="nv-copy">メールアドレスをコピー</button></div>
+          <ul>${nv.map(m => `<li>${esc(m.name || "")} <span class="muted small">${esc(m.memberNo || "")}　${esc(m.email || "")}</span></li>`).join("")}</ul></details>` : '<p class="muted small" style="margin:8px 0 0">対象の会員は全員投票しました。</p>'}`;
+      $("nv-copy")?.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(nv.map(m => m.email).filter(Boolean).join(", ")); toast("メールアドレスをコピーしました。"); }
+        catch { toast("コピーできませんでした。", "error"); }
+      });
+    }).catch(e => { $("turnout").innerHTML = `<div class="note error">投票状況を読み込めませんでした：${esc(e.message)}</div>`; });
+  }
+  // 途中集計
+  $("tally-btn")?.addEventListener("click", async (e) => {
+    e.target.disabled = true;
+    $("tally").innerHTML = '<div class="loading"><span class="spin"></span> 集計しています…</div>';
+    try { const r = await callFn("pollAdmin", { action: "tally", id }); $("tally").innerHTML = resultsHtml(p, r.results || r, false); }
+    catch (err) { $("tally").innerHTML = `<div class="note error">集計できませんでした：${esc(err.message)}</div>`; }
+    finally { e.target.disabled = false; }
+  });
+  // 記名の回答一覧
+  let ballots = [];
+  if ($("ballots")) {
+    getDocs(collection(db, "polls", id, "ballots")).then(s => {
+      ballots = s.docs.map(x => ({ id: x.id, ...x.data() })).sort((a, b) => (a.seq || 0) - (b.seq || 0));
+      $("ballot-csv").disabled = !ballots.length;
+      const qs = p.questions || [];
+      $("ballots").innerHTML = ballots.length ? `<div class="table-wrap"><table class="tbl cards"><thead><tr><th>回答者</th>${qs.map((q, i) => `<th>${i + 1}. ${esc(q.text.slice(0, 20))}</th>`).join("")}<th>日時</th></tr></thead><tbody>
+        ${ballots.map(b => `<tr><td class="main"><b>${esc(b.name || "")}</b><span class="sub">${esc(b.memberNo || "")}</span></td>
+          ${qs.map((q, i) => `<td data-label="${i + 1}">${esc(fmtAnswer(b.answers?.[q.id]))}</td>`).join("")}
+          <td data-label="日時">${fmtDT(b.castAt)}</td></tr>`).join("")}</tbody></table></div>` : '<div class="empty">まだ回答はありません。</div>';
+    }).catch(e => { $("ballots").innerHTML = `<div class="note error">読み込めませんでした：${esc(e.message)}</div>`; });
+    $("ballot-csv").addEventListener("click", () => {
+      const qs = p.questions || [];
+      downloadCsv(`回答一覧_${p.title}`, [["回答者", "会員番号", ...qs.map((q, i) => `${i + 1}. ${q.text}`), "日時", "受付ハッシュ", "封印番号"],
+        ...ballots.map(b => [b.name, b.memberNo, ...qs.map(q => fmtAnswer(b.answers?.[q.id])), fmtDT(b.castAt), b.receipt, b.seq])]);
+    });
+  }
+  // 確定結果の CSV・印刷
+  $("csv-btn")?.addEventListener("click", () => {
+    const rows = [["設問", "選択肢", "票数"]];
+    (p.questions || []).forEach((q, i) => {
+      if (q.type === "text") rows.push([`${i + 1}. ${q.text}`, "（自由記述の回答数）", finalResults.textCount?.[q.id] ?? 0]);
+      else (q.options || []).forEach(o => rows.push([`${i + 1}. ${q.text}`, o, finalResults.tallies?.[q.id]?.[o] ?? 0]));
+    });
+    rows.push([], ["投票数", finalResults.total], ["対象会員数", finalResults.eligible], ["結果のハッシュ", finalResults.resultsHash], ["封印", finalResults.seal]);
+    downloadCsv(`集計結果_${p.title}`, rows);
+  });
+  $("print-btn")?.addEventListener("click", () => printPollResults(p, finalResults));
+}
+
+const fmtAnswer = (a) => Array.isArray(a) ? a.join("、") : (a ?? "");
+
+/** 集計結果の HTML（設問ごとの棒グラフ） */
+function resultsHtml(p, r, final) {
+  if (!r) return '<div class="empty">結果がありません。</div>';
+  const total = r.total ?? 0;
+  return `
+    <div class="res-sum"><span>投票数 <b>${esc(total)}</b> 票</span><span>対象 ${esc(r.eligible ?? "—")} 名</span>${r.eligible ? `<span>投票率 ${Math.round(total / r.eligible * 100)}%</span>` : ""}</div>
+    ${(p.questions || []).map((q, i) => {
+      if (q.type === "text") return `<div class="res-q"><b>${i + 1}. ${esc(q.text)}</b><p class="muted small">自由記述の回答 ${esc(r.textCount?.[q.id] ?? 0)} 件</p></div>`;
+      const t = r.tallies?.[q.id] || {};
+      const max = Math.max(1, ...Object.values(t).map(Number));
+      const answered = Object.values(t).reduce((s, v) => s + Number(v || 0), 0);
+      return `<div class="res-q"><b>${i + 1}. ${esc(q.text)}</b>
+        ${(q.options || []).map(o => { const n = Number(t[o] || 0); const pct = q.type === "multi" ? (total ? Math.round(n / total * 100) : 0) : (answered ? Math.round(n / answered * 100) : 0);
+          return `<div class="res-row"><span class="res-label">${esc(o)}</span><span class="res-bar"><i style="width:${Math.round(n / max * 100)}%"></i></span><span class="res-n">${n} 票（${pct}%）</span></div>`; }).join("")}
+      </div>`;
+    }).join("")}
+    ${final ? `<div class="hashbox" style="margin-top:14px"><b>結果のハッシュ<br>SHA-256</b><span class="mono">${esc(hash8(r.resultsHash))}</span></div>
+      <div class="hashbox" style="margin-top:8px"><b>封印<br>HMAC</b><span class="mono">${esc(hash8(r.seal))}</span></div>` : ""}
+    ${(r.receipts || []).length ? `<details class="nv" style="margin-top:12px"><summary>受付ハッシュの一覧（${r.receipts.length} 票）</summary>
+      <p class="muted small">投票した会員は、控えの受付ハッシュがこの一覧に含まれていることで、自分の票が集計に入ったことを確認できます。</p>
+      <ul class="mono small">${r.receipts.map(x => `<li>${esc(hash8(x))}</li>`).join("")}</ul></details>` : ""}`;
+}
+
+/** CSV（Excel で開けるよう UTF-8 BOM つき） */
+function downloadCsv(name, rows) {
+  const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const csv = "﻿" + rows.map(r => r.map(cell).join(",")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  a.download = `${String(name).replace(/[\\/:*?"<>|]/g, "_").slice(0, 60)}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/** 確定した結果（A4）を印刷 */
+function printPollResults(p, r) {
+  const area = $("print-area");
+  area.innerHTML = `<div class="cert">
+    <div class="cert-head"><img src="LOGO.png" alt=""><div><b>普賢アーカイブ運営委員会</b><span>Fugen Archive Development Committee</span></div><h1>${p.kind === "resolution" ? "議決結果" : "集計結果"}</h1></div>
+    <h2>${esc(p.title)}</h2>
+    <table><tr><th>種類</th><td>${esc(POLL_KIND[p.kind] || p.kind)}（${p.anonymous ? "無記名" : "記名"}）</td></tr>
+      <tr><th>対象</th><td>${(p.audience || []).map(a => esc(POLL_AUD[a] || a)).join("・")}</td></tr>
+      <tr><th>受付期間</th><td>${p.opensAt ? esc(fmtLocal(p.opensAt)) : fmtDT(p.publishedAt)} 〜 ${esc(fmtLocal(p.closesAt))}</td></tr>
+      <tr><th>確定日時</th><td>${fmtDT(p.finalizedAt)}</td></tr>
+      <tr><th>投票数</th><td>${esc(r.total ?? 0)} 票 ／ 対象 ${esc(r.eligible ?? "—")} 名${r.eligible ? `（投票率 ${Math.round((r.total || 0) / r.eligible * 100)}%）` : ""}</td></tr></table>
+    <h2>結果</h2>
+    ${(p.questions || []).map((q, i) => `<table class="res-print"><tr><th colspan="2">${i + 1}. ${esc(q.text)}</th></tr>
+      ${q.type === "text" ? `<tr><td>自由記述の回答</td><td>${esc(r.textCount?.[q.id] ?? 0)} 件</td></tr>`
+        : (q.options || []).map(o => `<tr><td>${esc(o)}</td><td>${esc(r.tallies?.[q.id]?.[o] ?? 0)} 票</td></tr>`).join("")}</table>`).join("")}
+    <h2>改ざん防止の記録</h2>
+    <table><tr><th>内容のハッシュ</th><td class="mono">${esc(p.contentHash || "—")}</td></tr>
+      <tr><th>結果のハッシュ</th><td class="mono">${esc(r.resultsHash || "—")}</td></tr>
+      <tr><th>封印（HMAC-SHA256）</th><td class="mono">${esc(r.seal || "—")}</td></tr></table>
+    <p class="cert-foot">発行日時 ${esc(new Date().toLocaleString("ja-JP"))}　／　発行者 ${esc(currentAdmin.email)}　／　普賢アーカイブ運営委員会 管理コンソール</p>
+  </div>`;
+  addEventListener("afterprint", () => { area.innerHTML = ""; }, { once: true });
+  window.print();
 }
