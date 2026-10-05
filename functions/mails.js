@@ -657,4 +657,22 @@ ${signature()}`
   }];
 }
 
-module.exports = {CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided , contactAiReply, passwordResetByAi, contactAiNotify, contactStaffReply , ticketReplyToCustomer, ticketToStaff , loginGuideByAi , eventRsvpMail, memberNotice, pollOpened, voteReceipt };
+// ---------- 締切で投票の受付を自動終了（委員会へ） ----------
+function pollAutoClosed({ poll: p }) {
+  return [{
+    to: CONFIG.notifyTo,
+    subject: `【投票・アンケート】受付を終了しました：${p.title}`,
+    text:
+`締切（${pollWhen(p.closesAt)}）を過ぎたため、次の投票・アンケートの受付を自動で終了しました。
+管理画面で結果を確認し、「集計を確定」してください（確定すると結果が封印され、変更できなくなります）。
+
+■ 件名　：${p.title}（${POLL_KIND[p.kind] || ""}）
+■ 投票数：${p.voteCount || 0} 票
+
+▼ 管理画面
+${CONFIG.siteUrl}/admin.html#polls/${p.id}
+`
+  }];
+}
+
+module.exports = {CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided , contactAiReply, passwordResetByAi, contactAiNotify, contactStaffReply , ticketReplyToCustomer, ticketToStaff , loginGuideByAi , eventRsvpMail, memberNotice, pollOpened, voteReceipt, pollAutoClosed };

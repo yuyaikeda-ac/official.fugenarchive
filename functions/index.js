@@ -130,7 +130,7 @@ Object.assign(exports, require("./tickets")({
 
 // ---------- 投票・アンケート（総会の議決権行使など。中身は polls.js） ----------
 Object.assign(exports, require("./polls")({
-  onCall, HttpsError, getFirestore, FieldValue, logger, sendAll, mails, mailSecrets: opts.secrets,
+  onCall, onSchedule: require("firebase-functions/v2/scheduler").onSchedule, HttpsError, getFirestore, FieldValue, logger, sendAll, mails, mailSecrets: opts.secrets,
   SEAL_KEY: defineSecret("CONSENT_SEAL_KEY")
 }));
 

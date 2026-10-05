@@ -110,7 +110,7 @@ function tally(poll, ballots, eligible) {
 }
 const resultsHashOf = (pollId, contentHash, r) => sha256Hex(stableStringify({ pollId, contentHash, tallies: r.tallies, textCount: r.textCount, total: r.total, eligible: r.eligible, receipts: r.receipts }));
 
-module.exports = function polls({ onCall, HttpsError, getFirestore, FieldValue, logger, sendAll, mails, mailSecrets, SEAL_KEY }) {
+module.exports = function polls({ onCall, onSchedule, HttpsError, getFirestore, FieldValue, logger, sendAll, mails, mailSecrets, SEAL_KEY }) {
   const fail = (code, msg) => { throw new HttpsError(code, msg); };
 
   async function requireAdmin(db, req) {
@@ -300,7 +300,27 @@ module.exports = function polls({ onCall, HttpsError, getFirestore, FieldValue, 
     fail("invalid-argument", "不明な操作です。");
   });
 
-  return { castVote, myVote, verifyBallot, pollAdmin };
+  // ---------- 自動：締切を過ぎた投票を受付終了にする（5 分ごと） ----------
+  const closeExpiredPolls = onSchedule({ schedule: "every 5 minutes", timeZone: "Asia/Tokyo", secrets: mailSecrets, retryCount: 0 }, async () => {
+    const db = getFirestore();
+    const snap = await db.collection("polls").where("status", "==", "open").get();
+    const now = Date.now();
+    for (const d of snap.docs) {
+      const p = d.data();
+      if (!p.closesAt || jstMs(p.closesAt) > now) continue;
+      const closed = await db.runTransaction(async (tx) => {
+        const cur = await tx.get(d.ref);
+        if (cur.get("status") !== "open") return false;
+        tx.update(d.ref, { status: "closed", closedAt: FieldValue.serverTimestamp(), closedBy: "auto", updatedAt: FieldValue.serverTimestamp() });
+        return true;
+      });
+      if (!closed) continue;
+      logger.info("締切により投票の受付を終了", { id: d.id, voteCount: p.voteCount || 0 });
+      await sendAll(mails.pollAutoClosed({ poll: { id: d.id, ...p } }), "投票の受付終了（自動）");
+    }
+  });
+
+  return { castVote, myVote, verifyBallot, pollAdmin, closeExpiredPolls };
 };
 module.exports.validatePoll = validatePoll;
 module.exports.cleanAnswers = cleanAnswers;
