@@ -783,9 +783,13 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
 /* 印刷（会員証）：A4 専用シート（#print-sheet、assets/js/card.js の printSheetHtml）だけを印刷 */
 #print-sheet { display: none; }
 @media print {
-  @page { size: A4 portrait; margin: 14mm; }
+  @page { size: A4 portrait; margin: 12mm; }
   body > *:not(#print-sheet) { display: none !important; }
   body { background: #fff !important; }
+  /* スマホのブラウザは「画面の幅」で組んだページを用紙いっぱいに拡大して印刷するため、
+     印刷するページの幅を A4 の印刷範囲（210mm − 余白 12mm×2 = 186mm）に固定し、拡大されないようにする */
+  html, body { width: 186mm !important; min-width: 186mm !important; max-width: 186mm !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; }
+  #print-sheet { width: 186mm; }
   #print-sheet { display: block; color: #14233a; font-family: var(--sans); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .ps-head { display: flex; align-items: center; gap: 4mm; padding-bottom: 4mm; border-bottom: .6mm solid #0b2a4f; }
   .ps-head img { width: 14mm; height: 14mm; border-radius: 50%; }
@@ -802,7 +806,10 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
   .ps-row figcaption { margin-top: 2mm; font-size: 9pt; color: #6b7686; letter-spacing: .2em; }
   /* 実物大（クレジットカードと同じ 85.6mm × 54mm）。点線は切り取り線 */
   .ps-cut { padding: 2mm; border: .3mm dashed #9aa3b0; }
-  .mcard.is-print { width: 85.6mm; text-align: left; cursor: default; }
+  .mcard.is-print { width: 85.6mm !important; height: 53.98mm !important; max-width: none !important; aspect-ratio: auto; text-align: left; cursor: default; }
+  /* 実物大の確認用の目盛り（5cm） */
+  .ps-ruler { display: flex; align-items: center; gap: 3mm; margin: -3mm 0 6mm; font-size: 8pt; color: #6b7686; }
+  .ps-ruler i { position: relative; display: block; width: 50mm; height: 2.4mm; border: .3mm solid #14233a; border-top: 0; background: repeating-linear-gradient(90deg, #14233a 0 .3mm, transparent .3mm 10mm); }
   .mcard.is-print .mcard-face { transform: none; visibility: visible; transition: none; box-shadow: none; }
   .mcard.is-print .mc-shine { display: none; }
   .ps-info { flex: 1 1 62mm; min-width: 62mm; }

@@ -101,7 +101,9 @@ export function printSheetHtml(m, info) {
     <div><b>普賢アーカイブ運営委員会</b><span>Fugen Archive Development Committee</span></div>
     <h1>会員証</h1>
   </div>
-  <p class="ps-note">会員証は実物大です。点線に沿って切り取り、表面と裏面を貼り合わせてお使いください。</p>
+  <p class="ps-note">会員証は実物大（運転免許証と同じ 85.6mm × 54mm）です。点線に沿って切り取り、表面と裏面を貼り合わせてお使いください。<br>
+    印刷の設定で倍率を「100%」（実際のサイズ）にしてください。下の目盛りが 5cm なら実物大です。</p>
+  <div class="ps-ruler"><i></i><span>5cm</span></div>
   <div class="ps-body">
   <section class="ps-cards">
     <div class="ps-row">
