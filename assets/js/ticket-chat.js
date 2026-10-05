@@ -132,7 +132,7 @@ function renderComposer() {
       <button type="submit" class="tk-send" aria-label="送信"${sending ? " disabled" : ""}>${sending ? '<span class="tk-spin"></span>' : ICON.send}<span>送信</span></button>
     </form>
     <div class="tk-actions">
-      ${t.status === "ai" ? `<button type="button" class="tk-link" id="tk-human"${sending ? " disabled" : ""}>担当者に相談する</button>` : `<span class="tk-wait-note">${t.status === "waiting_staff" ? "担当者が確認しています。返信までしばらくお待ちください。" : "担当者が対応しています。"}</span>`}
+      ${t.status === "ai" ? `<button type="button" class="tk-link" id="tk-human"${sending ? " disabled" : ""}>担当者に相談する</button>` : `<span class="tk-wait-note">${t.status === "waiting_staff" ? "担当者が確認しています。返信は通常 3 営業日以内（土日祝日・年末年始などの長期休暇を除く）にお送りします。" : "担当者が対応しています。"}</span>`}
       <button type="button" class="tk-link danger" id="tk-close"${sending ? " disabled" : ""}>お問い合わせを終了する</button>
     </div>`;
   const ta = box.querySelector("#tk-text");

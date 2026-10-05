@@ -54,7 +54,7 @@ const SYSTEM = `あなたは「普賢アーカイブ運営委員会」のお問�
 - パスワードを忘れた・ログインできない → Google アカウントでログインしているかを確認し、パスワードの方なら send_password_reset（通常は [メール1]。登録したアドレスが別なら、そのアドレスを聞く）。結果は「ご登録があれば再設定メールが届く」形で伝える（登録の有無は伝えられない）
 - 審査の状況・会員の状態 → get_my_account_status（チケット発行時にログインしていた場合だけ確認できる。できなければ会員ログイン後の会員サイトで確認できると案内）
 - 行事 → get_upcoming_events、最新情報 → get_latest_news
-- 担当者が必要なとき（知識の「担当者の対応が必要なもの」・知識で確実に答えられないこと・お客様が人の対応を望むとき）→ 必要な内容を確認してから escalate_to_staff。その後「担当者から、このチャットとメールでご連絡します（数日以内）」と伝える
+- 担当者が必要なとき（知識の「担当者の対応が必要なもの」・知識で確実に答えられないこと・お客様が人の対応を望むとき）→ 必要な内容を確認してから escalate_to_staff。その後「担当者から、このチャットとメールでご連絡します。返信は通常 3 営業日以内（土日祝日・年末年始などの長期休暇を除く）です」と伝える
 - お客様の質問に答え終わり、解決したと思われるとき → offer_to_close を呼び、返事の最後に「ほかにご質問がなければ、下の『解決したので終了する』ボタンでお問い合わせを終了できます」とひとこと添える。
   確認の質問をしている途中・担当者に引き継いだ後・お客様がまだ困っている様子のときは呼ばない
 
@@ -249,7 +249,7 @@ module.exports = function tickets({ onCall, HttpsError, getFirestore, getAuth, F
       });
       if (res.stop_reason === "refusal") {
         ctx.escalation ||= { priority: "normal", priorityLabel: "通常", summary: "AI が対応できない内容のため、担当者が確認してください。", todoForStaff: "内容を確認して返信" };
-        replyMasked = "申し訳ありません。この内容は担当者が確認いたします。担当者からこのチャットとメールでご連絡しますので、しばらくお待ちください。";
+        replyMasked = "申し訳ありません。この内容は担当者が確認いたします。担当者からこのチャットとメールでご連絡します。返信は通常 3 営業日以内です（土日祝日・年末年始などの長期休暇を除く）。";
         state.history.push({ role: "assistant", content: [{ type: "text", text: replyMasked }] });
         break;
       }
@@ -273,7 +273,7 @@ module.exports = function tickets({ onCall, HttpsError, getFirestore, getAuth, F
       }
       state.history.push({ role: "user", content: results });
     }
-    if (!replyMasked) replyMasked = "申し訳ありません。うまくお答えできませんでした。担当者が確認いたしますので、しばらくお待ちください。";
+    if (!replyMasked) replyMasked = "申し訳ありません。うまくお答えできませんでした。担当者が確認し、通常 3 営業日以内（土日祝日・年末年始などの長期休暇を除く）にご連絡いたします。";
     return { reply: unmask(replyMasked, state.map), replyMasked, escalation: ctx.escalation, offerClose: ctx.offerClose && !ctx.escalation, actions: ctx.actions };
   }
 
@@ -284,14 +284,14 @@ module.exports = function tickets({ onCall, HttpsError, getFirestore, getAuth, F
     try { out = await runAi(db, ticket, state); }
     catch (e) {
       logger.error("チケット：AI の処理に失敗", { id: ref.id, error: e.message });
-      out = { reply: "申し訳ありません。ただいま AI オペレータが応答できません。担当者が確認いたしますので、しばらくお待ちください。", escalation: { priority: "normal", priorityLabel: "通常", summary: "AI の処理に失敗したため、担当者が対応してください。", todoForStaff: "内容を確認して返信" }, actions: [] };
+      out = { reply: "申し訳ありません。ただいま AI オペレータが応答できません。担当者が確認し、通常 3 営業日以内（土日祝日・年末年始などの長期休暇を除く）にご連絡いたします。", escalation: { priority: "normal", priorityLabel: "通常", summary: "AI の処理に失敗したため、担当者が対応してください。", todoForStaff: "内容を確認して返信" }, actions: [] };
     }
     const patch = {};
     if (out.escalation) Object.assign(patch, { status: "waiting_staff", escalatedAt: FieldValue.serverTimestamp(), unreadStaff: true, ...out.escalation });
     if (out.actions.length) patch.aiActions = FieldValue.arrayUnion(...out.actions.map(a => ({ ...a, at: new Date().toISOString() })));
     if (out.reply) await addMessage(ref, "ai", out.reply, out.offerClose ? { askClose: true } : {}, patch);
     else if (Object.keys(patch).length) await ref.update(patch);
-    if (out.escalation) await addMessage(ref, "system", "担当者へ引き継ぎました。担当者からこのチャットとメールでご連絡します。");
+    if (out.escalation) await addMessage(ref, "system", "担当者へ引き継ぎました。担当者からこのチャットとメールでご連絡します。返信は通常 3 営業日以内です（土日祝日・年末年始などの長期休暇を除く）。");
     await ref.collection("private").doc("state").set({ history: JSON.stringify(state.history), piiMap: JSON.stringify(state.map), resets: state.resets || 0 }, { merge: true });
     // メール：お客様へ AI の返事、引き継ぎなら委員会へ
     const fresh = (await ref.get()).data();
@@ -373,7 +373,7 @@ module.exports = function tickets({ onCall, HttpsError, getFirestore, getAuth, F
       // お客様が担当者を希望 → AI を通さず引き継ぎ
       await ref.update({ status: "waiting_staff", escalatedAt: FieldValue.serverTimestamp(), unreadStaff: true, priority: "normal", priorityLabel: "通常",
         summary: ticket.summary || "お客様が担当者との対応を希望しました。", todoForStaff: "やりとりを確認して返信" });
-      await addMessage(ref, "system", "担当者へ引き継ぎました。担当者からこのチャットとメールでご連絡します。");
+      await addMessage(ref, "system", "担当者へ引き継ぎました。担当者からこのチャットとメールでご連絡します。返信は通常 3 営業日以内です（土日祝日・年末年始などの長期休暇を除く）。");
       if (text) state.history.push({ role: "user", content: maskCustomer(text, ticket, state) }, { role: "assistant", content: [{ type: "text", text: "（担当者へ引き継ぎました）" }] });
       await ref.collection("private").doc("state").set({ history: JSON.stringify(state.history), piiMap: JSON.stringify(state.map) }, { merge: true });
       const fresh = (await ref.get()).data();
