@@ -389,11 +389,22 @@ async function refreshBadges() {
     document.querySelectorAll('[data-badge="pending"]').forEach(b => { b.hidden = !n; b.textContent = n; });
     setTicketBadge(await ticketsNeedingStaff().catch(() => []));
   } catch (e) { console.warn(e); }
+  updateMenuBadge();
 }
+/** スマホのメニューボタンに、要対応の合計を表示（メニューを開かなくてもわかるように） */
+function updateMenuBadge() {
+  const total = [...document.querySelectorAll("#side-nav [data-badge]")].reduce((s, b) => s + (b.hidden ? 0 : Number(b.textContent) || 0), 0);
+  const mb = $("menu-badge");
+  if (mb) { mb.hidden = !total; mb.textContent = total > 99 ? "99+" : total; }
+}
+// 開いている間も、最新の件数に保つ（1 分ごと・タブに戻ったとき）
+setInterval(() => { if (currentAdmin && !document.hidden) { invalidate("members"); refreshBadges(); } }, 60_000);
+document.addEventListener("visibilitychange", () => { if (currentAdmin && !document.hidden) { invalidate("members"); refreshBadges(); } });
 /** メニューの「お問い合わせ」の数（担当者の確認待ち・未読のチケット） */
 function setTicketBadge(list) {
   const c = list.length;
   document.querySelectorAll('[data-badge="contacts"]').forEach(b => { b.hidden = !c; b.textContent = c; });
+  updateMenuBadge();
 }
 /** 担当者の確認待ち、または未読のチケット（新しい順） */
 async function ticketsNeedingStaff() {

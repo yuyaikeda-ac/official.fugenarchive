@@ -136,7 +136,7 @@ async function startPortal() {
   $("side-nav").innerHTML = ROUTES.map((r, i) =>
     `<li><a href="#${r.id}" data-route="${r.id}">${icon(r.icon)}${r.label}<span class="badge" data-badge="${r.id}" hidden></span><kbd>${i + 1}</kbd></a></li>`).join("");
   $("tabbar").innerHTML = ROUTES.filter(r => r.id !== "profile").map(r =>
-    `<a href="#${r.id}" data-route="${r.id}">${icon(r.icon)}${r.short}</a>`).join("") +
+    `<a href="#${r.id}" data-route="${r.id}">${icon(r.icon)}${r.short}<span class="badge tab-badge" data-badge="${r.id}" hidden></span></a>`).join("") +
     `<a href="#profile" data-route="profile">${icon("user")}設定</a>`;
   fillMe();
   $("portal").hidden = false;
@@ -148,17 +148,34 @@ async function startPortal() {
   // データをまとめて読み込み（読み込み中はスケルトン表示）
   const load = async (key, fn) => {
     try { state[key] = await fn(); } catch (e) { console.error(e); state[key] = []; state.errors[key] = errorMessage(e); }
+    updateBadges();
   };
   await Promise.all([
     load("news", getMemberNews),
     load("docs", getMemberDocs),
     load("events", getEvents),
     getMyRsvps(m.id).then(s => state.rsvps = s).catch(console.error),
-    loadConsent()
+    loadConsent().then(updateBadges)
   ]);
   updateBadges();
   rerender();
   if (state.route === "news") markNewsSeen();
+  // 開いている間も新しいお知らせ・同意書を確認（5 分ごと・タブに戻ったとき）
+  setInterval(refreshBadgeData, 300_000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshBadgeData(); });
+}
+let lastBadgeRefresh = Date.now();
+async function refreshBadgeData() {
+  if (Date.now() - lastBadgeRefresh < 60_000) return;
+  lastBadgeRefresh = Date.now();
+  try {
+    const news = await getMemberNews();
+    const changed = JSON.stringify(news.map(n => n.id)) !== JSON.stringify((state.news || []).map(n => n.id));
+    state.news = news;
+    await loadConsent();
+    updateBadges();
+    if (changed && ["dashboard", "news"].includes(state.route)) rerender();
+  } catch (e) { console.warn(e); }
 }
 
 function fillMe() {

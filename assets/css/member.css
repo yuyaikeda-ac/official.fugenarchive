@@ -1083,3 +1083,7 @@ button.doc { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 .ev .desc.rich-body { white-space: normal; }
 .ev .desc.rich-body img { border-radius: 10px; }
 .ev-actions .lux-btn:disabled { background: #e6ebf2; color: var(--muted); border-color: #e6ebf2; box-shadow: none; cursor: default; }
+
+/* スマホの下のメニューのバッジ（アイコンの右上） */
+.tabbar a { position: relative; }
+.tab-badge { position: absolute; top: 2px; left: calc(50% + 6px); min-width: 17px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: 10px; font-weight: 700; line-height: 17px; text-align: center; box-shadow: 0 0 0 2px #fff; }
