@@ -190,6 +190,25 @@ ${signature()}`
   }];
 }
 
+// ---------- 2 段階認証のコード（mfa.js。ログイン時・メール方式の設定時） ----------
+function mfaCode({ to, code, minutes, purpose }) {
+  const enroll = purpose === "enroll";
+  return [{
+    to,
+    subject: `【${CONFIG.orgName}】${enroll ? "2 段階認証の設定" : "ログイン"}の確認コード：${code}`,
+    text:
+`${enroll ? "2 段階認証（メール）を設定するための確認コードです。" : "ログインのための確認コード（2 段階認証）です。"}
+画面に次の 6 桁のコードを入力してください。
+
+　　${code}
+
+・有効期限は ${minutes} 分です。
+・このコードはだれにも教えないでください。委員会からコードをお聞きすることはありません。
+・お心当たりのない場合は、パスワードが他人に知られている可能性があります。パスワードを変更してください。
+${signature()}`
+  }];
+}
+
 // ---------- 電子同意書に署名したとき（署名者へ控え） ----------
 function consentSigned(s) {
   const signedAt = s.agreedAt?.toDate?.() || new Date(s.clientSignedAt);
@@ -704,4 +723,4 @@ ${CONFIG.siteUrl}/admin.html#polls/${p.id}
   }];
 }
 
-module.exports = {CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided , contactAiReply, passwordResetByAi, contactAiNotify, contactStaffReply , ticketReplyToCustomer, ticketToStaff , ticketTransferred , loginGuideByAi , eventRsvpMail, memberNotice, pollOpened, voteReceipt, pollAutoClosed };
+module.exports = {CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided , contactAiReply, passwordResetByAi, contactAiNotify, contactStaffReply , ticketReplyToCustomer, ticketToStaff , ticketTransferred , loginGuideByAi , eventRsvpMail, memberNotice, pollOpened, voteReceipt, pollAutoClosed , mfaCode };

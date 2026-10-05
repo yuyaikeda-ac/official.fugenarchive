@@ -15,6 +15,7 @@ import { docFileUrl, kindOf, KIND_LABEL, extOf, fmtSize } from "./doc-files.js";
 import { listMemberForms, listMySignatures } from "./consent-core.js";
 import { docBoxHtml, fillDoc, signFormHtml, bindSignForm, receiptHtml, bindReceipt, isPastDeadline, fmtDateTime, padHtml, mountPad } from "./consent-ui.js";
 import * as Poll from "./poll-ui.js";
+import { mfaGate, openMfaSettings, getMfaStatus, MFA_METHOD_LABEL } from "./mfa.js";
 
 // ---------- アイコン ----------
 const I = {
@@ -72,6 +73,8 @@ const daysLeft = (date) => date ? Math.ceil((new Date(date + "T23:59:59") - Date
 onAuth(async (user) => {
   if (isDemo) return gate("setup");
   if (!user) return location.replace("member-login.html");
+  // 2 段階認証を設定している人は、コードを確認してから（確認前は会員の情報を読めない）
+  if (!(await mfaGate(user))) return;
   state.user = user;
   try {
     state.member = await getMember(user.uid);
@@ -851,6 +854,19 @@ routeOf("profile").after = () => {
       rerender(); toast("申請を取り消しました");
     } catch (err) { console.error(err); toast(errorMessage(err), true); b.disabled = false; }
   });
+  // 2 段階認証：状態を表示し、ボタンで設定画面を開く（閉じたら表示を更新）
+  const showMfa = async () => {
+    const el = $("mfa-state"), btn = $("mfa-settings");
+    if (!el) return;
+    try {
+      const st = await getMfaStatus();
+      el.textContent = st.enabled ? `設定済み（${MFA_METHOD_LABEL[st.method] || st.method}）` : "未設定";
+      el.classList.toggle("is-on", st.enabled);
+      btn.textContent = st.enabled ? "2段階認証の確認・解除" : "2段階認証を設定する";
+    } catch (err) { console.warn(err); el.textContent = "—"; }
+  };
+  showMfa();
+  $("mfa-settings").addEventListener("click", () => openMfaSettings({ onClose: showMfa }));
   $("pw-reset").addEventListener("click", async () => {
     try { await resetPassword(state.member.email || state.user.email); toast("パスワード再設定メールを送信しました"); }
     catch (err) { console.error(err); toast(errorMessage(err), true); }
@@ -1008,6 +1024,11 @@ function renderProfile() {
         <div class="panel-head"><h3>セキュリティ</h3></div>
         <p style="color:var(--muted);font-size:13px;margin:0 0 16px">ご登録のメールアドレスにパスワード再設定用のリンクをお送りします。</p>
         <button class="lux-btn ghost sm" id="pw-reset">パスワードを変更する</button>
+        <div class="mfa-panel">
+          <p class="mfa-panel-head"><b>2 段階認証</b><span class="mfa-badge" id="mfa-state">確認中…</span></p>
+          <p style="color:var(--muted);font-size:13px;margin:0 0 10px">ログインのときに、パスワード（または Google）に加えて、認証アプリかメールの 6 桁のコードを確認します。</p>
+          <button class="lux-btn ghost sm" id="mfa-settings">2段階認証を設定する</button>
+        </div>
         <button class="lux-btn ghost sm" data-action="logout" style="margin-top:10px">ログアウト</button>
       </section>
       <section class="panel" id="type-panel">

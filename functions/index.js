@@ -11,7 +11,7 @@
 //  ・メールの文面は mails.js で編集できます
 // ============================================================
 const { onDocumentCreated, onDocumentUpdated, onDocumentWritten } = require("firebase-functions/v2/firestore");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall: onCallRaw, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const logger = require("firebase-functions/logger");
@@ -30,6 +30,12 @@ const MAIL_TOKEN = defineSecret("MAIL_TOKEN");
 setGlobalOptions({ region: "asia-northeast1", maxInstances: 3 });
 
 const opts = { secrets: [MAIL_WEBAPP_URL, MAIL_TOKEN], retry: false };
+
+// 2 段階認証（mfa.js）：設定している人は、このログインでコードを確認するまで「ログインしていない」扱いにする
+// （管理者・会員の確認はすべて req.auth を見るので、ここで外せば全関数に効く）
+const { sessionOk } = require("./mfa");
+const onCall = (o, handler) => onCallRaw(o, (req, res) =>
+  handler(req.auth && !sessionOk(req.auth.token) ? { ...req, auth: undefined } : req, res));
 
 /** Apps Script にまとめて送信を依頼する */
 async function sendAll(list, context) {
@@ -139,6 +145,9 @@ Object.assign(exports, require("./notify")({ onCall, HttpsError, getFirestore, F
 
 // ---------- 行事へのワンクリック参加登録（中身は events.js） ----------
 Object.assign(exports, require("./events")({ onCall, HttpsError, getFirestore, FieldValue, logger, sendAll, mails, mailSecrets: opts.secrets }));
+
+// ---------- 2 段階認証（中身は mfa.js。コードを入力する前にも呼ぶので、onCallRaw で登録） ----------
+Object.assign(exports, require("./mfa")({ onCall: onCallRaw, HttpsError, getFirestore, getAuth, FieldValue, logger, sendAll, mails, mailSecrets: opts.secrets }));
 
 // ---------- 管理画面：お問い合わせ（以前のフォーム）へ担当者が返信 ----------
 exports.replyContact = onCall({ secrets: opts.secrets, maxInstances: 3 }, async (req) => {

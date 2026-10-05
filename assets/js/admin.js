@@ -11,6 +11,7 @@
 import { adminApi, esc, fmtDate, isDemo, NEWS_CATEGORIES, db, app } from "./db.js";
 import { getStudentId, OCCUPATIONS } from "./member-api.js";
 import { createRichEditor } from "./rich-editor.js";
+import { mfaGate, openMfaSettings, mfaReset } from "./mfa.js";
 import { renderRich } from "./rich-view.js";
 import { uploadDocFile, deleteDocFile, docFileUrl, fmtSize, extOf, kindOf, KIND_LABEL, MAX_DOC_BYTES } from "./doc-files.js";
 import {
@@ -253,6 +254,8 @@ adminApi.onAuth(user => { if (!isDemo) enter(user); });
 async function enter(user) {
   $("verify-box").hidden = true;
   if (!user) { $("auth-view").hidden = false; $("app").hidden = true; return; }
+  // 2 段階認証を設定している人は、コードを確認してから（確認前はデータを読めない）
+  if (!(await mfaGate(user, { onLogout: () => adminApi.logout() }))) return;
   let admin = null;
   try { admin = await adminApi.getAdmin(user.uid); } catch (e) { console.error(e); }
 
@@ -341,6 +344,19 @@ $("login-form").addEventListener("submit", async (e) => {
   notice("login-msg", "", "");
   try { await adminApi.login($("login-email").value, $("login-pass").value); }
   catch (err) { console.error(err); notice("login-msg", "error", "ログインに失敗しました。メールアドレスとパスワードをご確認ください。"); }
+});
+$("mfa-btn").addEventListener("click", () => openMfaSettings());
+// オーナー：ほかの人の 2 段階認証を解除（スマホをなくして予備コードもない場合など）
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-mfareset]");
+  if (!b || !isOwner()) return;
+  if (!window.confirm(`${b.dataset.name || "この方"} さんの 2 段階認証を解除します。本人であることを確認できた場合だけ行ってください。よろしいですか？`)) return;
+  b.disabled = true;
+  try {
+    const r = await mfaReset(b.dataset.mfareset);
+    toast(r.had ? `${b.dataset.name || ""} さんの 2 段階認証を解除しました。` : `${b.dataset.name || ""} さんは 2 段階認証を設定していません。`);
+  } catch (err) { fail("解除できませんでした")(err); }
+  finally { b.disabled = false; }
 });
 $("logout").addEventListener("click", () => { Object.keys(cache).forEach(k => delete cache[k]); adminApi.logout(); });
 
@@ -829,6 +845,7 @@ async function renderMembers() {
         ${r.status === "active" ? `<button class="btn btn-sm" data-suspend="${esc(r.id)}">停止</button>` : ""}
         ${r.status === "suspended" ? `<button class="btn btn-sm" data-activate="${esc(r.id)}">再開</button>` : ""}
         <button class="btn btn-sm" data-edit="${esc(r.id)}">編集</button>
+        ${isOwner() ? `<button class="btn btn-sm" data-mfareset="${esc(r.id)}" data-name="${esc(r.name)}">2段階認証を解除</button>` : ""}
         <button class="btn btn-sm btn-danger" data-del="${esc(r.id)}">削除</button>
       </td></tr>`).join("")
       : '<tr><td colspan="5" class="empty">該当する会員・申込はありません。</td></tr>';
@@ -1349,7 +1366,7 @@ async function renderAdmins() {
         <td class="st">${a.role === "owner" ? pill("gold", "オーナー") : pill("info", "管理者")}</td>
         <td class="main"><b>${esc(a.name || "")}</b><span class="sub">${esc(a.email || a.id)}</span></td>
         <td data-label="登録日">${fmtD(a.createdAt)}</td>
-        <td class="act">${a.role === "owner" ? "" : `<button class="btn btn-sm btn-danger" data-deladmin="${esc(a.id)}">管理者から外す</button>`}</td></tr>`).join("")}
+        <td class="act"><button class="btn btn-sm" data-mfareset="${esc(a.id)}" data-name="${esc(a.name || a.email || "")}">2段階認証を解除</button>${a.role === "owner" ? "" : `<button class="btn btn-sm btn-danger" data-deladmin="${esc(a.id)}">管理者から外す</button>`}</td></tr>`).join("")}
       <tr><th colspan="4">招待中（未登録）</th></tr>
       ${invites.length ? invites.map(i => `<tr>
         <td class="st">${pill("draft", "招待中")}</td>

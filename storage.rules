@@ -7,8 +7,14 @@ rules_version = '2';
 // ============================================================
 service firebase.storage {
   match /b/{bucket}/o {
-    function isAdmin() {
+    // 2 段階認証を設定している人は、このログインでコードを確認するまで「ログインしていない」扱い（firestore.rules と同じ）
+    function signedIn() {
       return request.auth != null
+        && (request.auth.token.get('mfa', false) != true
+            || request.auth.token.get('mfaAt', 0) == request.auth.token.auth_time);
+    }
+    function isAdmin() {
+      return signedIn()
         && firestore.exists(/databases/(default)/documents/admins/$(request.auth.uid));
     }
 
@@ -24,7 +30,7 @@ service firebase.storage {
     // 会員限定資料（PDF・動画・音声・画像・Office ファイルなど）
     // 閲覧は有効な会員と管理者のみ、アップロード・削除は管理者のみ（1 ファイル 2GB まで）
     function isActiveMember() {
-      return request.auth != null
+      return signedIn()
         && firestore.get(/databases/(default)/documents/members/$(request.auth.uid)).data.status == 'active';
     }
     match /member_docs/{file=**} {

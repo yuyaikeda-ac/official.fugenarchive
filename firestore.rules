@@ -14,7 +14,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function signedIn() { return request.auth != null; }
+    // 2 段階認証（functions/mfa.js）を設定している人は、このログインでコードを確認するまで「ログインしていない」扱い
+    function mfaOk() {
+      return request.auth.token.get('mfa', false) != true
+        || request.auth.token.get('mfaAt', 0) == request.auth.token.auth_time;
+    }
+    function signedIn() { return request.auth != null && mfaOk(); }
 
     function isAdmin() {
       return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
@@ -278,6 +283,8 @@ service cloud.firestore {
       // 監査のため削除はオーナーのみ
       allow delete: if isOwner();
     }
+    // 2 段階認証の設定（秘密鍵・予備コード。Cloud Functions のみ）
+    match /mfa/{uid} { allow read, write: if false; }
     // 封印の連鎖の先頭（Cloud Functions のみ）
     match /consent_chain/{id} { allow read, write: if false; }
 
