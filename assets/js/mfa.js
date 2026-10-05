@@ -141,7 +141,7 @@ export async function mfaGate(user, { onLogout } = {}) {
           await user.getIdToken(true);
           done = true;
           ui.d.close();
-          if (r.backupLeft !== undefined && r.backupLeft <= 3) {
+          if (r.usedBackup && typeof r.backupLeft === "number" && r.backupLeft <= 3) {
             setTimeout(() => alertBox(`予備コードを使いました。残りは ${r.backupLeft} 個です。設定画面で予備コードを作り直してください。`), 300);
           }
           resolve(true);

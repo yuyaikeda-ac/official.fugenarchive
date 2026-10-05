@@ -177,7 +177,8 @@ module.exports = function mfa({ onCall, HttpsError, getFirestore, getAuth, Field
     await r.set({ ...rest, fails: 0, lastLoginAt: FieldValue.serverTimestamp() }, { merge: true });
     await setClaims(a.uid, { mfa: true, mfaAt: a.token.auth_time });
     if (usedBackup) logger.info("2 段階認証：予備コードでログイン", { uid: a.uid });
-    return { ok: true, backupLeft: usedBackup ? rest.backup.length : undefined };
+    // 予備コードを使ったときだけ、残りの数を返す（使っていなければ項目なし）
+    return usedBackup ? { ok: true, usedBackup: true, backupLeft: rest.backup.length } : { ok: true };
   });
 
   // ---------- 設定する ----------
