@@ -63,7 +63,6 @@ const FOOTER_HTML = `
 <div class="footer-main">
   <div class="inner">
     <p class="footer-name">${SITE.name}</p>
-    <p>${SITE.address}</p>
     <p>E-mail：${SITE.email}</p>
     <p class="copyright">Copyright &copy; ${new Date().getFullYear()} ${SITE.nameEn}. All Rights Reserved.</p>
   </div>
