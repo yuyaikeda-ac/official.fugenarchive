@@ -331,32 +331,44 @@ function renderEvents() {
     past: all.filter(e => e.date < t)
   };
   const rows = sets[evFilter];
-  const chip = (k, l) => `<button data-evf="${k}" class="${evFilter === k ? "is-active" : ""}">${l}（${sets[k].length}）</button>`;
+  const tab = (k, l) => `<button type="button" role="tab" data-evf="${k}" aria-selected="${evFilter === k}" class="${evFilter === k ? "is-active" : ""}">${l}<span>${sets[k].length}</span></button>`;
+  const WEEK = ["日", "月", "火", "水", "木", "金", "土"];
   return `
-  <div class="toolbar"><div class="chips">${chip("upcoming", "今後の予定")}${chip("mine", "参加登録済み")}${chip("past", "過去の行事")}</div></div>
+  <div class="ev-tabs" role="tablist" aria-label="行事の絞り込み">${tab("upcoming", "今後の予定")}${tab("mine", "参加登録済み")}${tab("past", "過去の行事")}</div>
   ${rows.length ? `<div class="events">${rows.map(e => {
     const d = new Date(e.date + "T00:00:00");
     const past = e.date < t;
     const on = state.rsvps.has(e.id);
     return `<article class="ev${past ? " is-past" : ""}">
       <div class="ev-top">
-        <div class="ev-date"><div class="m">${d.toLocaleString("en", { month: "short" }).toUpperCase()}</div><div class="d">${d.getDate()}</div><div class="y">${d.getFullYear()}</div></div>
-        <div><h4>${esc(e.title)}</h4>${e.place ? `<div class="meta">${icon("pin")}${esc(e.place)}</div>` : ""}</div>
+        <div class="ev-date"><div class="m">${d.getMonth() + 1}月</div><div class="d">${d.getDate()}</div><div class="y">${WEEK[d.getDay()]}曜日</div></div>
+        <div class="ev-head"><h4>${esc(e.title)}</h4>
+          <div class="meta">${icon("cal")}${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${WEEK[d.getDay()]}）</div>
+          ${e.place ? `<div class="meta">${icon("pin")}${esc(e.place)}</div>` : ""}</div>
       </div>
-      <div class="desc">${esc(e.description || "")}</div>
-      <div class="ev-foot">
-        ${e.url ? `<a href="${esc(e.url)}" target="_blank" rel="noopener" style="color:var(--gold-light);font-size:13px">詳細 ↗</a>` : "<span></span>"}
-        ${past ? `<span class="pill">${on ? "参加済み" : "終了"}</span>`
-          : `<button class="lux-btn sm rsvp-btn${on ? " is-on" : ""}" data-rsvp="${esc(e.id)}" aria-pressed="${on}">${on ? "✓ 参加登録済み" : "参加登録する"}</button>`}
-      </div>
+      ${e.description ? `<div class="desc">${esc(e.description)}</div>` : '<div class="desc"></div>'}
+      ${on || past ? `<div class="ev-status${on ? " on" : ""}">${past ? (on ? "✓ この行事に参加しました" : "この行事は終了しました") : "✓ 参加登録済みです"}</div>` : ""}
+      ${evActions(e, past, on)}
     </article>`;
   }).join("")}</div>` : emptyState(evFilter === "mine" ? "参加登録した行事はありません" : "該当する行事はありません", "cal")}`;
+}
+
+// 行事カードの下のボタン（詳細・参加登録・取り消し）。ボタンが無いときは何も出さない
+function evActions(e, past, on) {
+  const btns = [
+    e.url ? `<a class="lux-btn ghost" href="${esc(e.url)}" target="_blank" rel="noopener">詳細を見る ${icon("ext")}</a>` : "",
+    past ? "" : on
+      ? `<button type="button" class="lux-btn ghost ev-cancel" data-rsvp="${esc(e.id)}">登録を取り消す</button>`
+      : `<button type="button" class="lux-btn" data-rsvp="${esc(e.id)}">参加登録する</button>`
+  ].filter(Boolean);
+  return btns.length ? `<div class="ev-actions">${btns.join("")}</div>` : '<div class="ev-pad"></div>';
 }
 
 async function toggleRsvp(btn) {
   const id = btn.dataset.rsvp;
   const join = !state.rsvps.has(id);
   const ev = state.events.find(e => e.id === id);
+  if (!join && !window.confirm(`「${ev.title}」の参加登録を取り消します。よろしいですか？`)) return;
   btn.disabled = true;
   // 先に表示を切り替えて、失敗したら戻す
   join ? state.rsvps.add(id) : state.rsvps.delete(id);

@@ -1015,3 +1015,27 @@ button.doc { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 .type-choice label:has(input:checked) { border-color: var(--navy); background: var(--ink-3); box-shadow: 0 0 0 3px rgba(11,58,110,.1); }
 .type-choice label:has(input:focus-visible) { outline: 2px solid var(--navy-2); outline-offset: 2px; }
 .sig-dialog textarea { min-height: 80px; }
+
+/* ============ 行事・参加登録（整理版） ============ */
+.ev-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin-bottom: 20px; padding: 4px; border-radius: 14px; background: #fff; border: 1px solid var(--line-soft); }
+.ev-tabs button { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; padding: 0 6px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: 500 13px var(--sans); cursor: pointer; white-space: nowrap; transition: background .2s, color .2s; }
+.ev-tabs button span { min-width: 20px; padding: 0 6px; border-radius: 99px; background: var(--ink-3); color: var(--navy); font-size: 11px; line-height: 18px; }
+.ev-tabs button.is-active { background: var(--navy); color: #fff; font-weight: 700; }
+.ev-tabs button.is-active span { background: rgba(255,255,255,.2); color: #fff; }
+.ev-date .m { font-size: 12px; letter-spacing: .08em; }
+.ev-date .y { font-size: 10.5px; }
+.ev-head { min-width: 0; }
+.ev .meta { margin-top: 3px; }
+.ev .desc:empty { display: none; }
+.ev-status { margin: 16px 22px 0; padding: 9px 12px; border-radius: 10px; background: var(--ink); color: var(--muted); font-size: 13px; font-weight: 500; text-align: center; }
+.ev-status.on { background: #ecf8f1; color: var(--ok); }
+.ev-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 10px; padding: 16px 22px 20px; margin-top: auto; }
+.ev-actions:empty { display: none; }
+.ev-actions .lux-btn { width: 100%; min-height: 46px; padding: 0 12px; font-size: 14px; letter-spacing: .04em; white-space: nowrap; }
+.ev-actions .lux-btn svg { width: 15px; height: 15px; }
+.ev-actions .ev-cancel { border-color: #e7b3b3; color: var(--danger); }
+.ev-actions .ev-cancel:hover { background: #fdf1f1; color: var(--danger); }
+.ev .desc { padding-bottom: 0; }
+.ev-foot { display: none; }
+@media (max-width: 380px) { .ev-tabs button { font-size: 12px; gap: 4px; } }
+.ev-pad { height: 20px; }
