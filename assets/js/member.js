@@ -7,7 +7,7 @@ import {
 } from "./member-api.js";
 import { esc, isDemo, app } from "./db.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
-import { memberCardHtml, bindCard, printSheetHtml } from "./card.js";
+import { memberCardHtml, bindCard, printSheetHtml, qrSvg, verifyUrl } from "./card.js";
 import { renderRich, htmlToText } from "./rich-view.js";
 import { listMemberForms, listMySignatures } from "./consent-core.js";
 import { docBoxHtml, fillDoc, signFormHtml, bindSignForm, receiptHtml, bindReceipt, isPastDeadline, fmtDateTime } from "./consent-ui.js";
@@ -436,7 +436,60 @@ const cardHtml = (mini = false) => memberCardHtml(state.member, { mini });
 routeOf("card").after = () => {
   bindCard($("mcard"));
   $("print-card")?.addEventListener("click", printCard);
+  $("scan-card")?.addEventListener("click", openScan);
 };
+
+// ============================================================
+//  スキャン用表示：受付などで読み取ってもらうため、QRコードと会員情報を画面いっぱいに表示
+//  ・画面を最大の明るさにしやすいよう白背景、QRコードは大きく
+//  ・偽造（画面のスクリーンショット）対策に、現在時刻を秒まで表示し動かす
+//  ・可能なら画面が自動で消えないようにする（Wake Lock）
+// ============================================================
+let scanTimer = null, wakeLock = null;
+async function openScan() {
+  const m = state.member;
+  const box = $("scan-view");
+  const qr = qrSvg(verifyUrl(m));
+  const left = daysLeft(m.validUntil);
+  const expired = left !== null && left < 0;
+  box.innerHTML = `
+    <div class="scan-card">
+      <button class="scan-close" type="button" aria-label="閉じる">×</button>
+      <div class="scan-head">
+        <img src="LOGO.png" alt="">
+        <div><b>普賢アーカイブ運営委員会</b><span>MEMBERSHIP CARD</span></div>
+      </div>
+      <div class="scan-status ${expired ? "ng" : "ok"}">${expired ? "有効期限切れ" : "✓ 有効な会員"}</div>
+      <div class="scan-qr">${qr || '<p class="scan-wait">QRコードを準備中です。<br>しばらくしてから開き直してください。</p>'}</div>
+      <p class="scan-hint">このQRコードを読み取ると、会員資格を確認できます</p>
+      <div class="scan-name">${esc(m.name)}<small> 様</small></div>
+      <dl class="scan-info">
+        <div><dt>会員番号</dt><dd>${esc(m.memberNo || "—")}</dd></div>
+        <div><dt>会員種別</dt><dd>${esc(MEMBER_TYPES[m.type]?.label || "")}</dd></div>
+        <div><dt>入会日</dt><dd>${ymd(m.approvedAt)}</dd></div>
+        <div><dt>有効期限</dt><dd>${m.validUntil ? ymd(m.validUntil) : "期限なし"}</dd></div>
+      </dl>
+      <div class="scan-clock" aria-live="off"><span class="dot"></span><span id="scan-time"></span></div>
+    </div>`;
+  box.hidden = false;
+  document.body.classList.add("scan-open");
+  const tick = () => { const t = $("scan-time"); if (t) t.textContent = new Date().toLocaleString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }); };
+  tick(); clearInterval(scanTimer); scanTimer = setInterval(tick, 1000);
+  try { wakeLock = await navigator.wakeLock?.request("screen"); } catch {}
+  box.querySelector(".scan-close").focus();
+}
+function closeScan() {
+  const box = $("scan-view");
+  if (box.hidden) return;
+  box.hidden = true; box.innerHTML = "";
+  document.body.classList.remove("scan-open");
+  clearInterval(scanTimer);
+  wakeLock?.release?.().catch(() => {}); wakeLock = null;
+  $("scan-card")?.focus();
+}
+$("scan-view").addEventListener("click", e => { if (e.target.closest(".scan-close") || e.target.id === "scan-view") closeScan(); });
+addEventListener("keydown", e => { if (e.key === "Escape") closeScan(); });
+addEventListener("hashchange", closeScan);
 // 印刷：A4 専用のシートを body 直下に作って印刷（画面では見えない。次の印刷で作り直す）
 // ※ スマホでも印刷できるよう、ボタンを押したらすぐ印刷する（待ってからだと印刷を受け付けないブラウザがある）
 function printCard() {
@@ -464,7 +517,10 @@ function renderCard() {
       <div><dt>入会日</dt><dd>${ymd(m.approvedAt)}</dd></div>
       <div><dt>有効期限</dt><dd>${m.validUntil ? ymd(m.validUntil) : "期限なし"}${left !== null ? `　<span class="pill ${left <= 60 ? "imp" : "ok"}">${left >= 0 ? `あと${left}日` : "期限切れ"}</span>` : ""}</dd></div>
     </dl>
-    <div class="card-actions"><button class="lux-btn ghost sm" id="print-card">印刷する</button></div>
+    <div class="card-actions">
+      <button class="lux-btn sm" id="scan-card"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg>スキャン用表示</button>
+      <button class="lux-btn ghost sm" id="print-card">印刷する</button>
+    </div>
   </div>`;
 }
 

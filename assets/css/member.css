@@ -887,3 +887,44 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
   .rv-info dt { padding-bottom: 4px; border-bottom: 0; }
   .rv-choice { grid-template-columns: 1fr; }
 }
+
+/* ============ 会員サイト：公式サイトへ戻るリンク（上部バー） ============ */
+.site-link { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; padding: 8px 14px 8px 10px; border-radius: 10px; border: 1px solid var(--line-soft); background: #fff; color: var(--navy); font: 500 13px var(--sans); text-decoration: none; white-space: nowrap; transition: border-color .2s, background .2s; }
+.site-link svg { width: 16px; height: 16px; }
+.site-link:hover { border-color: var(--navy); background: var(--ink); }
+@media (max-width: 380px) { .site-link span { display: none; } .site-link { padding: 8px; } }
+
+/* ============ 会員証：スキャン用表示（全画面） ============ */
+.card-actions .lux-btn svg { margin-right: 2px; }
+body.scan-open { overflow: hidden; }
+.scan-view { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: radial-gradient(120% 80% at 50% 0%, #163d6b 0%, #0b2240 55%, #071629 100%); overflow-y: auto; animation: scan-in .25s ease-out; }
+.scan-view[hidden] { display: none; }
+@keyframes scan-in { from { opacity: 0; } }
+.scan-card { position: relative; overflow: hidden; width: min(440px, 100%); padding: 26px 24px 20px; border-radius: 26px; background: #fff; text-align: center; color: #14233a;
+  box-shadow: 0 30px 80px -20px rgba(0,0,0,.6); }
+.scan-card::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 6px; border-radius: 26px 26px 0 0; background: var(--gold-grad); }
+.scan-close { position: absolute; right: 12px; top: 14px; width: 40px; height: 40px; border: 0; border-radius: 50%; background: #eef1f5; color: #3f4b5e; font-size: 24px; line-height: 1; cursor: pointer; }
+.scan-close:hover { background: #e2e7ee; }
+.scan-head { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 0 44px; }
+.scan-head img { width: 38px; height: 38px; border-radius: 50%; box-shadow: 0 0 0 2px #e9cf7f; }
+.scan-head b { display: block; font-family: var(--serif); font-size: 15px; letter-spacing: .08em; color: #0b2a4f; text-align: left; }
+.scan-head span { display: block; font-family: var(--display); font-size: 11px; font-weight: 700; letter-spacing: .3em; color: var(--gold); text-align: left; }
+.scan-status { display: inline-block; margin: 16px 0 12px; padding: 5px 16px; border-radius: 999px; font-size: 13px; font-weight: 700; letter-spacing: .1em; }
+.scan-status.ok { background: #e3f2e8; color: #1e6b3a; }
+.scan-status.ng { background: #fde2e2; color: #9b1c1c; }
+.scan-qr { width: min(300px, 74vw, 46vh); aspect-ratio: 1; margin: 0 auto; padding: 14px; border-radius: 18px; background: #fff; box-shadow: 0 0 0 1px #e3e8ef, 0 10px 30px -14px rgba(16,36,70,.35); }
+.scan-qr svg { display: block; width: 100%; height: 100%; }
+.scan-wait { display: grid; place-items: center; height: 100%; margin: 0; color: var(--muted); font-size: 13px; }
+.scan-hint { margin: 10px 0 0; font-size: 12px; color: #6b7686; }
+.scan-name { margin-top: 14px; font-family: var(--serif); font-size: clamp(24px, 7vw, 30px); font-weight: 700; letter-spacing: .12em; color: #0b2a4f; overflow-wrap: anywhere; }
+.scan-name small { font-size: .55em; letter-spacing: .05em; color: #6b7686; }
+.scan-info { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0 0; text-align: left; }
+.scan-info div { padding: 9px 12px; border-radius: 12px; background: #f5f7fa; }
+.scan-info dt { font-size: 10.5px; letter-spacing: .1em; color: #6b7686; }
+.scan-info dd { margin: 2px 0 0; font-size: 14.5px; font-weight: 700; color: #14233a; font-variant-numeric: tabular-nums; }
+.scan-clock { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 12.5px; color: #3f4b5e; font-variant-numeric: tabular-nums; }
+.scan-clock .dot { width: 8px; height: 8px; border-radius: 50%; background: #2e9d5b; animation: scan-pulse 1s ease-in-out infinite; }
+@keyframes scan-pulse { 50% { opacity: .25; } }
+@media (max-height: 680px) { .scan-qr { width: min(240px, 60vw, 42vh); } .scan-info dd { font-size: 13px; } .scan-card { padding-top: 20px; } }
+@media print { .scan-view { display: none !important; } }

@@ -54,12 +54,19 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
         <span class="lbl">検索・ページ移動</span><kbd>Ctrl K</kbd>
       </button>
+      <!-- 公式サイト（一般のページ）へ戻る。スマホではサイドメニューが無いのでここから戻る -->
+      <a class="site-link" href="index.html" aria-label="公式サイトへ戻る">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg><span>公式サイト</span>
+      </a>
     </header>
     <main class="view" id="view" tabindex="-1"></main>
   </div>
 
   <nav class="tabbar" id="tabbar" aria-label="会員メニュー"></nav>
 </div>
+
+<!-- 会員証のスキャン用表示（全画面。assets/js/member.js の openScan） -->
+<div class="scan-view" id="scan-view" hidden role="dialog" aria-modal="true" aria-label="会員証（スキャン用）"></div>
 
 <!-- コマンドパレット -->
 <div class="palette-bg" id="palette-bg" role="dialog" aria-modal="true" aria-label="検索・移動">
