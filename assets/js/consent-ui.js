@@ -203,15 +203,19 @@ export function receiptHtml(rec, { print = false } = {}) {
   </section>`;
 }
 
-/** 控えを印刷（#print-sheet を作って印刷し、終わったら消す。member.css の印刷設定を使用） */
+/**
+ * 控えを印刷（#print-sheet を作って印刷。member.css の印刷設定を使用）
+ * ※ スマホのブラウザは、ボタンを押した直後でないと印刷を受け付けない・印刷画面を開いた瞬間に
+ *   「印刷終了」を知らせてくるものがあるため、待たずにすぐ印刷し、シートは次の印刷まで残す
+ *   （画面では display: none なので見えません）
+ */
 export function printReceipt(rec) {
   document.getElementById("print-sheet")?.remove();
   const sheet = document.createElement("div");
   sheet.id = "print-sheet";
   sheet.innerHTML = receiptHtml(rec, { print: true });
   document.body.appendChild(sheet);
-  addEventListener("afterprint", () => sheet.remove(), { once: true });
-  Promise.all([...sheet.querySelectorAll("img")].map(img => img.decode().catch(() => {}))).then(() => window.print());
+  window.print();
 }
 /** 控えの「印刷」ボタンを有効にする */
 export function bindReceipt(root, rec) {

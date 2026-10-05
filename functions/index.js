@@ -151,6 +151,28 @@ exports.syncMemberCard = onDocumentWritten({ document: "members/{uid}", retry: f
 });
 
 // ============================================================
+//  会員証のQRコード用の番号（cardToken）がまだ無い会員のために、会員サイトから呼び出して発行する
+//  （この機能を入れる前に承認された会員は、会員データが更新されるまで番号が無いため）
+//  発行すると syncMemberCard が動き、確認ページ用の情報（cards/）も作られる
+// ============================================================
+exports.ensureCardToken = onCall({ maxInstances: 3 }, async (req) => {
+  const uid = req.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "ログインしてください。");
+  const db = getFirestore();
+  const ref = db.doc(`members/${uid}`);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const m = snap.exists ? snap.data() : null;
+    if (!m || m.status !== "active" || !m.memberNo) throw new HttpsError("failed-precondition", "有効な会員のみ発行できます。");
+    if (m.cardToken) return { cardToken: m.cardToken };
+    const token = crypto.randomBytes(16).toString("hex");
+    tx.update(ref, { cardToken: token });
+    logger.info("会員証トークンを発行（会員サイトから）", { memberNo: m.memberNo });
+    return { cardToken: token };
+  });
+});
+
+// ============================================================
 //  会員番号の採番（例：FA-2026-0001）
 //  ★ 形式は admin.html の MEMBER_NO と揃えてください
 // ============================================================

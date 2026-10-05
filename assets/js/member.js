@@ -5,7 +5,8 @@ import {
   onAuth, logout, resetPassword, getMember, updateProfile, getMemberNews, getMemberDocs,
   getEvents, getMyRsvps, rsvp, errorMessage, MEMBER_TYPES, STATUS_LABEL, OCCUPATIONS
 } from "./member-api.js";
-import { esc, isDemo } from "./db.js";
+import { esc, isDemo, app } from "./db.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 import { memberCardHtml, bindCard, printSheetHtml } from "./card.js";
 import { renderRich, htmlToText } from "./rich-view.js";
 import { listMemberForms, listMySignatures } from "./consent-core.js";
@@ -77,7 +78,21 @@ onAuth(async (user) => {
   if (state.member.status === "rejected") return gate("rejected");
   if (state.member.status !== "active") return gate("suspended");
   startPortal();
+  ensureCardToken();
 });
+
+// 会員証のQRコード用の番号が無い会員（この機能より前に承認された方など）は、サーバーで発行してもらう
+async function ensureCardToken() {
+  const m = state.member;
+  if (m.cardToken || !m.memberNo) return;
+  try {
+    const fn = httpsCallable(getFunctions(app, "asia-northeast1"), "ensureCardToken");
+    const { data } = await fn();
+    if (!data?.cardToken) return;
+    m.cardToken = data.cardToken;
+    if (state.route === "card" || state.route === "dashboard") rerender();
+  } catch (e) { console.warn("会員証のQRコード番号を発行できませんでした", e); }
+}
 
 function hideBoot() { $("boot").classList.add("hide"); setTimeout(() => $("boot").remove(), 600); }
 
@@ -422,7 +437,8 @@ routeOf("card").after = () => {
   bindCard($("mcard"));
   $("print-card")?.addEventListener("click", printCard);
 };
-// 印刷：A4 専用のシートを body 直下に作って印刷し、終わったら消す
+// 印刷：A4 専用のシートを body 直下に作って印刷（画面では見えない。次の印刷で作り直す）
+// ※ スマホでも印刷できるよう、ボタンを押したらすぐ印刷する（待ってからだと印刷を受け付けないブラウザがある）
 function printCard() {
   const m = state.member;
   document.getElementById("print-sheet")?.remove();
@@ -434,9 +450,7 @@ function printCard() {
     until: m.validUntil ? ymd(m.validUntil) : "期限なし",
   });
   document.body.appendChild(sheet);
-  addEventListener("afterprint", () => sheet.remove(), { once: true });
-  // 画像の読み込みを待ってから印刷
-  Promise.all([...sheet.querySelectorAll("img")].map(img => img.decode().catch(() => {}))).then(() => window.print());
+  window.print();
 }
 function renderCard() {
   const m = state.member;
