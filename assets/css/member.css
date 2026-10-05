@@ -472,53 +472,52 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
   box-shadow: 0 1px 2px rgba(16,36,70,.12), 0 28px 56px -26px rgba(16,36,70,.55); }
 .mcard-face::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(16,36,70,.08); pointer-events: none; }
 
-/* ---- 表面 ---- */
-.mcard-front { display: flex; flex-direction: column; color: #14233a; }
-.mc-art { position: relative; height: 47%; overflow: hidden; flex-shrink: 0; }
-/* 円形のロゴ画像から、山頂と記念碑が入る帯の部分を切り出す（記念碑が右寄りになるよう配置） */
-.mc-art img { position: absolute; left: 50%; top: 50%; width: 140%; max-width: none; transform: translate(-45%, -35.5%); }
-.mc-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, rgba(5,25,52,.62) 0%, rgba(5,25,52,.32) 38%, rgba(5,25,52,0) 62%), linear-gradient(180deg, rgba(5,25,52,.25), transparent 55%); }
-.mc-art-top { position: absolute; z-index: 1; inset: 0; display: flex; align-items: flex-start; justify-content: space-between; padding: 5cqw 5.6cqw; }
-.mc-org { display: flex; flex-direction: column; gap: .7cqw; color: #fff; text-shadow: 0 .2cqw 1.2cqw rgba(0,0,0,.35); }
-.mc-org .ja { font-family: var(--serif); font-weight: 700; font-size: 3.5cqw; letter-spacing: .12em; line-height: 1.2; }
-.mc-org .en { font-family: var(--display); font-weight: 600; font-size: 1.9cqw; letter-spacing: .14em; opacity: .9; }
-.mc-type { padding: .8cqw 2.4cqw; border-radius: 99px; font-size: 2.15cqw; font-weight: 700; letter-spacing: .16em; color: #fff; white-space: nowrap;
-  background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
-
-.mc-main { position: relative; flex: 1; display: flex; align-items: flex-end; justify-content: space-between; gap: 4cqw; padding: 0 5.6cqw 5cqw; border-top: .5cqw solid #c9a144; }
-.mc-info { min-width: 0; flex: 1; padding-top: 3.6cqw; }
-.mc-kicker { display: flex; align-items: center; gap: 1.6cqw; font-family: var(--display); font-weight: 600; font-size: 1.95cqw; letter-spacing: .26em; text-transform: uppercase; color: #a17a24; }
-.mc-kicker i { width: 3cqw; height: 1px; background: currentColor; opacity: .6; }
-.mc-name { margin-top: 1.6cqw; font-family: var(--serif); font-weight: 700; font-size: 6.8cqw; line-height: 1.15; letter-spacing: .14em; color: #0b2a4f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mc-meta { display: flex; gap: 5.5cqw; margin-top: 3cqw; }
-.mc-meta div { display: flex; flex-direction: column; gap: .4cqw; }
-.mc-meta span { font-family: var(--display); font-weight: 600; font-size: 1.7cqw; letter-spacing: .2em; text-transform: uppercase; color: #8a94a3; }
-.mc-meta b { font-family: var(--sans); font-weight: 500; font-size: 3cqw; letter-spacing: .08em; color: #14233a; font-variant-numeric: tabular-nums; }
-
-.mc-qr { position: relative; z-index: 2; flex-shrink: 0; width: 20cqw; height: 20cqw; margin-top: -10cqw; padding: 1.8cqw; border-radius: 2.6cqw; background: #fff;
-  box-shadow: 0 .8cqw 2.8cqw rgba(16,36,70,.22), 0 0 0 1px rgba(16,36,70,.06); display: grid; place-items: center; align-self: flex-start; }
+/* ---- 表面：左に円形のロゴ画像（全体を表示）、右に会員情報 ---- */
+.mcard-front { display: flex; align-items: center; gap: 4.5cqw; padding: 5cqw 5cqw 6.2cqw; color: #14233a;
+  background: radial-gradient(120% 140% at 0% 50%, #fff 0%, #fbfaf6 45%, #f3eee2 100%); }
+.mcard-front::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1.2cqw; background: linear-gradient(90deg, #0b2a4f, #1d4f86 60%, #c9a144); }
+.mc-art { position: relative; flex-shrink: 0; width: 38cqw; aspect-ratio: 1; border-radius: 50%; padding: .9cqw; background: linear-gradient(140deg, #e7cf8a, #b38a2e 55%, #e7cf8a);
+  box-shadow: 0 1.2cqw 3cqw -1cqw rgba(16,36,70,.35); }
+.mc-art img { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.mc-body { min-width: 0; flex: 1; align-self: stretch; display: flex; flex-direction: column; }
+.mc-org { display: flex; flex-direction: column; gap: .5cqw; padding-bottom: 2cqw; border-bottom: 1px solid #e3dccb; }
+.mc-org .ja { font-family: var(--serif); font-weight: 700; font-size: 3cqw; letter-spacing: .1em; line-height: 1.2; color: #0b2a4f; white-space: nowrap; }
+.mc-org .en { font-family: var(--display); font-weight: 600; font-size: 1.6cqw; letter-spacing: .1em; color: #8a94a3; white-space: nowrap; }
+.mc-kicker { display: flex; align-items: center; gap: 1.4cqw; margin-top: 2.8cqw; font-family: var(--display); font-weight: 600; font-size: 1.9cqw; letter-spacing: .22em; text-transform: uppercase; color: #a17a24; }
+.mc-kicker i { width: 2.4cqw; height: 1px; background: currentColor; opacity: .6; }
+.mc-type { font-family: var(--sans); font-size: 1.9cqw; font-weight: 700; letter-spacing: .14em; color: #0b2a4f; }
+.mc-name { margin-top: 1cqw; font-family: var(--serif); font-weight: 700; font-size: 5.6cqw; line-height: 1.2; letter-spacing: .12em; color: #0b2a4f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-foot { margin-top: auto; display: flex; align-items: flex-end; justify-content: space-between; gap: 2.5cqw; }
+.mc-meta { display: flex; flex-direction: column; gap: 1.6cqw; min-width: 0; }
+.mc-meta div { display: flex; flex-direction: column; gap: .3cqw; }
+.mc-meta span { font-family: var(--display); font-weight: 600; font-size: 1.6cqw; letter-spacing: .18em; text-transform: uppercase; color: #8a94a3; }
+.mc-meta b { font-family: var(--sans); font-weight: 500; font-size: 2.7cqw; letter-spacing: .06em; color: #14233a; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mc-qr { flex-shrink: 0; width: 16cqw; height: 16cqw; padding: 1.3cqw; border-radius: 1.8cqw; background: #fff; box-shadow: 0 0 0 1px rgba(16,36,70,.1); display: grid; place-items: center; }
 .mc-qr svg { width: 100%; height: 100%; display: block; }
-.mc-qr-wait { color: var(--muted); font-size: 2.2cqw; }
+.mc-qr-wait { color: var(--muted); font-size: 2cqw; }
 /* マウスを乗せたときの光 */
-.mc-shine { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .4s; mix-blend-mode: soft-light;
-  background: radial-gradient(45% 60% at var(--mx) var(--my), rgba(255,255,255,.55), transparent 70%); }
+.mc-shine { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .4s;
+  background: radial-gradient(45% 60% at var(--mx) var(--my), rgba(255,255,255,.35), transparent 70%); }
 .mcard.is-hover .mc-shine { opacity: 1; }
 
-/* ---- 裏面 ---- */
-.mcard-back { transform: rotateY(180deg); display: flex; flex-direction: column; color: #14233a; }
-.mb-body { flex: 1; display: flex; flex-direction: column; padding: 5cqw 5.6cqw 3cqw; }
-.mb-head { display: flex; align-items: center; gap: 2.2cqw; padding-bottom: 3cqw; border-bottom: 1px solid #e6e0d0; }
-.mb-head img { width: 7cqw; height: 7cqw; border-radius: 50%; object-fit: cover; }
-.mb-head b { display: block; font-family: var(--serif); font-size: 2.9cqw; letter-spacing: .1em; color: #0b2a4f; }
-.mb-head span { font-family: var(--display); font-weight: 600; font-size: 1.7cqw; letter-spacing: .14em; color: #8a94a3; }
-.mb-sign { display: flex; flex-direction: column; gap: .8cqw; margin-top: 3.4cqw; }
-.mb-sign-line { padding: 0 .4cqw 1cqw; border-bottom: 1px solid #14233a; font-family: var(--serif); font-size: 3.6cqw; letter-spacing: .14em; color: #0b2a4f; }
-.mb-sign-label { font-family: var(--display); font-weight: 600; font-size: 1.7cqw; letter-spacing: .24em; text-transform: uppercase; color: #8a94a3; }
-.mb-terms { list-style: none; margin: auto 0 0; padding: 0; font-size: 1.95cqw; line-height: 1.8; color: #4a5568; }
+/* ---- 裏面：黒一色 ---- */
+.mcard-back { display: flex; flex-direction: column; padding: 5.4cqw 6cqw; background: #0d0d0f; color: #e9e6df; }
+.mcard-back::after { box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+.mb-head { display: flex; flex-direction: column; gap: .6cqw; padding-bottom: 2.6cqw; border-bottom: 1px solid rgba(201,161,68,.45); }
+.mb-head b { font-family: var(--serif); font-size: 3cqw; letter-spacing: .12em; color: #fff; }
+.mb-head span { font-family: var(--display); font-weight: 600; font-size: 1.7cqw; letter-spacing: .14em; color: #c9a144; }
+.mb-sign { display: flex; flex-direction: column; gap: .8cqw; margin-top: 4cqw; }
+.mb-sign-line { padding: 0 .4cqw 1cqw; border-bottom: 1px solid rgba(255,255,255,.55); font-family: var(--serif); font-size: 3.6cqw; letter-spacing: .14em; color: #fff; }
+.mb-sign-label { font-family: var(--display); font-weight: 600; font-size: 1.7cqw; letter-spacing: .24em; text-transform: uppercase; color: #8d8a84; }
+.mb-terms { list-style: none; margin: auto 0 0; padding: 0; font-size: 1.95cqw; line-height: 1.8; color: #b9b5ad; }
 .mb-terms li { position: relative; padding-left: 2.4cqw; }
 .mb-terms li::before { content: ""; position: absolute; left: 0; top: 1.5cqw; width: .8cqw; height: .8cqw; border-radius: 50%; background: #c9a144; }
-.mb-art { position: relative; height: 15%; overflow: hidden; border-top: .5cqw solid #c9a144; }
-.mb-art img { position: absolute; left: 50%; top: 50%; width: 140%; max-width: none; transform: translate(-45%, -31%); }
+
+/* 裏返したとき反対側の面が透けないよう、回転の途中（.4秒）で表示する面を確実に切り替える */
+.mcard-front { transform: rotateY(0deg) translateZ(.1px); transition: visibility 0s .4s; }
+.mcard-back { transform: rotateY(180deg) translateZ(.1px); visibility: hidden; transition: visibility 0s .4s; }
+.mcard.is-flipped .mcard-front { visibility: hidden; }
+.mcard.is-flipped .mcard-back { visibility: visible; }
 
 /* ダッシュボードの小さい会員証 */
 .mini-card .mcard { width: 100%; cursor: pointer; }
@@ -620,12 +619,36 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
 }
 @media (max-width: 520px) { .quick { grid-template-columns: 1fr 1fr; gap: 10px; } .quick a { padding: 16px; } }
 
-/* 印刷（会員証）：表面を実物大（86mm）で印刷 */
+/* 印刷（会員証）：A4 専用シート（#print-sheet、assets/js/card.js の printSheetHtml）だけを印刷 */
+#print-sheet { display: none; }
 @media print {
-  body * { visibility: hidden; }
-  .card-stage .mcard, .card-stage .mcard * { visibility: visible; }
-  .card-stage .mcard { position: fixed; left: 10mm; top: 10mm; width: 86mm; transform: none !important; }
-  .mcard-tilt { transform: none !important; }
-  .mcard-back, .mc-shine { display: none; }
-  .mcard-front { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  @page { size: A4 portrait; margin: 12mm; }
+  body > *:not(#print-sheet) { display: none !important; }
+  body { background: #fff !important; }
+  #print-sheet { display: block; color: #14233a; font-family: var(--sans); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .ps-head { display: flex; align-items: center; gap: 4mm; padding-bottom: 4mm; border-bottom: .6mm solid #0b2a4f; }
+  .ps-head img { width: 14mm; height: 14mm; border-radius: 50%; }
+  .ps-head b { display: block; font-family: var(--serif); font-size: 13pt; letter-spacing: .1em; color: #0b2a4f; }
+  .ps-head span { font-family: var(--display); font-size: 9pt; letter-spacing: .12em; color: #6b7686; }
+  .ps-head h1 { margin: 0 0 0 auto; font-family: var(--serif); font-size: 20pt; letter-spacing: .3em; color: #0b2a4f; }
+  #print-sheet h2 { margin: 0 0 2mm; font-family: var(--serif); font-size: 12pt; letter-spacing: .1em; color: #0b2a4f; }
+  .ps-cards { margin-top: 9mm; }
+  .ps-note { margin: 0 0 6mm; font-size: 9pt; color: #4a5568; }
+  .ps-row { display: flex; justify-content: center; gap: 8mm; }
+  .ps-row figure { margin: 0; text-align: center; }
+  .ps-row figcaption { margin-top: 4mm; font-size: 9pt; color: #6b7686; letter-spacing: .2em; }
+  /* 実物大（クレジットカードと同じ 85.6mm × 54mm）。点線は切り取り線 */
+  .mcard.is-print { width: 85.6mm; text-align: left; cursor: default; outline: .3mm dashed #9aa3b0; outline-offset: 2mm; }
+  .mcard.is-print .mcard-face { transform: none; visibility: visible; transition: none; box-shadow: none; }
+  .mcard.is-print .mc-shine { display: none; }
+  .ps-info { margin-top: 14mm; display: flex; gap: 10mm; align-items: flex-start; flex-wrap: wrap; }
+  .ps-info h2 { flex-basis: 100%; }
+  .ps-info table { flex: 1; border-collapse: collapse; font-size: 10.5pt; }
+  .ps-info th, .ps-info td { padding: 3mm 4mm; border-bottom: .3mm solid #d9dee6; text-align: left; }
+  .ps-info th { width: 28mm; color: #6b7686; font-weight: 500; background: #f5f7fa; }
+  .ps-qr { width: 46mm; text-align: center; }
+  .ps-qr svg { width: 38mm; height: 38mm; }
+  .ps-qr p { margin: 2mm 0 0; font-size: 8.5pt; color: #4a5568; }
+  .ps-qr small { font-size: 6.5pt; word-break: break-all; color: #8a94a3; }
+  .ps-foot { margin-top: 12mm; padding-top: 3mm; border-top: .3mm solid #d9dee6; font-size: 8.5pt; color: #8a94a3; text-align: right; }
 }

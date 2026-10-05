@@ -6,7 +6,7 @@ import {
   getEvents, getMyRsvps, rsvp, errorMessage, MEMBER_TYPES, STATUS_LABEL
 } from "./member-api.js";
 import { esc, isDemo } from "./db.js";
-import { memberCardHtml, bindCard } from "./card.js";
+import { memberCardHtml, bindCard, printSheetHtml } from "./card.js";
 
 // ---------- アイコン ----------
 const I = {
@@ -403,8 +403,24 @@ function renderDocs() {
 const cardHtml = (mini = false) => memberCardHtml(state.member, { mini });
 ROUTES[4].after = () => {
   bindCard($("mcard"));
-  $("print-card")?.addEventListener("click", () => window.print());
+  $("print-card")?.addEventListener("click", printCard);
 };
+// 印刷：A4 専用のシートを body 直下に作って印刷し、終わったら消す
+function printCard() {
+  const m = state.member;
+  document.getElementById("print-sheet")?.remove();
+  const sheet = document.createElement("div");
+  sheet.id = "print-sheet";
+  sheet.innerHTML = printSheetHtml(m, {
+    type: MEMBER_TYPES[m.type]?.label || "",
+    since: ymd(m.approvedAt),
+    until: m.validUntil ? ymd(m.validUntil) : "期限なし",
+  });
+  document.body.appendChild(sheet);
+  addEventListener("afterprint", () => sheet.remove(), { once: true });
+  // 画像の読み込みを待ってから印刷
+  Promise.all([...sheet.querySelectorAll("img")].map(img => img.decode().catch(() => {}))).then(() => window.print());
+}
 function renderCard() {
   const m = state.member;
   const left = daysLeft(m.validUntil);
