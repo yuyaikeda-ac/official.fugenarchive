@@ -4,9 +4,10 @@
 //  ・ダッシュボード、お知らせ・行事・会員向けコンテンツの編集（高機能エディタ）
 //  ・会員の審査（承認・否認・停止・再開）、学生証の確認
 //  ・電子同意書の作成・公開・署名の確認・検証（ハッシュ／封印）
+//  ・理事会（理事のグループ・入会審査の担当）と、理事会による審査状況の確認
 //  ・管理者の招待（オーナーのみ）
 // ============================================================
-import { adminApi, esc, fmtDate, isDemo, NEWS_CATEGORIES, db } from "./db.js";
+import { adminApi, esc, fmtDate, isDemo, NEWS_CATEGORIES, db, app } from "./db.js";
 import { getStudentId, OCCUPATIONS } from "./member-api.js";
 import { createRichEditor } from "./rich-editor.js";
 import { renderRich } from "./rich-view.js";
@@ -15,8 +16,9 @@ import {
   AUDIENCE_LABEL, PURPOSE_LABEL, FORM_STATUS_LABEL, SIGNER_LABEL, EXTRA_FIELDS
 } from "./consent-core.js";
 import {
-  collection, query, where, getDocs, getDoc, doc, addDoc, updateDoc
+  collection, query, where, getDocs, getDoc, doc, addDoc, updateDoc, setDoc, deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 
 // ============================================================
 //  コレクションごとの入力項目
@@ -117,6 +119,7 @@ const ICONS = {
   sign: '<path d="M4 20h16M6 16l9.5-9.5a2.1 2.1 0 0 1 3 3L9 19H6z"/>',
   mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
   shield: '<path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/>',
+  board: '<path d="M3 21h18M5 21V10l7-6 7 6v11"/><path d="M9 21v-6h6v6"/>',
   plus: '<path d="M12 5v14M5 12h14"/>'
 };
 const icon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</svg>`;
@@ -130,6 +133,7 @@ const NAV = [
   { group: "会員" },
   { id: "members", label: "会員管理", icon: "users", badge: "pending" },
   { id: "consent", label: "電子同意書", icon: "sign" },
+  { id: "board", label: "理事会", icon: "board" },
   { group: "受信" },
   { id: "contacts", label: "お問い合わせ", icon: "mail" },
   { group: "設定", owner: true },
@@ -150,7 +154,7 @@ async function getRows(name, force = false) {
   if (!force && cache[name]) return cache[name];
   const order = SCHEMA[name]?.order || "createdAt";
   let rows;
-  if (["consent_forms", "consent_signatures", "admins", "admin_invites"].includes(name)) rows = await adminApi.listAll(name);
+  if (["consent_forms", "consent_signatures", "admins", "admin_invites", "board_groups", "reviews"].includes(name)) rows = await adminApi.listAll(name);
   else rows = await adminApi.list(name, { order });
   cache[name] = rows;
   return rows;
@@ -330,6 +334,7 @@ const VIEWS = {
   member_docs: { title: "会員限定資料", render: (sub) => renderContent("member_docs", sub) },
   members: { title: "会員管理", render: renderMembers },
   consent: { title: "電子同意書", render: renderConsent },
+  board: { title: "理事会", render: renderBoard },
   contacts: { title: "お問い合わせ", render: renderContacts },
   admins: { title: "管理者", render: renderAdmins, owner: true }
 };
@@ -365,9 +370,9 @@ async function refreshBadges() {
 // ============================================================
 async function renderDashboard() {
   const safe = (p) => p.catch(e => { console.warn(e); return []; });
-  const [members, contacts, forms, sigs, news] = await Promise.all([
+  const [members, contacts, forms, sigs, news, reviews] = await Promise.all([
     safe(getRows("members", true)), safe(getRows("contacts", true)), safe(getRows("consent_forms", true)),
-    safe(getRows("consent_signatures", true)), safe(getRows("news"))
+    safe(getRows("consent_signatures", true)), safe(getRows("news")), safe(getRows("reviews", true))
   ]);
   const pending = members.filter(m => m.status === "pending");
   const active = members.filter(m => m.status === "active").length;
@@ -386,7 +391,9 @@ async function renderDashboard() {
       <section class="card">
         <div class="card-head"><h2>審査待ちの入会申込</h2><a class="btn btn-sm" href="#members">会員管理へ</a></div>
         ${pending.length ? `<ul class="mini-list">${pending.map(m => `<li>
-          <div class="t"><b>${esc(m.name)}（${esc(MEMBER_TYPE[m.type] || m.type)}）</b><small>${esc(m.email)}・${fmtD(m.createdAt)} 申込${m.occupation ? `・${esc(m.occupation)}` : ""}</small></div>
+          <div class="t"><b>${esc(m.name)}（${esc(MEMBER_TYPE[m.type] || m.type)}）</b><small>${esc(m.email)}・${fmtD(m.createdAt)} 申込${m.occupation ? `・${esc(m.occupation)}` : ""}</small>
+            ${reviewBadge(reviewOf(reviews, m.id), true)}</div>
+          <button class="btn btn-sm" data-review="${esc(m.id)}">審査状況</button>
           ${m.type === "student" ? `<button class="btn btn-sm" data-sid="${esc(m.id)}">学生証</button>` : ""}
           <button class="btn btn-sm btn-ok" data-approve="${esc(m.id)}">承認</button>
           <button class="btn btn-sm btn-danger" data-reject="${esc(m.id)}">否認</button></li>`).join("")}</ul>`
@@ -581,7 +588,9 @@ async function openEditor(name, row) {
 // ============================================================
 let memberFilter = { status: "all", type: "all", q: "" };
 async function renderMembers() {
-  const rows = await getRows("members", true);
+  const safe = (p, v) => p.catch(e => { console.warn(e); return v; });
+  const [rows, reviews, setting] = await Promise.all([getRows("members", true), safe(getRows("reviews", true), []), safe(getReviewSetting(), {})]);
+  const hasGroup = !!setting.groupId;
   const count = (st) => st === "all" ? rows.length : rows.filter(r => r.status === st).length;
   $("page").innerHTML = `
     <div class="toolbar">
@@ -601,12 +610,13 @@ async function renderMembers() {
       .filter(r => !q || `${r.name} ${r.kana || ""} ${r.email} ${r.memberNo || ""} ${r.affiliation || ""} ${r.occupation || ""}`.toLowerCase().includes(q))
       .sort((a, b) => (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1));
     $("tbl").querySelector("tbody").innerHTML = list.length ? list.map(r => `<tr>
-      <td data-label="状態">${pill(r.status, MEMBER_STATUS[r.status] || r.status)}</td>
+      <td data-label="状態">${pill(r.status, MEMBER_STATUS[r.status] || r.status)}${reviewBadge(reviewOf(reviews, r.id))}</td>
       <td><b>${esc(r.name)}</b>（${esc(r.kana || "")}）<span class="sub"><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></span>${r.occupation || r.affiliation ? `<span class="sub">${esc([r.occupation, r.affiliation].filter(Boolean).join("／"))}</span>` : ""}</td>
       <td data-label="種別">${esc(MEMBER_TYPE[r.type] || r.type)}<span class="sub">${r.memberNo ? esc(r.memberNo) : r.status === "pending" ? "承認時に自動付与" : "—"}</span>
         ${r.type === "student" && r.status === "pending" ? `<button class="btn btn-sm" data-sid="${esc(r.id)}" style="margin-top:4px">学生証を見る</button>` : ""}</td>
       <td data-label="申込日">${fmtD(r.createdAt)}<span class="sub">${fmtD(r.approvedAt)}</span></td>
       <td class="act">
+        ${reviewOf(reviews, r.id) || (r.status === "pending" && hasGroup) ? `<button class="btn btn-sm" data-review="${esc(r.id)}">審査状況</button>` : ""}
         ${r.status === "pending" ? `<button class="btn btn-sm btn-ok" data-approve="${esc(r.id)}">承認</button><button class="btn btn-sm btn-danger" data-reject="${esc(r.id)}">否認</button>` : ""}
         ${r.status === "active" ? `<button class="btn btn-sm" data-suspend="${esc(r.id)}">停止</button>` : ""}
         ${r.status === "suspended" ? `<button class="btn btn-sm" data-activate="${esc(r.id)}">再開</button>` : ""}
@@ -640,14 +650,18 @@ const removeStudentId = (id) => adminApi.remove("student_ids", id).catch(err => 
 $("page").addEventListener("click", async (e) => {
   const t = e.target.closest("button");
   if (!t) return;
-  const { sid, approve, reject, suspend, activate } = t.dataset;
+  const { sid, approve, reject, suspend, activate, review } = t.dataset;
   const isMembers = location.hash.startsWith("#members");
   const del = isMembers ? t.dataset.del : null, edit = isMembers ? t.dataset.edit : null;
-  if (!(sid || approve || reject || suspend || activate || del || edit)) return;
+  if (!(sid || approve || reject || suspend || activate || del || edit || review)) return;
   const members = await getRows("members");
-  const r = members.find(x => x.id === (sid || approve || reject || suspend || activate || del || edit));
+  const r = members.find(x => x.id === (sid || approve || reject || suspend || activate || del || edit || review));
   if (!r) return;
+  // 理事会の審査中かどうか（管理者が手動で確定するときは確認文に添える）
+  const underReview = (approve || reject) ? reviewOf(await getRows("reviews").catch(() => []), r.id)?.status === "open" : false;
+  const boardNote = underReview ? BOARD_NOTE : "";
   try {
+    if (review) return openReviewView(r);
     if (sid) {
       const image = await getStudentId(sid);
       if (!image) return toast(`${r.name} さんの学生証の画像は登録されていません（承認・否認済みの場合は削除されています）。`, "error");
@@ -657,13 +671,13 @@ $("page").addEventListener("click", async (e) => {
     }
     if (edit) return openEditor("members", r);
     if (approve) {
-      if (!window.confirm(`${r.name} さんを委員会承認として登録します。${r.memberNo ? `\n会員番号：${r.memberNo}` : "\n会員番号は自動で採番されます。"}`)) return;
+      if (!window.confirm(`${r.name} さんを委員会承認として登録します。${r.memberNo ? `\n会員番号：${r.memberNo}` : "\n会員番号は自動で採番されます。"}${boardNote}`)) return;
       const no = r.memberNo || await issueMemberNo();
       await setMember(approve, { status: "active", memberNo: no, approvedAt: new Date(), approvedBy: currentAdmin.uid }, `${r.name} さんを承認しました（${no}）。`);
       // 承認後は学生証の画像は不要なので削除（審査にのみ使用）
       if (r.type === "student") await removeStudentId(approve);
     } else if (reject) {
-      if (!window.confirm(`${r.name} さんの入会申込を否認します。よろしいですか？`)) return;
+      if (!window.confirm(`${r.name} さんの入会申込を否認します。よろしいですか？${boardNote}`)) return;
       await setMember(reject, { status: "rejected", rejectedAt: new Date(), rejectedBy: currentAdmin.uid }, `${r.name} さんの申込を否認しました。`);
       // 否認したときも学生証の画像は不要なので削除
       if (r.type === "student") await removeStudentId(reject);
@@ -680,6 +694,7 @@ $("page").addEventListener("click", async (e) => {
       toast("削除しました。");
       invalidate("members");
     }
+    invalidate("reviews");
     route(); refreshBadges();
   } catch (err) { fail("処理に失敗しました")(err); }
 });
@@ -766,6 +781,212 @@ async function renderAdmins() {
       }
       if (delinvite) { await adminApi.remove("admin_invites", delinvite); toast("招待を取り消しました。"); route(); }
     } catch (err) { fail("失敗しました")(err); }
+  });
+}
+
+// ============================================================
+//  理事会（理事のグループ）と入会審査
+//  ・board_groups … 理事会（name, description, members: [{ name, email }]）
+//  ・settings/review … 入会審査を担当する理事会（groupId。空なら従来どおり管理者が承認）
+//  ・reviews/{会員UID} … 理事会の審査状況（Cloud Functions が作成・更新。理由は申込者には見せない）
+//  ・adminReview（呼び出し用の関数）… 審査の開始・未回答の理事への再送
+// ============================================================
+const BOARD_NOTE = "\n\n理事会の審査中です。管理者の判断で確定しますか？";
+const REVIEW_STATUS = { open: "理事会審査中", approved: "理事会：全員承認", rejected: "理事会：否認", closed: "理事会審査：終了" };
+const DECISION = { approve: { label: "承認", cls: "ok" }, reject: { label: "非承認", cls: "ng" } };
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** 入会審査を担当する理事会の設定（無ければ {}） */
+async function getReviewSetting() {
+  const snap = await getDoc(doc(db, "settings", "review"));
+  return snap.exists() ? snap.data() : {};
+}
+const reviewOf = (reviews, memberId) => (reviews || []).find(v => v.id === memberId || v.memberId === memberId) || null;
+
+/** 審査状況のラベル（例：理事会審査中 3/5 承認） */
+function reviewBadge(rv, inline = false) {
+  if (!rv) return "";
+  const cls = { open: "pending", approved: "ok", rejected: "ng", closed: "closed" }[rv.status] || "info";
+  const text = rv.status === "open" ? `理事会審査中 ${rv.approveCount || 0}/${rv.total || 0} 承認` : REVIEW_STATUS[rv.status] || rv.status;
+  return `<span class="rv-badge${inline ? " inline" : ""}">${pill(cls, text)}</span>`;
+}
+
+/** 理事会の審査を操作する（start：審査開始 / resend：未回答の理事に再送） */
+async function callReview(action, memberId) {
+  const fn = httpsCallable(getFunctions(app, "asia-northeast1"), "adminReview");
+  return (await fn({ action, memberId })).data;
+}
+
+/** 審査状況（理事ごとの承認・非承認と理由）。理由は理事会・管理者のみが見られる */
+async function openReviewView(m) {
+  const body = openModal(`${m.name} さんの理事会審査`, '<div class="loading"><span class="spin"></span> 読み込み中…</div>', { wide: true });
+  const [snap, setting] = await Promise.all([getDoc(doc(db, "reviews", m.id)), getReviewSetting().catch(() => ({}))]);
+  const rv = snap.exists() ? { id: snap.id, ...snap.data() } : null;
+  const canStart = m.status === "pending" && (!rv || rv.status === "closed");
+  if (!rv) {
+    body.innerHTML = `<div class="note info">まだ理事会の審査は始まっていません。</div>
+      ${canStart ? (setting.groupId
+        ? `<p class="muted small">「理事会審査を開始」を押すと、審査を担当する理事会の全員に承認依頼メールが届きます。</p><div class="rv-actions"><button class="btn btn-primary" data-rv="start">理事会審査を開始</button></div>`
+        : `<p class="muted small">審査を担当する理事会が設定されていません。<a href="#board">理事会</a>の画面で設定してください（未設定の場合は管理者が承認・否認します）。</p>`) : ""}`;
+  } else {
+    const voters = Object.entries(rv.voters || {}).map(([key, v]) => ({ key, ...v }))
+      .sort((a, b) => (a.decision ? 0 : 1) - (b.decision ? 0 : 1) || String(a.name).localeCompare(String(b.name), "ja"));
+    const waiting = voters.filter(v => !v.decision).length;
+    body.innerHTML = `
+      <div class="rv-head">
+        <div>${reviewBadge(rv)}<span class="muted small" style="margin-left:8px">担当：${esc(rv.groupName || "—")}</span></div>
+        <div class="rv-counts">
+          <span><b class="c-ok">${rv.approveCount || 0}</b>承認</span>
+          <span><b class="c-ng">${rv.rejectCount || 0}</b>非承認</span>
+          <span><b>${waiting}</b>未回答</span>
+          <span class="muted">／ ${rv.total || voters.length} 名</span>
+        </div>
+      </div>
+      <div class="rv-bar" aria-hidden="true"><i class="ok" style="width:${pct(rv.approveCount, rv.total)}%"></i><i class="ng" style="width:${pct(rv.rejectCount, rv.total)}%"></i></div>
+      <p class="muted small">申込：${fmtDT(rv.createdAt)}${rv.decidedAt ? `　／　結果：${fmtDT(rv.decidedAt)}` : ""}${rv.closedReason ? `　／　${esc(rv.closedReason)}` : ""}。
+        理由は理事会と管理者だけが見られます（申込者には表示されません）。</p>
+      <div class="table-wrap"><table class="tbl cards rv-tbl">
+        <thead><tr><th>理事</th><th>判断</th><th>理由</th><th>回答日時 / 依頼メール</th></tr></thead>
+        <tbody>${voters.map(v => `<tr>
+          <td><b>${esc(v.name || "")}</b><span class="sub">${esc(v.email || "")}</span></td>
+          <td data-label="判断">${v.decision ? pill(DECISION[v.decision]?.cls || "info", DECISION[v.decision]?.label || v.decision) : pill("draft", "未回答")}</td>
+          <td data-label="理由" class="rv-reason">${v.reason ? esc(v.reason) : '<span class="muted">—</span>'}</td>
+          <td data-label="回答">${fmtDT(v.decidedAt)}<span class="sub">依頼 ${fmtDT(v.sentAt)}</span></td></tr>`).join("")}</tbody>
+      </table></div>
+      <div class="rv-actions">
+        ${rv.status === "open" && waiting ? `<button class="btn" data-rv="resend">未回答の理事に再送（${waiting} 名）</button>` : ""}
+        ${canStart && setting.groupId ? `<button class="btn btn-primary" data-rv="start">理事会審査をやり直す</button>` : ""}
+      </div>`;
+  }
+  body.querySelectorAll("[data-rv]").forEach(b => b.addEventListener("click", async () => {
+    const action = b.dataset.rv;
+    if (action === "start" && !window.confirm(`${m.name} さんの理事会審査を開始し、理事全員に承認依頼メールを送ります。よろしいですか？`)) return;
+    b.disabled = true;
+    try {
+      const res = await callReview(action, m.id);
+      toast(action === "start" ? `理事会審査を開始しました（${res?.sent ?? 0} 名に送信）。` : `未回答の理事 ${res?.sent ?? 0} 名に再送しました。`);
+      invalidate("reviews");
+      openReviewView(m);
+      if (location.hash.startsWith("#members") || !location.hash || location.hash === "#dashboard") route();
+    } catch (err) { fail(action === "start" ? "審査を開始できませんでした" : "再送できませんでした")(err); b.disabled = false; }
+  }));
+}
+const pct = (n, total) => total ? Math.round((Number(n) || 0) / total * 100) : 0;
+
+/** 理事会の画面 */
+async function renderBoard() {
+  const [groups, setting] = await Promise.all([getRows("board_groups", true), getReviewSetting()]);
+  groups.sort((a, b) => String(a.name).localeCompare(String(b.name), "ja"));
+  const cur = setting.groupId || "";
+  const curGroup = groups.find(g => g.id === cur);
+  $("page").innerHTML = `
+    <section class="card" style="margin-bottom:20px">
+      <div class="card-head"><h2>入会審査を担当する理事会</h2>${curGroup ? pill("ok", "理事会審査：有効") : pill("closed", "管理者が承認")}</div>
+      <div class="card-body">
+        <div class="note info" style="margin-bottom:14px">新しい入会申込は、ここで選んだ理事会の全員に承認依頼メールが届きます。
+          <b>全員が承認すると自動で入会承認、1人でも非承認なら自動で否認</b>され、申込者に結果のメールが届きます。
+          承認・非承認の理由は必須で、理事会と管理者だけが見られます（申込者には表示されません）。<br>
+          未選択の場合は、従来どおり管理者が「会員管理」で承認・否認します。</div>
+        <form id="rv-setting" class="rv-setting">
+          <label class="fld" style="margin:0;flex:1"><span>担当する理事会</span>
+            <select name="groupId"><option value="">（選択しない：管理者が承認）</option>${groups.map(g => `<option value="${esc(g.id)}"${g.id === cur ? " selected" : ""}>${esc(g.name)}（${(g.members || []).length} 名）</option>`).join("")}</select></label>
+          <button class="btn btn-primary" type="submit">保存</button>
+        </form>
+        ${setting.updatedAt ? `<p class="muted small" style="margin:8px 0 0">最終更新：${fmtDT(setting.updatedAt)}</p>` : ""}
+      </div>
+    </section>
+    <div class="toolbar"><h2 class="sec-title">理事会の一覧</h2><span class="spacer"></span><button class="btn btn-primary" id="new-group">${icon("plus")}理事会を作成</button></div>
+    ${groups.length ? `<div class="group-grid">${groups.map(g => `
+      <section class="card group${g.id === cur ? " is-current" : ""}">
+        <div class="card-head"><h3>${esc(g.name)}</h3>${g.id === cur ? pill("gold", "審査担当") : ""}</div>
+        <div class="card-body">
+          ${g.description ? `<p class="muted small" style="margin-top:0">${esc(g.description)}</p>` : ""}
+          <div class="small muted">理事 ${(g.members || []).length} 名</div>
+          <ul class="member-list">${(g.members || []).map(p => `<li><b>${esc(p.name || "")}</b><span>${esc(p.email)}</span></li>`).join("")}</ul>
+          <div class="group-actions">
+            <button class="btn btn-sm" data-gedit="${esc(g.id)}">編集</button>
+            <button class="btn btn-sm btn-danger" data-gdel="${esc(g.id)}">削除</button>
+          </div>
+        </div>
+      </section>`).join("")}</div>`
+      : '<div class="card"><div class="empty">理事会はまだありません。「理事会を作成」から、理事の名前とメールアドレスを登録してください。</div></div>'}`;
+
+  $("rv-setting").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const groupId = e.target.elements.groupId.value;
+    const g = groups.find(x => x.id === groupId);
+    if (g && !(g.members || []).length) return toast("理事が登録されていない理事会は選べません。", "error");
+    try {
+      await setDoc(doc(db, "settings", "review"), { groupId, updatedAt: new Date(), updatedBy: currentAdmin.uid });
+      toast(g ? `入会審査の担当を「${g.name}」にしました。` : "理事会審査を使わない設定にしました（管理者が承認します）。");
+      route();
+    } catch (err) { fail("保存できませんでした")(err); }
+  });
+  $("new-group").addEventListener("click", () => openGroupEditor(null));
+  $("page").querySelectorAll("[data-gedit]").forEach(b => b.addEventListener("click", () => openGroupEditor(groups.find(g => g.id === b.dataset.gedit))));
+  $("page").querySelectorAll("[data-gdel]").forEach(b => b.addEventListener("click", async () => {
+    const g = groups.find(x => x.id === b.dataset.gdel);
+    if (g.id === cur) return toast("入会審査を担当している理事会は削除できません。先に担当を変更してください。", "error");
+    if (!window.confirm(`理事会「${g.name}」を削除します。よろしいですか？\n（これまでの審査の記録は残ります）`)) return;
+    try { await deleteDoc(doc(db, "board_groups", g.id)); toast("削除しました。"); invalidate("board_groups"); route(); }
+    catch (err) { fail("削除できませんでした")(err); }
+  }));
+}
+
+/** 理事会の作成・編集（右から出るパネル） */
+function openGroupEditor(g) {
+  const row = (p = {}) => `<div class="dir-row">
+      <input name="dname" placeholder="お名前" maxlength="100" value="${esc(p.name || "")}">
+      <input name="demail" type="email" placeholder="メールアドレス" maxlength="200" value="${esc(p.email || "")}">
+      <button type="button" class="icon-btn" data-rm aria-label="この理事を削除">✕</button>
+    </div>`;
+  const body = openDrawer(g ? `理事会を編集：${g.name}` : "理事会を作成", `
+    <form id="grp-form" novalidate>
+      <label class="fld"><span>理事会の名前<span class="req">必須</span></span><input name="name" required maxlength="100" value="${esc(g?.name || "")}" placeholder="例：2026年度 理事会"></label>
+      <label class="fld"><span>説明（任意）</span><input name="description" maxlength="300" value="${esc(g?.description || "")}" placeholder="例：入会審査を担当"></label>
+      <div class="fld"><span>理事（承認依頼メールの送り先）<span class="req">必須</span></span>
+        <div id="dirs" class="dirs">${(g?.members?.length ? g.members : [{}]).map(row).join("")}</div>
+        <div><button type="button" class="btn btn-sm" id="add-dir">${icon("plus")}理事を追加</button></div>
+        <span class="hint">審査では、ここに登録した全員の承認が必要です。理事が審査中に入れ替わった場合は、会員管理の「審査状況」から審査をやり直せます。</span>
+      </div>
+      <div id="grp-err"></div>
+      <div class="drawer-foot">
+        <button type="button" class="btn" data-close>キャンセル</button>
+        <button type="submit" class="btn btn-primary" id="grp-save">保存</button>
+      </div>
+    </form>`);
+  const form = body.querySelector("#grp-form"), dirs = body.querySelector("#dirs");
+  body.querySelector("#add-dir").addEventListener("click", () => { dirs.insertAdjacentHTML("beforeend", row()); dirs.lastElementChild.querySelector("input").focus(); });
+  dirs.addEventListener("click", e => {
+    if (!e.target.closest("[data-rm]")) return;
+    e.target.closest(".dir-row").remove();
+    if (!dirs.children.length) dirs.insertAdjacentHTML("beforeend", row());
+  });
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const err = (msg) => { body.querySelector("#grp-err").innerHTML = `<div class="note error" style="margin-top:8px">${esc(msg)}</div>`; };
+    const name = form.elements.name.value.trim();
+    if (!name) { form.elements.name.focus(); return err("理事会の名前を入力してください。"); }
+    const members = [], seen = new Set();
+    for (const r of dirs.querySelectorAll(".dir-row")) {
+      const n = r.querySelector('[name="dname"]').value.trim(), m = r.querySelector('[name="demail"]').value.trim().toLowerCase();
+      r.classList.remove("is-bad");
+      if (!n && !m) continue;
+      if (!EMAIL_RE.test(m)) { r.classList.add("is-bad"); r.querySelector('[name="demail"]').focus(); return err(`メールアドレスの形式が正しくありません：${m || "（空欄）"}`); }
+      if (seen.has(m)) continue; // 同じメールアドレスは 1 人として扱う
+      seen.add(m);
+      members.push({ name: n || m, email: m });
+    }
+    if (!members.length) return err("理事を 1 人以上登録してください。");
+    const data = { name, description: form.elements.description.value.trim(), members, updatedAt: new Date() };
+    const btn = body.querySelector("#grp-save");
+    btn.disabled = true;
+    try {
+      if (g) await updateDoc(doc(db, "board_groups", g.id), data);
+      else await addDoc(collection(db, "board_groups"), { ...data, createdAt: new Date() });
+      toast(g ? "理事会を更新しました。" : "理事会を作成しました。");
+      closeDrawer(); invalidate("board_groups"); route();
+    } catch (e2) { fail("保存できませんでした")(e2); btn.disabled = false; }
   });
 }
 

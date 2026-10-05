@@ -336,3 +336,40 @@ dialog::backdrop { background: rgba(10,18,32,.55); backdrop-filter: blur(2px); }
   .rich-body img[data-align^="float"] { float: none; display: block; margin: 1em auto; max-width: 100%; }
   .rich-body img[width] { min-width: 50%; }
 }
+
+/* ============ 理事会・理事会審査 ============ */
+.sec-title { margin: 0; font-size: 15px; }
+.rv-badge { display: block; margin-top: 4px; }
+.rv-badge.inline { display: inline-block; margin: 4px 0 0; }
+.rv-setting { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; max-width: 640px; }
+.group-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.group-grid > * { min-width: 0; }
+.group.is-current { border-color: #e2c983; box-shadow: 0 0 0 3px rgba(201,161,68,.18), var(--shadow); }
+.member-list { list-style: none; margin: 8px 0 12px; padding: 0; max-height: 240px; overflow-y: auto; }
+.member-list li { display: flex; flex-wrap: wrap; gap: 0 10px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.member-list li:first-child { border-top: 0; }
+.member-list li span { color: var(--muted); font-size: 12px; word-break: break-all; }
+.group-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.dirs { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.dir-row { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 8px; align-items: center; }
+.dir-row input { width: 100%; padding: 9px 12px; border: 1px solid #d3dae5; border-radius: 8px; font: inherit; }
+.dir-row input:focus { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,.18); }
+.dir-row.is-bad input[name="demail"] { border-color: var(--danger); background: #fef2f2; }
+.rv-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.rv-counts { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); }
+.rv-counts b { margin-right: 4px; font-size: 20px; color: var(--text); font-variant-numeric: tabular-nums; }
+.rv-counts .c-ok { color: var(--ok); }
+.rv-counts .c-ng { color: var(--danger); }
+.rv-bar { display: flex; height: 8px; margin: 12px 0 8px; border-radius: 99px; background: #e5e7eb; overflow: hidden; }
+.rv-bar i { display: block; height: 100%; }
+.rv-bar .ok { background: var(--ok); }
+.rv-bar .ng { background: var(--danger); }
+.rv-tbl { margin-top: 6px; border: 1px solid var(--line); border-radius: 10px; }
+.rv-reason { white-space: pre-wrap; min-width: 220px; max-width: 460px; }
+.rv-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+@media (max-width: 860px) {
+  .dir-row { grid-template-columns: 1fr auto; }
+  .dir-row input[name="demail"] { grid-column: 1; grid-row: 2; }
+  .dir-row [data-rm] { grid-row: 1 / span 2; grid-column: 2; }
+  .rv-reason { min-width: 0; max-width: none; }
+}

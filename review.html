@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<!-- リンクの秘密の番号が外部サイトに送られないように -->
+<meta name="referrer" content="no-referrer">
+<title>入会審査（理事会）｜普賢アーカイブ運営委員会</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/member.css">
+<link rel="icon" href="LOGO.png">
+<script src="assets/js/common.js" defer></script>
+</head>
+<body>
+<header id="site-header"></header>
+
+<main class="lux">
+  <section class="sub-hero">
+    <div class="inner">
+      <p class="eyebrow">Board Review</p>
+      <h1>入会申込の審査（理事会）</h1>
+      <p>申込内容をご確認のうえ「承認」または「非承認」を選び、理由を入力してください。理事会の全員が承認すると入会が承認され、1 名でも非承認の場合は否認となります。<strong>理由は理事会の記録として保存され、申込者には表示されません。</strong></p>
+    </div>
+  </section>
+
+  <section class="lux-section alt" style="padding-top:56px">
+    <div class="inner">
+      <div class="wizard review-box" id="review-root">
+        <div class="sign-state"><p>読み込み中…</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer id="site-footer"></footer>
+
+<script type="module">
+  import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
+  import { app, esc, isDemo } from "./assets/js/db.js";
+  import { MEMBER_TYPES } from "./assets/js/member-api.js";
+
+  const root = document.getElementById("review-root");
+  const fns = isDemo ? null : getFunctions(app, "asia-northeast1");
+  const call = (name, data) => httpsCallable(fns, name)(data).then(r => r.data);
+
+  // ---------- リンクの番号 ----------
+  // 秘密の番号（t）はアドレス欄・履歴に残らないよう URL から消し、このタブの間だけ保持する
+  const q = new URLSearchParams(location.search);
+  const r = q.get("r") || "", v = q.get("v") || "";
+  const KEY = `fugen-review-${r}-${v}`;
+  let t = q.get("t") || "";
+  try {
+    if (t) sessionStorage.setItem(KEY, t); else t = sessionStorage.getItem(KEY) || "";
+  } catch {}
+  if (q.has("t")) history.replaceState(null, "", `review.html?r=${encodeURIComponent(r)}&v=${encodeURIComponent(v)}`);
+  const auth = { r, v, t };
+
+  const fmt = (iso) => iso ? new Date(iso).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
+  const DECISION = { approve: "承認", reject: "非承認" };
+  const STATUS = { open: "審査中", approved: "承認（全員が承認）", rejected: "否認", closed: "終了（管理者が確定）" };
+
+  const stateView = (title, text) => { root.innerHTML = `<div class="sign-state"><h2>${esc(title)}</h2><p>${text}</p></div>`; };
+  const errText = (e) => e?.message?.replace(/^.*?:\s*/, "") || "エラーが発生しました。";
+
+  async function load() {
+    if (isDemo) return stateView("準備中です", "現在この機能はご利用いただけません。");
+    if (!r || !v || !t) return stateView("リンクが正しくありません", "依頼メールのリンクをそのまま開いてください。");
+    try { render(await call("getReview", auth)); }
+    catch (e) {
+      console.error(e);
+      stateView("審査ページを開けませんでした", esc(errText(e)));
+    }
+  }
+
+  function render(d) {
+    const { review: rv, me, member: m } = d;
+    const progress = Math.round((rv.approveCount / rv.total) * 100);
+    const voterChips = rv.voters.map(x => `<li class="${x.voted ? "is-done" : ""}${x.isMe ? " is-me" : ""}">${x.voted ? "✓" : "…"} ${esc(x.name)}${x.isMe ? "（あなた）" : ""}</li>`).join("");
+    const row = (k, val) => `<div><dt>${k}</dt><dd>${val || "—"}</dd></div>`;
+    const memberHtml = m ? `<dl class="rv-info">
+        ${row("会員種別", esc(MEMBER_TYPES[m.type]?.label || m.type))}
+        ${row("お名前", `${esc(m.name)}（${esc(m.kana || "")}）`)}
+        ${row("メールアドレス", esc(m.email))}
+        ${row("ご職業", esc(m.occupation))}
+        ${row("ご所属", esc(m.affiliation))}
+        ${row("電話番号", esc(m.phone))}
+        ${row("ご住所", esc(m.address))}
+        ${row("申込日時", esc(fmt(m.createdAt)))}
+        ${row("入会の動機・メッセージ", m.message ? `<span class="rv-msg">${esc(m.message)}</span>` : "")}
+      </dl>
+      ${d.studentIdImage ? `<figure class="rv-sid"><img src="${esc(d.studentIdImage)}" alt="学生証（表面）"><figcaption>学生証（表面）</figcaption></figure>` : m.type === "student" ? '<p class="rv-note">学生証の画像はありません（審査後に削除された可能性があります）。</p>' : ""}`
+      : '<p class="rv-note">申込の情報が見つかりません（取り消された可能性があります）。</p>';
+
+    let action;
+    if (me.decision) {
+      action = `<div class="rv-done ${me.decision}"><b>あなたの回答：${DECISION[me.decision]}</b><small>${esc(fmt(me.decidedAt))}</small>
+        <p>理由：<span class="rv-msg">${esc(me.reason)}</span></p></div>`;
+    } else if (rv.status !== "open") {
+      action = `<div class="rv-done"><b>この審査は終了しました（${esc(STATUS[rv.status] || rv.status)}）</b>${rv.closedReason ? `<p>${esc(rv.closedReason)}</p>` : ""}</div>`;
+    } else {
+      action = `<form class="rv-form" id="rv-form" novalidate>
+        <h3>あなたの判断</h3>
+        <div class="rv-choice" role="radiogroup" aria-label="判断">
+          <label class="ok"><input type="radio" name="decision" value="approve"><span>承認する</span></label>
+          <label class="ng"><input type="radio" name="decision" value="reject"><span>承認しない（非承認）</span></label>
+        </div>
+        <div class="field">
+          <label for="rv-reason" id="rv-reason-label">理由<span class="req">必須</span></label>
+          <textarea id="rv-reason" name="reason" maxlength="2000" required placeholder="判断の理由を入力してください（申込者には表示されません）"></textarea>
+          <p class="err" id="rv-err"></p>
+        </div>
+        <p class="rv-note">回答は 1 回のみで、送信後は変更できません。非承認を送信すると、その時点で申込は否認となり申込者へ通知されます。</p>
+        <button class="lux-btn" type="submit" id="rv-submit">回答を送信する</button>
+      </form>`;
+    }
+
+    root.innerHTML = `
+      <div class="rv-head">
+        <div><span class="rv-status s-${esc(rv.status)}">${esc(STATUS[rv.status] || rv.status)}</span>
+          <h2>${m ? esc(m.name) + " 様の入会申込" : "入会申込"}</h2>
+          <p>${esc(rv.groupName)}　／　${esc(me.name || me.email)} 様</p></div>
+        <div class="rv-progress" aria-label="承認の進み具合">
+          <b>${rv.approveCount}<small> / ${rv.total} 名が承認</small></b>
+          <span class="bar"><i style="width:${progress}%"></i></span>
+          ${rv.rejectCount ? `<small class="ng">非承認 ${rv.rejectCount} 名</small>` : ""}
+        </div>
+      </div>
+      <ul class="rv-voters" aria-label="回答状況">${voterChips}</ul>
+      <section class="rv-section"><h3>申込内容</h3>${memberHtml}</section>
+      ${action}`;
+    bindForm();
+  }
+
+  function bindForm() {
+    const form = document.getElementById("rv-form");
+    if (!form) return;
+    const label = document.getElementById("rv-reason-label");
+    const err = document.getElementById("rv-err");
+    form.addEventListener("change", () => {
+      const dv = form.elements.decision.value;
+      label.innerHTML = `${dv === "reject" ? "非承認の理由" : dv === "approve" ? "承認の理由" : "理由"}<span class="req">必須</span>`;
+      form.classList.toggle("is-reject", dv === "reject");
+    });
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const decision = form.elements.decision.value;
+      const reason = form.elements.reason.value.trim();
+      const field = form.querySelector(".field");
+      if (!decision) { err.textContent = "「承認する」か「承認しない」を選んでください。"; field.classList.add("is-invalid"); return; }
+      if (!reason) { err.textContent = `${DECISION[decision]}の理由を入力してください。`; field.classList.add("is-invalid"); form.elements.reason.focus(); return; }
+      field.classList.remove("is-invalid");
+      if (!window.confirm(`「${DECISION[decision]}」で回答します。送信後は変更できません。よろしいですか？`)) return;
+      const btn = document.getElementById("rv-submit");
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> 送信中…';
+      try {
+        const res = await call("submitReview", { ...auth, decision, reason });
+        const msg = res.outcome === "approved" ? "理事会の全員が承認したため、入会が承認されました。申込者へ承認のお知らせを送信しました。"
+          : res.outcome === "rejected" ? "非承認の回答により、申込は否認となりました。申込者へお知らせを送信しました。"
+          : "回答を受け付けました。ほかの理事の回答をお待ちください。";
+        await load();
+        root.insertAdjacentHTML("afterbegin", `<div class="alert ok" role="status">${esc(msg)}</div>`);
+        root.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (ex) {
+        console.error(ex);
+        err.textContent = errText(ex);
+        field.classList.add("is-invalid");
+        btn.disabled = false; btn.textContent = "回答を送信する";
+      }
+    });
+  }
+
+  load();
+</script>
+</body>
+</html>

@@ -222,4 +222,56 @@ ${signature()}`
   }];
 }
 
-module.exports = { CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned };
+// ---------- 理事会への承認依頼（理事ごと） ----------
+function reviewRequest({ director, member: m, groupName, total, link, reminder = false }) {
+  const type = TYPE_LABEL[m.type] || m.type;
+  return [{
+    to: director.email,
+    subject: `【${CONFIG.orgName}】${reminder ? "（再送）" : ""}入会申込の承認のお願い：${m.name} 様（${type}）`,
+    text:
+`${director.name || ""} 様
+
+${CONFIG.orgName}です。
+新しい入会申込がありました。${groupName}（${total}名）の皆さまに審査をお願いしております。
+下記のページで申込内容をご確認のうえ、「承認」または「非承認」を選び、理由をご入力ください。
+
+▼ 審査ページ（あなた専用のリンクです。他の方に転送しないでください）
+${link}
+
+■ 会員種別：${type}
+■ お名前　：${m.name}（${m.kana || ""}）
+■ ご職業　：${m.occupation || "—"}
+■ ご所属　：${m.affiliation || "—"}
+
+・理事会の全員が承認すると、自動で入会が承認され、申込者へ承認メールが送られます。
+・1 名でも非承認の場合は、自動で否認となり、申込者へ否認メールが送られます。
+・ご入力いただいた理由は理事会の記録として保存され、申込者には表示されません。
+${reminder ? "\n※ 以前にお送りしたリンクは無効になりました。このメールのリンクをお使いください。\n" : ""}${signature()}`
+  }];
+}
+
+// ---------- 理事会の審査結果（理事全員へ共有） ----------
+function reviewResult({ review: r, member: m }) {
+  const approved = r.status === "approved";
+  const lines = Object.values(r.voters).map(v =>
+    `・${v.name || v.email}：${v.decision === "approve" ? "承認" : v.decision === "reject" ? "非承認" : "未回答"}${v.reason ? `\n　理由：${v.reason.replace(/\n/g, "\n　　　　")}` : ""}`).join("\n");
+  const text =
+`理事会の皆さま
+
+${CONFIG.orgName}です。
+${m.name} 様（${TYPE_LABEL[m.type] || m.type}）の入会審査が確定しました。
+
+■ 結果：${approved ? "承認（全員が承認）" : "否認（非承認の回答あり）"}
+■ 承認 ${r.approveCount} 名 ／ 非承認 ${r.rejectCount} 名 ／ 理事 ${r.total} 名
+
+■ 各理事の判断と理由（理事会の記録。申込者には通知されません）
+${lines}
+
+申込者へは${approved ? "承認" : "否認"}のお知らせを自動で送信しました。
+▼ 管理画面
+${CONFIG.siteUrl}/admin.html
+${signature()}`;
+  return Object.values(r.voters).map(v => ({ to: v.email, subject: `【${CONFIG.orgName}】入会審査の結果：${m.name} 様（${approved ? "承認" : "否認"}）`, text }));
+}
+
+module.exports = { CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult };

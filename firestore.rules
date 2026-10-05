@@ -9,6 +9,7 @@ rules_version = '2';
 //  - rsvps          : 有効な会員が自分の参加登録のみ作成・取消
 //  - student_ids    : 学生会員の学生証（表面）の画像。本人が申込時に登録、閲覧は本人と管理者
 //  - consent_forms / consent_signatures : 電子同意書と署名の記録（公開後の本文・署名は変更不可）
+//  - board_groups / settings / reviews : 理事会による入会審査（理由は管理者のみ閲覧。申込者には非公開）
 // ============================================================
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -135,6 +136,14 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time;
       allow delete: if isAdmin();
     }
+
+    // ---------- 理事会による入会審査 ----------
+    // 理事会のグループと、審査を担当する理事会の設定は管理者のみ
+    match /board_groups/{id} { allow read, write: if isAdmin(); }
+    match /settings/{id} { allow read, write: if isAdmin(); }
+    // 審査の記録（各理事の判断・理由）。書き込みは Cloud Functions のみ、閲覧は管理者のみ
+    // ※ 理事は review.html（Cloud Functions 経由）で自分の回答だけを扱う。申込者は読めない
+    match /reviews/{id} { allow read: if isAdmin(); allow write: if false; }
 
     // ---------- 電子同意書 ----------
     // 公開後は本文・版・ハッシュなどを変更できない（改ざん防止）。状態（公開中→受付終了）などは変更可

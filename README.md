@@ -24,6 +24,7 @@ member.html       会員サイト（ダッシュボード・お知らせ・行�
 admin.html        管理画面（ダッシュボード・お知らせ・行事・会員の承認・会員向けコンテンツ・電子同意書）
 sign.html         電子同意書の署名ページ（sign.html?f=同意書ID。外部の方がログインなしで署名）
 consent-verify.html 署名の検証ページ（控えの署名IDとハッシュ値で、改ざんされていないか確認）
+review.html       理事会の審査ページ（理事への承認依頼メールのリンクから開く。承認／非承認と理由を入力）
 sitemap.html / privacy.html
 
 assets/css/style.css         デザイン全体（先頭の :root で色を変更可能）
@@ -40,6 +41,7 @@ assets/js/rich-editor.js     高機能エディタ（Quill。画像は Firebase 
 assets/js/rich-view.js       エディタで作った本文の表示（DOMPurify で安全な形にしてから表示）
 assets/js/consent-core.js    電子同意書のハッシュ計算・手書きサイン入力欄・署名の保存
 functions/consent.js         署名の封印（HMAC-SHA256・ハッシュチェーン）と検証
+functions/review.js          理事会による入会審査（承認依頼メール・回答の受付・全員承認／1人でも非承認で自動確定）
 storage.rules                Firebase Storage セキュリティルール（画像は管理者のみアップロード可）
 LOGO.png                     ロゴ（ヘッダー・ファビコン・紹介ブロックで使用）
 assets/js/sample-data.js     Firebase 未設定時のサンプルデータ
@@ -131,6 +133,9 @@ firebase.json                Firebase Hosting 設定
 | `consent_forms` | 電子同意書。`title`, `bodyHtml`, `version`, `status`（draft/published/closed）, `audience`（members/public/both）, `purpose`（general/membership）, `extraFields`, `contentHash`（公開時の SHA-256） |
 | `consent_signatures` | 署名の記録（変更不可）。`formId`, `formHash`, `name`, `email`, `signatureImage`, `signatureHash`, `recordHash`、サーバーが付ける `seq`, `prevSeal`, `seal` |
 | `consent_chain/head` | 封印の連鎖の先頭（サーバーのみ） |
+| `board_groups` | 理事会のグループ。`name`, `description`, `members`（`name`, `email` の一覧） |
+| `settings/review` | 入会審査を担当する理事会（`groupId`）。空なら従来どおり管理者が承認 |
+| `reviews` | 入会審査の記録。ID = 会員の UID。理事ごとの判断・理由・日時（管理者のみ閲覧、申込者には非公開） |
 
 お知らせ・会員向けお知らせの本文は `bodyHtml`（装飾つき）と `body`（プレーンテキスト）の両方を保存します。画像は Firebase Storage の `content/` に保存されます。
 
@@ -143,6 +148,22 @@ firebase.json                Firebase Hosting 設定
 5. 行事の参加登録者は、管理画面の「行事」タブに人数と氏名が表示されます。
 
 会員サイトの操作：`Ctrl + K`（Mac は `⌘ + K`）で検索・ページ移動、`1`〜`6` キーでページ切替、`/` キーで検索欄へ移動できます。
+
+## 理事会による入会審査
+
+入会は **理事会の全員が承認** した場合のみ認められます。
+
+1. 管理画面の「理事会」で理事会のグループ（理事の名前・メールアドレス）を作り、「審査を担当する理事会」に選びます
+2. 入会申込があると、その理事会の全員に **承認依頼メール** が届きます（理事ごとの専用リンク。リンクの秘密の番号はハッシュ値だけを保存）
+3. 理事はリンク先（`review.html`）で申込内容を確認し、**承認／非承認** と **理由（必須）** を入力します。回答は 1 回のみです
+4. **全員が承認** → 自動で入会承認（会員番号を付与）→ 申込者へ承認メール
+   **1 人でも非承認** → その時点で自動で否認 → 申込者へ否認メール
+   どちらの場合も、理事会の全員へ結果（各理事の判断と理由）がメールで共有されます
+5. 理由は `reviews` に理事会の記録として保存され、**申込者には表示されません**。管理画面の会員一覧の「審査状況」で確認できます
+
+- 未回答の理事には、管理画面から依頼メールを再送できます（新しいリンクが発行され、古いリンクは無効になります）
+- 管理者が管理画面で承認・否認を押した場合は、その判断で確定し、理事会の審査は終了します
+- 審査を担当する理事会を選んでいない場合は、従来どおり管理者が承認します
 
 ## 電子同意書・電子署名
 

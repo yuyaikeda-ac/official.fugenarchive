@@ -1,5 +1,5 @@
 // ============================================================
-//  Cloud Functions：申請・お問い合わせ時のメール送信、電子同意書の封印・検証
+//  Cloud Functions：申請・お問い合わせ時のメール送信、電子同意書の封印・検証、理事会による入会審査
 //  Firestore にデータが保存されると自動で動きます。
 //
 //  ・送信は Google Apps Script（apps-script/Code.gs）経由。
@@ -62,6 +62,11 @@ const withDates = (data) => ({ ...data, createdAt: data.createdAt?.toDate?.() ||
 // ---------- 電子同意書：署名の封印・控えのメール・検証（中身は consent.js） ----------
 Object.assign(exports, require("./consent")({
   onDocumentCreated, onCall, HttpsError, defineSecret, getFirestore, FieldValue, logger, sendAll, mailOpts: opts, mails
+}));
+
+// ---------- 理事会による入会審査（中身は review.js） ----------
+Object.assign(exports, require("./review")({
+  onDocumentCreated, onDocumentUpdated, onCall, HttpsError, getFirestore, FieldValue, logger, sendAll, mailOpts: opts, mails, issueMemberNo
 }));
 
 // ---------- 入会申込 → 委員会へ通知 ＋ 申込者へ受付確認 ----------

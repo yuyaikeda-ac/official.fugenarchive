@@ -832,3 +832,58 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
   .rich-body img[data-align^="float"] { float: none; display: block; margin: 1em auto; max-width: 100%; }
   .rich-body img[width] { min-width: 50%; }
 }
+
+/* ============ 理事会の審査ページ（review.html） ============ */
+.review-box { max-width: 860px; }
+.rv-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px 28px; padding-bottom: 18px; border-bottom: 1px solid var(--line-soft); }
+.rv-head h2 { margin: 8px 0 4px; font-family: var(--serif); font-size: 24px; color: var(--navy); }
+.rv-head p { margin: 0; color: var(--muted); font-size: 13px; }
+.rv-status { display: inline-block; padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .08em; background: #fff3cd; color: #8a6514; }
+.rv-status.s-approved { background: #e3f2e8; color: #1e6b3a; }
+.rv-status.s-rejected { background: #fde2e2; color: #9b1c1c; }
+.rv-status.s-closed { background: #eef1f5; color: #5b6b7d; }
+.rv-progress { min-width: 220px; text-align: right; }
+.rv-progress b { font-size: 26px; color: var(--navy); font-family: var(--serif); }
+.rv-progress b small { font-size: 13px; color: var(--muted); font-family: var(--sans); font-weight: 500; }
+.rv-progress .bar { display: block; height: 8px; margin-top: 6px; border-radius: 99px; background: #e6ebf2; overflow: hidden; }
+.rv-progress .bar i { display: block; height: 100%; background: linear-gradient(90deg, #2e7d6b, #1e6b3a); border-radius: inherit; transition: width .4s; }
+.rv-progress .ng { display: block; margin-top: 4px; color: #9b1c1c; font-weight: 700; }
+.rv-voters { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 6px; padding: 0; list-style: none; }
+.rv-voters li { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--line-soft); background: #fff; color: var(--muted); font-size: 12.5px; }
+.rv-voters li.is-done { border-color: #b9dcc6; background: #f1f8f4; color: #1e6b3a; }
+.rv-voters li.is-me { font-weight: 700; box-shadow: 0 0 0 2px rgba(11,58,110,.12); }
+.rv-section { margin-top: 22px; }
+.rv-section h3, .rv-form h3 { margin: 0 0 10px; font-family: var(--serif); font-size: 17px; color: var(--navy); }
+.rv-info { display: grid; grid-template-columns: 170px 1fr; margin: 0; border-top: 1px solid var(--line-soft); }
+.rv-info div { display: contents; }
+.rv-info dt, .rv-info dd { padding: 11px 12px; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
+.rv-info dt { color: var(--muted); background: var(--ink); }
+.rv-info dd { margin: 0; color: var(--pearl); word-break: break-word; }
+.rv-msg { white-space: pre-wrap; }
+.rv-sid { margin: 16px 0 0; text-align: center; }
+.rv-sid img { max-width: 100%; max-height: 420px; border-radius: 10px; border: 1px solid var(--line-soft); }
+.rv-sid figcaption { margin-top: 6px; font-size: 12px; color: var(--muted); }
+.rv-note { font-size: 12.5px; color: var(--muted); }
+.rv-form { margin-top: 28px; padding: 22px; border-radius: 16px; border: 1.5px solid var(--line-soft); background: #fff; transition: border-color .2s; }
+.rv-form.is-reject { border-color: #e7b3b3; }
+.rv-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+.rv-choice label { position: relative; display: grid; place-items: center; padding: 18px 12px; border-radius: 12px; border: 1.5px solid var(--line-soft); cursor: pointer; font-weight: 700; color: var(--navy); transition: .2s; }
+.rv-choice input { position: absolute; opacity: 0; pointer-events: none; }
+.rv-choice label.ok:has(input:checked) { border-color: #1e6b3a; background: #f1f8f4; color: #1e6b3a; box-shadow: 0 0 0 4px rgba(30,107,58,.1); }
+.rv-choice label.ng:has(input:checked) { border-color: #9b1c1c; background: #fdf1f1; color: #9b1c1c; box-shadow: 0 0 0 4px rgba(155,28,28,.1); }
+.rv-choice label:has(input:focus-visible) { outline: 2px solid var(--navy-2); outline-offset: 3px; }
+.rv-form .err:not(:empty) { display: block; }
+.rv-done { margin-top: 26px; padding: 18px 20px; border-radius: 14px; background: #f5f7fa; border: 1px solid var(--line-soft); }
+.rv-done b { display: block; font-size: 16px; color: var(--navy); }
+.rv-done small { color: var(--muted); }
+.rv-done p { margin: 8px 0 0; font-size: 14px; }
+.rv-done.approve { background: #f1f8f4; border-color: #b9dcc6; }
+.rv-done.approve b { color: #1e6b3a; }
+.rv-done.reject { background: #fdf1f1; border-color: #e7b3b3; }
+.rv-done.reject b { color: #9b1c1c; }
+@media (max-width: 640px) {
+  .rv-progress { text-align: left; min-width: 0; width: 100%; }
+  .rv-info { grid-template-columns: 1fr; }
+  .rv-info dt { padding-bottom: 4px; border-bottom: 0; }
+  .rv-choice { grid-template-columns: 1fr; }
+}
