@@ -517,3 +517,9 @@ dialog::backdrop { background: rgba(10,18,32,.55); backdrop-filter: blur(2px); }
   .pq { padding: 12px; }
 }
 @media print { .cert .res-print { margin-bottom: 4mm; } .cert .res-print th { width: auto; } }
+
+/* スマホ・タブレット：入力欄の文字が 16px 未満だと、タップしたときに iPhone が自動で拡大して画面がずれる。
+   入力欄だけ 16px にして拡大させない（ほかのスタイルより優先させるため !important） */
+@media (max-width: 860px), (pointer: coarse) {
+  input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select { font-size: 16px !important; }
+}
