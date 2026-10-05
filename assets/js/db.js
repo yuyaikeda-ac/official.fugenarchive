@@ -33,7 +33,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail,
-  createUserWithEmailAndPassword, sendEmailVerification, GoogleAuthProvider, signInWithPopup
+  createUserWithEmailAndPassword, sendEmailVerification, GoogleAuthProvider, signInWithPopup,
+  setPersistence, browserLocalPersistence, browserSessionPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { firebaseConfig } from "./firebase-config.js";
 import { sampleData } from "./sample-data.js";
@@ -49,6 +50,31 @@ if (!isDemo) {
   db = getFirestore(app);
   auth = getAuth(app);
 }
+
+// ---------- ログインを保つ期間（ログイン画面の「1 週間ログインしたままにする」） ----------
+//  ・選んだとき：ブラウザを閉じてもログインしたまま。1 週間たつと自動でログアウト。
+//    2 段階認証も、この端末では 1 週間省略できる（mfa.js）
+//  ・選ばないとき：ブラウザ（タブ）を閉じるとログアウト
+const KEEP_KEY = "fa_keep_until", KEEP_PREF = "fa_keep_pref";
+export const KEEP_DAYS = 7;
+const ls = {
+  get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* 保存できない環境 */ } },
+  del: (k) => { try { localStorage.removeItem(k); } catch { /* 同上 */ } }
+};
+/** ログインの直前に呼ぶ（Google はポップアップがブロックされないよう、待たずにログインへ進んでよい） */
+export function setKeepLogin(keep) {
+  ls.set(KEEP_PREF, keep ? "1" : "0");
+  if (keep) ls.set(KEEP_KEY, String(Date.now() + KEEP_DAYS * 86_400_000)); else ls.del(KEEP_KEY);
+  return isDemo ? Promise.resolve() : setPersistence(auth, keep ? browserLocalPersistence : browserSessionPersistence);
+}
+/** 前回のチェックの状態（ログイン画面の初期値） */
+export const keepLoginPref = () => ls.get(KEEP_PREF) === "1";
+/** 「1 週間ログインしたまま」の期間中か */
+export const keepLoginActive = () => Number(ls.get(KEEP_KEY) || 0) > Date.now();
+/** 「1 週間ログインしたまま」の期限が過ぎたか（→ ログアウトする） */
+export const keepLoginExpired = () => { const v = Number(ls.get(KEEP_KEY) || 0); return v > 0 && v <= Date.now(); };
+export const clearKeepLogin = () => ls.del(KEEP_KEY);
 
 /** Google アカウントでログイン（ポップアップ）。会員ページ・管理画面で共通 */
 export function signInWithGoogle() {

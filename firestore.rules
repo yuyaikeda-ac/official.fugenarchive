@@ -16,7 +16,9 @@ service cloud.firestore {
 
     // 2 段階認証（functions/mfa.js）を設定している人は、このログインでコードを確認するまで「ログインしていない」扱い
     function mfaOk() {
+      // 確認済みのログイン（auth_time）は mfaAts に入る（複数の端末で同時にログインできるよう、最近の 10 件）
       return request.auth.token.get('mfa', false) != true
+        || request.auth.token.auth_time in request.auth.token.get('mfaAts', [])
         || request.auth.token.get('mfaAt', 0) == request.auth.token.auth_time;
     }
     function signedIn() { return request.auth != null && mfaOk(); }

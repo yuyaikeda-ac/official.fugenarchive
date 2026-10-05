@@ -5,7 +5,7 @@
 //  ・mfaReset(uid)      … オーナーが、ほかの人の 2 段階認証を解除する
 //  画面は <dialog> で出す（どちらのページの CSS にも依存しないよう、スタイルはここに持つ）
 // ============================================================
-import { app, auth, esc } from "./db.js";
+import { app, auth, esc, keepLoginActive, keepLoginExpired, clearKeepLogin } from "./db.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 
 const call = (name, data) => httpsCallable(getFunctions(app, "asia-northeast1"), name)(data).then(r => r.data);
@@ -93,13 +93,32 @@ function loadQr() {
 // ============================================================
 /** このログインで確認が必要か（トークンを最新にして判定） */
 export async function mfaNeeded(user) {
-  const r = await user.getIdTokenResult(true);
-  return r.claims.mfa === true && Number(r.claims.mfaAt) !== Number(r.claims.auth_time);
+  const { claims: c } = await user.getIdTokenResult(true);
+  const t = Number(c.auth_time);
+  return c.mfa === true && !(c.mfaAts || []).map(Number).includes(t) && Number(c.mfaAt) !== t;
 }
 
-/** 設定している人にはコードの入力画面を出す。確認できたら true、ログアウトを選んだら false */
+// 「1 週間ログインしたままにする」を選んだ端末に覚えさせる番号（この端末では 1 週間コードを省略）
+const devKey = (uid) => `fa_mfa_dev_${uid}`;
+const devGet = (uid) => { try { return localStorage.getItem(devKey(uid)) || ""; } catch { return ""; } };
+const devSet = (uid, v) => { try { v ? localStorage.setItem(devKey(uid), v) : localStorage.removeItem(devKey(uid)); } catch { /* 保存できない環境 */ } };
+
+/** ログイン直後・ページを開いたときに呼ぶ。
+ *  ・「1 週間ログインしたまま」の期限が過ぎていたらログアウト（false）
+ *  ・2 段階認証を設定している人にはコードの入力画面を出す（覚えている端末なら省略）。確認できたら true */
 export async function mfaGate(user, { onLogout } = {}) {
-  if (!user || !(await mfaNeeded(user))) return true;
+  if (!user) return true;
+  if (keepLoginExpired()) {
+    clearKeepLogin(); devSet(user.uid, "");
+    await (onLogout ? onLogout() : auth.signOut());
+    return false;
+  }
+  if (!(await mfaNeeded(user))) return true;
+  const dev = devGet(user.uid);
+  if (dev && keepLoginActive()) {
+    try { await call("mfaVerify", { device: dev }); await user.getIdToken(true); return true; }
+    catch (e) { console.warn("端末の記憶でのログインに失敗", e); devSet(user.uid, ""); }
+  }
   let st;
   try { st = await call("mfaStatus"); } catch (e) { console.error(e); st = { method: "" }; }
   return new Promise((resolve0) => {
@@ -137,7 +156,8 @@ export async function mfaGate(user, { onLogout } = {}) {
       if (!code) return ui.msg("コードを入力してください。");
       await busy(e.submitter || ui.$(".mfa-form .primary"), "確認中…", async () => {
         try {
-          const r = await call("mfaVerify", { code });
+          const r = await call("mfaVerify", { code, remember: keepLoginActive() });
+          if (r.device) devSet(user.uid, r.device);
           await user.getIdToken(true);
           done = true;
           ui.d.close();

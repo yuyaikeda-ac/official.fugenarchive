@@ -11,6 +11,7 @@ service firebase.storage {
     function signedIn() {
       return request.auth != null
         && (request.auth.token.get('mfa', false) != true
+            || request.auth.token.auth_time in request.auth.token.get('mfaAts', [])
             || request.auth.token.get('mfaAt', 0) == request.auth.token.auth_time);
     }
     function isAdmin() {

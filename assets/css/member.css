@@ -1206,3 +1206,8 @@ button.doc { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 @media (max-width: 860px), (pointer: coarse) {
   input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select { font-size: 16px !important; }
 }
+
+/* ログイン画面：「1 週間ログインしたままにする」 */
+.auth-card .row { flex-wrap: wrap; gap: 8px 12px; }
+.keep-login { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); cursor: pointer; }
+.keep-login input { width: 16px; height: 16px; margin: 0; accent-color: var(--navy); }

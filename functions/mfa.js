@@ -3,9 +3,12 @@
 //
 //  しくみ
 //  ・設定した人のアカウントには、カスタムクレーム mfa: true を付ける
-//  ・ログインのたびに 6 桁のコードを確認し、確認できたら mfaAt にそのログインの時刻（auth_time）を入れる
-//    → Firestore / Storage のルールと Cloud Functions は「mfa が true なら mfaAt == auth_time」のときだけ
-//      ログイン済みとして扱う（ログインし直すと auth_time が変わるので、毎回コードが必要）
+//  ・ログインのたびに 6 桁のコードを確認し、確認できたら mfaAts にそのログインの時刻（auth_time）を加える
+//    （パソコンとスマホなど、複数の端末のログインを同時に保てるよう、最近の 10 件まで）
+//    → Firestore / Storage のルールと Cloud Functions は「mfa が true なら auth_time が mfaAts にある」ときだけ
+//      ログイン済みとして扱う（ログインし直すと auth_time が変わるので、コードが必要）
+//  ・ログイン画面で「1 週間ログインしたままにする」を選んだ端末は、1 週間はコードを省略できる
+//    （端末に覚えさせる番号を発行。mfa/{uid}.devices に番号のハッシュと期限だけを保存）
 //  ・認証アプリ：TOTP（RFC 6238。30 秒ごと・6 桁）。Google Authenticator / Microsoft Authenticator など
 //  ・メール：ログインのたびに、登録したメールアドレスへ 6 桁のコードを送る（10 分間有効）
 //  ・どちらも、スマホをなくしたときなどのための「予備コード」（1 回ずつ使える 10 個）を発行する
@@ -22,11 +25,16 @@ const MFA = {
   emailPerHour: 8,        // 1 時間に送れるメールのコードの数
   maxFails: 5,            // 続けて間違えられる回数（超えたら一時停止）
   lockMin: 15,            // 一時停止の時間（分）
-  backupCount: 10         // 予備コードの数
+  backupCount: 10,        // 予備コードの数
+  maxSessions: 10,        // 2 段階認証を済ませたログインを同時に保てる数（端末の数の目安）
+  rememberDays: 7,        // 「1 週間ログインしたままにする」でコードを省略できる日数
+  maxDevices: 10          // 覚えておく端末の数
 };
 
 /** このログイン（ID トークン）で 2 段階認証が済んでいるか（設定していない人は常に true） */
-const sessionOk = (token) => !token || token.mfa !== true || token.mfaAt === token.auth_time;
+const sessionOk = (token) => !token || token.mfa !== true
+  || (Array.isArray(token.mfaAts) && token.mfaAts.includes(token.auth_time))
+  || token.mfaAt === token.auth_time;   // 以前の形式（mfaAt：1 件だけ）
 
 // ---------- TOTP ----------
 const B32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -96,6 +104,13 @@ module.exports = function mfa({ onCall, HttpsError, getFirestore, getAuth, Field
     for (const [k, v] of Object.entries(patch)) { if (v === undefined) delete c[k]; else c[k] = v; }
     await auth.setCustomUserClaims(uid, c);
   }
+  /** このログインを「2 段階認証済み」に加える（以前の mfaAt は消す） */
+  async function addSession(uid, authTime) {
+    const u = await getAuth().getUser(uid);
+    const prev = (u.customClaims?.mfaAts || []).filter(t => t !== authTime);
+    await setClaims(uid, { mfa: true, mfaAt: undefined, mfaAts: [...prev, authTime].slice(-MFA.maxSessions) });
+  }
+  const CLEAR = { mfa: undefined, mfaAt: undefined, mfaAts: undefined };
   /** 間違いが続いたら一時停止 */
   function checkLock(d) {
     const until = d?.lockUntil?.toMillis?.() || 0;
@@ -169,16 +184,34 @@ module.exports = function mfa({ onCall, HttpsError, getFirestore, getAuth, Field
   const mfaVerify = onCall({ maxInstances: 5 }, async (req) => {
     const a = requireUser(req);
     const r = ref(a.uid), d = (await r.get()).data();
-    if (!d?.method) { await setClaims(a.uid, { mfa: undefined, mfaAt: undefined }); return { ok: true }; }
+    if (!d?.method) { await setClaims(a.uid, CLEAR); return { ok: true }; }
+    const now = Date.now();
+    const devices = Object.fromEntries(Object.entries(d.devices || {}).filter(([, exp]) => exp > now));
+    // 覚えている端末（1 週間ログインしたままにする）→ コードなしで通す
+    const dev = req.data?.device;
+    if (typeof dev === "string" && dev) {
+      if (!(devices[sha(dev)] > now)) throw new HttpsError("failed-precondition", "この端末の記憶の期限が切れました。コードを入力してください。");
+      await r.set({ lastLoginAt: FieldValue.serverTimestamp() }, { merge: true });
+      await addSession(a.uid, a.token.auth_time);
+      return { ok: true };
+    }
     checkLock(d);
     const patch = checkCode(d, req.data?.code);
     if (!patch) await recordFail(r, d);
     const { usedBackup, ...rest } = patch;
+    // 「1 週間ログインしたままにする」→ この端末を覚える（番号は端末だけに保存し、ここにはハッシュと期限だけ）
+    let device;
+    if (req.data?.remember) {
+      device = crypto.randomBytes(32).toString("hex");
+      devices[sha(device)] = now + MFA.rememberDays * 86_400_000;
+    }
+    const kept = Object.fromEntries(Object.entries(devices).sort((x, y) => y[1] - x[1]).slice(0, MFA.maxDevices));
     await r.set({ ...rest, fails: 0, lastLoginAt: FieldValue.serverTimestamp() }, { merge: true });
-    await setClaims(a.uid, { mfa: true, mfaAt: a.token.auth_time });
+    await r.update({ devices: kept });
+    await addSession(a.uid, a.token.auth_time);
     if (usedBackup) logger.info("2 段階認証：予備コードでログイン", { uid: a.uid });
     // 予備コードを使ったときだけ、残りの数を返す（使っていなければ項目なし）
-    return usedBackup ? { ok: true, usedBackup: true, backupLeft: rest.backup.length } : { ok: true };
+    return { ok: true, ...(device ? { device, days: MFA.rememberDays } : {}), ...(usedBackup ? { usedBackup: true, backupLeft: rest.backup.length } : {}) };
   });
 
   // ---------- 設定する ----------
@@ -221,7 +254,7 @@ module.exports = function mfa({ onCall, HttpsError, getFirestore, getAuth, Field
       pending: FieldValue.delete(), pendingCode: FieldValue.delete()
     }, { merge: true });
     // 設定した今のログインは、確認済みとして扱う
-    await setClaims(a.uid, { mfa: true, mfaAt: a.token.auth_time });
+    await addSession(a.uid, a.token.auth_time);
     logger.info("2 段階認証を設定", { uid: a.uid, method: p.method });
     return { ok: true, backupCodes: codes };
   });
@@ -243,7 +276,7 @@ module.exports = function mfa({ onCall, HttpsError, getFirestore, getAuth, Field
     checkLock(d);
     if (!checkCode(d, req.data?.code)) await recordFail(r, d);
     await r.delete();
-    await setClaims(a.uid, { mfa: undefined, mfaAt: undefined });
+    await setClaims(a.uid, CLEAR);
     logger.info("2 段階認証を解除（本人）", { uid: a.uid });
     return { ok: true };
   });
@@ -257,7 +290,7 @@ module.exports = function mfa({ onCall, HttpsError, getFirestore, getAuth, Field
     if (typeof uid !== "string" || !uid) throw new HttpsError("invalid-argument", "対象を指定してください。");
     const had = (await ref(uid).get()).exists;
     await ref(uid).delete();
-    try { await setClaims(uid, { mfa: undefined, mfaAt: undefined }); }
+    try { await setClaims(uid, CLEAR); }
     catch (e) { if (e.code !== "auth/user-not-found") throw e; }
     logger.info("2 段階認証を解除（オーナー）", { uid, by: a.uid, had });
     return { ok: true, had };

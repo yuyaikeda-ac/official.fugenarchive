@@ -37,7 +37,7 @@
           <div class="pw-wrap"><input id="pw" type="password" autocomplete="current-password" required><button type="button" class="pw-toggle" id="pw-toggle">表示</button></div>
         </div>
         <div class="row">
-          <span></span>
+          <label class="keep-login"><input type="checkbox" id="keep-login"> 1週間ログインしたままにする</label>
           <button type="button" class="link-btn" id="to-reset">パスワードをお忘れの方</button>
         </div>
         <button class="lux-btn" type="submit" id="login-btn">ログイン</button>
@@ -64,7 +64,7 @@
 
 <script type="module">
   import { login, loginWithGoogle, onAuth, resetPassword, errorMessage } from "./assets/js/member-api.js";
-  import { esc } from "./assets/js/db.js";
+  import { esc, setKeepLogin, keepLoginPref } from "./assets/js/db.js";
 
   const $ = id => document.getElementById(id);
   const show = (el, type, msg) => $(el).innerHTML = msg ? `<div class="alert ${type}">${esc(msg)}</div>` : "";
@@ -73,6 +73,7 @@
   let submitting = false;
   onAuth(user => { if (user && !submitting) location.replace("member.html"); });
 
+  $("keep-login").checked = keepLoginPref();
   $("pw-toggle").addEventListener("click", e => {
     const s = $("pw").type === "password";
     $("pw").type = s ? "text" : "password";
@@ -87,6 +88,7 @@
     const btn = $("login-btn");
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> ログイン中…';
     try {
+      await setKeepLogin($("keep-login").checked);
       await login(email, pw);
       location.replace("member.html");
     } catch (err) {
@@ -102,6 +104,7 @@
   $("google-btn").addEventListener("click", async () => {
     submitting = true;
     show("login-alert", "", "");
+    setKeepLogin($("keep-login").checked);   // ポップアップを止めないよう待たない
     try {
       await loginWithGoogle();
       location.replace("member.html");

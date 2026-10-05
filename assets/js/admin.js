@@ -8,7 +8,7 @@
 //  ・投票・アンケート（総会の議決・無記名投票・集計の確定・ハッシュチェーンの検証）
 //  ・管理者の招待（オーナーのみ）
 // ============================================================
-import { adminApi, esc, fmtDate, isDemo, NEWS_CATEGORIES, db, app } from "./db.js";
+import { adminApi, esc, fmtDate, isDemo, NEWS_CATEGORIES, db, app, setKeepLogin, keepLoginPref } from "./db.js";
 import { getStudentId, OCCUPATIONS } from "./member-api.js";
 import { createRichEditor } from "./rich-editor.js";
 import { mfaGate, openMfaSettings, mfaReset } from "./mfa.js";
@@ -298,9 +298,11 @@ async function enter(user) {
 }
 
 // ---------- Google ログイン ----------
+$("keep-login").checked = keepLoginPref();
 $("google-btn").addEventListener("click", async () => {
   if (isDemo) return;
   notice("login-msg", "", "");
+  setKeepLogin($("keep-login").checked);   // ポップアップを止めないよう待たない
   try { await adminApi.loginWithGoogle(); }
   catch (err) {
     console.error(err);
@@ -342,7 +344,7 @@ $("login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (isDemo) return;
   notice("login-msg", "", "");
-  try { await adminApi.login($("login-email").value, $("login-pass").value); }
+  try { await setKeepLogin($("keep-login").checked); await adminApi.login($("login-email").value, $("login-pass").value); }
   catch (err) { console.error(err); notice("login-msg", "error", "ログインに失敗しました。メールアドレスとパスワードをご確認ください。"); }
 });
 $("mfa-btn").addEventListener("click", () => openMfaSettings());
