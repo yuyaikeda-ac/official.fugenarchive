@@ -375,3 +375,103 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
   .rich-body img[data-align^="float"] { float: none; display: block; margin: 1em auto; max-width: 100%; }
   .rich-body img[width] { min-width: 50%; }
 }
+
+/* ============================================================
+   AI チャット（お問い合わせ）への入口ボタン（common.js で全ページに追加）
+   ============================================================ */
+.chat-fab { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 60; display: inline-flex; align-items: center; gap: 8px; padding: 12px 18px 12px 14px; border-radius: 999px; background: var(--main); color: #fff; text-decoration: none; font-size: 14px; font-weight: 700; box-shadow: 0 10px 28px -8px rgba(7,39,72,.55); transition: transform .2s, background .2s; }
+.chat-fab:hover { background: var(--main-dark); color: #fff; transform: translateY(-2px); }
+.chat-fab:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.chat-fab svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+.chat-fab .chat-fab-s { display: none; }
+.has-chat-fab .pagetop { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 64px); right: max(20px, env(safe-area-inset-right)); }
+.has-chat-fab .footer-main { padding-bottom: 88px; }
+@media (max-width: 640px) {
+  .chat-fab { padding: 11px 14px 11px 12px; font-size: 13px; gap: 6px; }
+  .chat-fab .chat-fab-l { display: none; }
+  .chat-fab .chat-fab-s { display: inline; }
+}
+
+/* ============================================================
+   お問い合わせ（チケット）：開始フォーム（contact.html）
+   ============================================================ */
+.tk-hint { margin: 6px 0 0; font-size: 12px; color: var(--text-sub); }
+.tk-count { text-align: right; }
+.tk-spin { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; vertical-align: -2px; animation: tk-spin .8s linear infinite; }
+@keyframes tk-spin { to { transform: rotate(360deg); } }
+.tk-recent ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-width: 720px; }
+.tk-recent a { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--text); background: #fff; transition: border-color .2s, background .2s; }
+.tk-recent a:hover { border-color: var(--main); background: var(--main-light); color: var(--text); }
+.tk-recent a b { color: var(--main); font-variant-numeric: tabular-nums; }
+.tk-recent a small { margin-left: auto; color: var(--text-sub); }
+
+/* ============================================================
+   お問い合わせチャット（ticket.html）
+   ============================================================ */
+.tk-wrap { padding-bottom: 48px; }
+.tk-state { max-width: 720px; margin: 24px auto; padding: 32px 24px; border: 1px solid var(--border); border-radius: 12px; background: #fff; text-align: center; color: var(--text-sub); }
+.tk-state h2 { margin: 0 0 8px; color: var(--main); font-size: 20px; }
+.tk-card { max-width: 820px; margin: 8px auto 0; border: 1px solid var(--border); border-radius: 16px; background: #fff; box-shadow: 0 12px 32px -18px rgba(7,39,72,.35); display: flex; flex-direction: column; }
+.tk-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 22px; border-radius: 15px 15px 0 0; background: linear-gradient(110deg, var(--main-dark), var(--main)); color: #fff; }
+.tk-head-main { min-width: 0; }
+.tk-no { display: inline-block; padding: 1px 10px; border-radius: 999px; background: rgba(255,255,255,.16); font-size: 12px; letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+.tk-head h1 { margin: 6px 0 2px; font-family: var(--font-serif); font-size: 20px; overflow-wrap: anywhere; }
+.tk-head small { font-size: 12px; opacity: .85; }
+.tk-status { flex-shrink: 0; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.tk-status.ai { background: #e6eefc; color: #1d4ed8; }
+.tk-status.wait { background: #fff3cd; color: #8a6514; }
+.tk-status.staff { background: #e3f2e8; color: #1e6b3a; }
+.tk-status.closed { background: #eef1f5; color: #5b6b7d; }
+.tk-note { margin: 0; padding: 8px 22px; font-size: 12px; color: var(--text-sub); background: var(--bg-gray); border-bottom: 1px solid var(--border); }
+.tk-log { display: flex; flex-direction: column; gap: 14px; padding: 20px 18px; min-height: 280px; max-height: min(62vh, 640px); overflow-y: auto; background: #fafbfd; }
+.tk-msg { display: flex; flex-direction: column; align-items: flex-start; max-width: 82%; }
+.tk-msg.me { align-self: flex-end; align-items: flex-end; }
+.tk-who { display: flex; align-items: center; gap: 6px; margin: 0 0 4px 4px; font-size: 12px; font-weight: 700; color: var(--main); }
+.tk-msg.staff .tk-who { color: #1e6b3a; }
+.tk-who svg { width: 20px; height: 20px; padding: 2px; border-radius: 50%; background: var(--main-light); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tk-msg.staff .tk-who svg { background: #e3f2e8; }
+.tk-bubble { padding: 11px 15px; border-radius: 4px 16px 16px 16px; background: #fff; border: 1px solid var(--border); font-size: 14.5px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
+.tk-msg.ai .tk-bubble { background: #f1f5fd; border-color: #d6e2f7; }
+.tk-msg.staff .tk-bubble { background: #f1f8f4; border-color: #c9e3d3; }
+.tk-msg.me .tk-bubble { background: var(--main); border-color: var(--main); color: #fff; border-radius: 16px 4px 16px 16px; }
+.tk-msg.me .tk-bubble a { color: #fff; }
+.tk-msg.is-pending .tk-bubble { opacity: .7; }
+.tk-time { margin: 3px 6px 0; font-size: 11px; color: var(--text-sub); }
+.tk-sys { align-self: center; max-width: 90%; text-align: center; }
+.tk-sys span { display: inline-block; padding: 4px 12px; border-radius: 999px; background: #eef1f5; color: var(--text-sub); font-size: 12px; line-height: 1.6; white-space: pre-wrap; }
+.tk-sys.err span { background: #fdecec; color: #9b1c1c; }
+.tk-dots { display: inline-flex; gap: 3px; margin-right: 4px; vertical-align: middle; }
+.tk-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--main); opacity: .3; animation: tk-dot 1.2s infinite; }
+.tk-dots i:nth-child(2) { animation-delay: .2s; }
+.tk-dots i:nth-child(3) { animation-delay: .4s; }
+@keyframes tk-dot { 30% { opacity: 1; transform: translateY(-2px); } }
+.tk-composer { padding: 12px 14px 14px; border-top: 1px solid var(--border); background: #fff; border-radius: 0 0 15px 15px; }
+.tk-form { display: flex; align-items: flex-end; gap: 8px; }
+.tk-form textarea { flex: 1; min-width: 0; min-height: 46px; max-height: 200px; padding: 11px 14px; border: 1px solid var(--border); border-radius: 12px; font: 15px/1.6 var(--font); resize: none; }
+.tk-form textarea:focus { outline: 2px solid var(--main); outline-offset: 1px; }
+.tk-send { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 46px; padding: 0 18px; border: 0; border-radius: 12px; background: var(--main); color: #fff; font: 700 14px var(--font); cursor: pointer; }
+.tk-send:hover { background: var(--main-dark); }
+.tk-send:disabled { opacity: .6; cursor: default; }
+.tk-send svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tk-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; margin-top: 10px; font-size: 13px; }
+.tk-link { padding: 4px 0; border: 0; background: none; color: var(--main); font: inherit; text-decoration: underline; cursor: pointer; }
+.tk-link.danger { color: var(--text-sub); }
+.tk-link:disabled { opacity: .5; cursor: default; }
+.tk-wait-note { color: var(--text-sub); }
+.tk-closed { margin: 0; padding: 8px 4px; text-align: center; color: var(--text-sub); font-size: 14px; }
+.tk-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+@media (max-width: 640px) {
+  .tk-wrap { padding: 0; }
+  .tk-card { margin: 0; border-radius: 0; border-left: 0; border-right: 0; }
+  .tk-head { padding: 14px 16px; border-radius: 0; }
+  .tk-head h1 { font-size: 17px; }
+  .tk-note { padding: 8px 16px; }
+  .tk-log { padding: 16px 12px; max-height: none; min-height: 50vh; overflow: visible; }
+  .tk-msg { max-width: 90%; }
+  /* スマホでは入力欄を画面の下に固定 */
+  .tk-composer { position: sticky; bottom: 0; z-index: 5; border-radius: 0; padding-bottom: max(14px, env(safe-area-inset-bottom)); box-shadow: 0 -6px 18px -12px rgba(0,0,0,.25); }
+  .tk-send span { display: none; }
+  .tk-send { padding: 0 14px; }
+}
+/* チャットのページでは「ページトップ」ボタンを出さない（入力欄と重なるため） */
+.tk-page .pagetop { display: none; }

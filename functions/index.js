@@ -16,7 +16,7 @@ const { defineSecret } = require("firebase-functions/params");
 const { setGlobalOptions } = require("firebase-functions/v2");
 const logger = require("firebase-functions/logger");
 const { initializeApp } = require("firebase-admin/app");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { getAuth } = require("firebase-admin/auth");
 const crypto = require("node:crypto");
 const mails = require("./mails");
@@ -122,7 +122,13 @@ exports.mailOnContact = onDocumentCreated(
   (event) => aiOperator.handleContact(event)
 );
 
-// ---------- 管理画面：お問い合わせへ担当者が返信 ----------
+// ---------- お問い合わせチケット（専用チャット＋ AI オペレータ。中身は tickets.js） ----------
+Object.assign(exports, require("./tickets")({
+  onCall, HttpsError, getFirestore, getAuth, FieldValue, Timestamp, logger, sendAll, mails,
+  ANTHROPIC_API_KEY: aiOperator.ANTHROPIC_API_KEY, mailSecrets: opts.secrets
+}));
+
+// ---------- 管理画面：お問い合わせ（以前のフォーム）へ担当者が返信 ----------
 exports.replyContact = onCall({ secrets: opts.secrets, maxInstances: 3 }, async (req) => {
   const db = getFirestore();
   const uid = req.auth?.uid;

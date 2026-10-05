@@ -107,6 +107,17 @@ document.addEventListener("DOMContentLoaded", () => {
     toggle.setAttribute("aria-expanded", open);
   });
 
+  // ---- AI チャット（お問い合わせ）への入口：右下の丸いボタン（お問い合わせ・チャットのページ以外） ----
+  if (!["contact.html", "ticket.html"].includes(current) && !document.body.classList.contains("no-chat-fab") && footer) {
+    const fab = document.createElement("a");
+    fab.className = "chat-fab";
+    fab.href = "contact.html";
+    fab.setAttribute("aria-label", "AI に質問・お問い合わせ");
+    fab.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.9A8 8 0 1 1 21 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/></svg><span class="chat-fab-l">AI に質問・お問い合わせ</span><span class="chat-fab-s">質問する</span>';
+    document.body.appendChild(fab);
+    document.body.classList.add("has-chat-fab");
+  }
+
   // ---- ページトップ ----
   const pagetop = document.querySelector(".pagetop");
   if (pagetop) {

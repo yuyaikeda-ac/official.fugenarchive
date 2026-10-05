@@ -186,6 +186,18 @@ service cloud.firestore {
       allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
     }
 
+    // ---------- お問い合わせチケット（専用チャット） ----------
+    // 書き込みはすべて Cloud Functions（tickets.js）経由。お客様は専用リンクのトークンで関数から読み書きする
+    // 管理者は一覧・やりとりを閲覧できる。トークン・個人情報の対応表・AI の履歴（private）はだれも読めない
+    match /tickets/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+      match /messages/{mid} { allow read: if isAdmin(); allow write: if false; }
+      match /private/{doc} { allow read, write: if false; }
+    }
+    // AI の操作の記録（連続送信の防止など。サーバーのみ）
+    match /ai_actions/{id} { allow read, write: if false; }
+
     // ---------- 理事会による入会審査 ----------
     // 理事会のグループと、審査を担当する理事会の設定は管理者のみ
     match /board_groups/{id} { allow read, write: if isAdmin(); }

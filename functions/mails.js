@@ -444,4 +444,61 @@ ${signature()}`
   }];
 }
 
-module.exports = { CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided , contactAiReply, passwordResetByAi, contactAiNotify, contactStaffReply };
+// ============================================================
+//  お問い合わせチケット（tickets.js）
+// ============================================================
+// ---------- AI・担当者の返信（お客様へ。返信のたびに送信） ----------
+function ticketReplyToCustomer({ to, name, no, link, from, text, first = false, closed = false, category = "" }) {
+  const who = from === "staff" ? "担当者" : "AI オペレータ";
+  return [{
+    to,
+    subject: `【${CONFIG.orgName}】${first ? "お問い合わせを受け付けました" : "お問い合わせへの返信"}（${no}）`,
+    text:
+`${name} 様
+
+${CONFIG.orgName}です。${first
+  ? `\nお問い合わせを受け付け、チケットを発行しました。\n\n■ チケット番号：${no}\n■ 種別　　　　：${category}\n\nAI オペレータからの返信は次のとおりです。`
+  : `\nお問い合わせ（${no}）に、${who}から返信がありました。`}
+
+――――――――――――――――――――
+${text.trim()}
+――――――――――――――――――――
+
+▼ このお問い合わせの専用チャット（返信・続きはこちらから）
+${link}
+※ このリンクはお客様専用です。他の方に転送しないでください。
+${closed ? "\nこのお問い合わせは完了となりました。新しいお問い合わせはお問い合わせページからお送りください。\n" : ""}${from === "ai" ? `
+※ AI オペレータの返信は自動で作成しています。担当者との対応をご希望の場合は、専用チャットの「担当者に相談する」を押してください。` : ""}
+${signature()}`
+  }];
+}
+
+// ---------- 委員会への通知（担当者へ引き継ぎ・担当者の対応中のお客様からの返信） ----------
+function ticketToStaff({ kind, ticket: t, text, adminLink }) {
+  const escalated = kind === "escalated";
+  return [{
+    to: CONFIG.notifyTo,
+    subject: escalated
+      ? `【お問い合わせ・要対応${t.priority === "urgent" || t.priority === "high" ? "（優先度：" + t.priorityLabel + "）" : ""}】${t.no} ${t.category}：${t.name} 様`
+      : `【お問い合わせ・お客様から返信】${t.no}：${t.name} 様`,
+    text:
+`${escalated ? "AI オペレータが担当者へ引き継ぎました。対応をお願いします。" : "担当者が対応中のお問い合わせに、お客様から返信がありました。"}
+返信は管理画面から行ってください（お客様へメールが届き、専用チャットにも表示されます）。
+
+▼ 管理画面
+${adminLink}
+
+■ チケット：${t.no}（${t.category}）
+■ お名前　：${t.name}
+■ メール　：${t.email}
+${escalated ? `■ 優先度　：${t.priorityLabel || "—"}
+■ AI の要約：${t.summary || "—"}
+■ 担当者がすべきこと：${t.todoForStaff || "—"}
+
+■ これまでのやりとり
+` : "■ お客様の返信\n"}${text}
+`
+  }];
+}
+
+module.exports = { CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided , contactAiReply, passwordResetByAi, contactAiNotify, contactStaffReply , ticketReplyToCustomer, ticketToStaff };

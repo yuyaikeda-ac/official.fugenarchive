@@ -17,7 +17,8 @@ import {
   AUDIENCE_LABEL, PURPOSE_LABEL, FORM_STATUS_LABEL, SIGNER_LABEL, EXTRA_FIELDS
 } from "./consent-core.js";
 import {
-  collection, query, where, getDocs, getDoc, doc, addDoc, updateDoc, setDoc, deleteDoc, deleteField
+  collection, query, where, getDocs, getDoc, doc, addDoc, updateDoc, setDoc, deleteDoc, deleteField,
+  onSnapshot, orderBy, limit as qLimit
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 
@@ -191,6 +192,7 @@ function openModal(title, html, { wide = false } = {}) {
   return $("modal-body");
 }
 function openDrawer(title, html) {
+  $("drawer").dataset.mode = "";
   $("drawer-title").textContent = title;
   $("drawer-body").innerHTML = html;
   if (!$("drawer").open) $("drawer").showModal();
@@ -205,7 +207,19 @@ $("modal").addEventListener("click", e => {
   if (e.target === d) { const r = d.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) d.close(); }
 });
 // 編集パネル：入力内容を失わないよう、閉じる前に確認（保存したときは確認なし）
-const confirmDiscard = () => window.confirm("編集中の内容は保存されません。閉じてよろしいですか？");
+const confirmDiscard = () => {
+  // お問い合わせ（チケット）のパネルは、返信を入力中のときだけ確認
+  if ($("drawer").dataset.mode === "ticket") {
+    const t = $("tk-text");
+    return !t?.value.trim() || window.confirm("入力中の返信は送信されません。閉じてよろしいですか？");
+  }
+  return window.confirm("編集中の内容は保存されません。閉じてよろしいですか？");
+};
+// パネルを閉じたら、リアルタイム更新（チケット）を止める
+let drawerStop = null;
+$("drawer").addEventListener("close", () => { drawerStop?.(); drawerStop = null; });
+// 画面を切り替えたら、その画面のリアルタイム更新を止める
+let pageStop = null;
 $("drawer").addEventListener("click", e => { if (e.target.closest("[data-close]") && confirmDiscard()) closeDrawer(); });
 $("drawer").addEventListener("cancel", e => { if (!confirmDiscard()) e.preventDefault(); });
 
@@ -343,6 +357,7 @@ const VIEWS = {
 };
 function route() {
   if (!currentAdmin) return;
+  pageStop?.(); pageStop = null;
   const [name, sub] = (location.hash.slice(1) || "dashboard").split("/");
   const view = VIEWS[name] && (!VIEWS[name].owner || isOwner()) ? VIEWS[name] : VIEWS.dashboard;
   const key = VIEWS[name] === view ? name : "dashboard";
@@ -366,10 +381,21 @@ async function refreshBadges() {
     const rows = await getRows("members");
     const n = rows.filter(r => r.status === "pending" || r.signatureRewrite === "requested" || r.typeRequest).length;
     document.querySelectorAll('[data-badge="pending"]').forEach(b => { b.hidden = !n; b.textContent = n; });
-    const contacts = await getRows("contacts").catch(() => []);
-    const c = contacts.filter(r => contactStatusOf(r) === "open").length;
-    document.querySelectorAll('[data-badge="contacts"]').forEach(b => { b.hidden = !c; b.textContent = c; });
+    setTicketBadge(await ticketsNeedingStaff().catch(() => []));
   } catch (e) { console.warn(e); }
+}
+/** メニューの「お問い合わせ」の数（担当者の確認待ち・未読のチケット） */
+function setTicketBadge(list) {
+  const c = list.length;
+  document.querySelectorAll('[data-badge="contacts"]').forEach(b => { b.hidden = !c; b.textContent = c; });
+}
+/** 担当者の確認待ち、または未読のチケット（新しい順） */
+async function ticketsNeedingStaff() {
+  const col = collection(db, "tickets");
+  const [a, b] = await Promise.all([getDocs(query(col, where("status", "==", "waiting_staff"))), getDocs(query(col, where("unreadStaff", "==", true)))]);
+  const byId = new Map();
+  [...a.docs, ...b.docs].forEach(d => byId.set(d.id, { id: d.id, ...d.data() }));
+  return [...byId.values()].sort((x, y) => (toDate(y.updatedAt) || 0) - (toDate(x.updatedAt) || 0));
 }
 
 // ============================================================
@@ -377,14 +403,13 @@ async function refreshBadges() {
 // ============================================================
 async function renderDashboard() {
   const safe = (p) => p.catch(e => { console.warn(e); return []; });
-  const [members, contacts, forms, sigs, news, reviews] = await Promise.all([
-    safe(getRows("members", true)), safe(getRows("contacts", true)), safe(getRows("consent_forms", true)),
+  const [members, tickets, forms, sigs, news, reviews] = await Promise.all([
+    safe(getRows("members", true)), safe(ticketsNeedingStaff()), safe(getRows("consent_forms", true)),
     safe(getRows("consent_signatures", true)), safe(getRows("news")), safe(getRows("reviews", true))
   ]);
   const pending = members.filter(m => m.status === "pending");
   const active = members.filter(m => m.status === "active").length;
   const published = forms.filter(f => f.status === "published").length;
-  const recentContacts = [...contacts].sort((a, b) => (toDate(b.createdAt) || 0) - (toDate(a.createdAt) || 0)).slice(0, 5);
 
   const sigRequests = members.filter(m => m.signatureRewrite === "requested");
   const typeRequests = members.filter(m => m.typeRequest);
@@ -408,7 +433,7 @@ async function renderDashboard() {
     <div class="stats">
       <a class="card stat warn${pending.length ? " has" : ""}" href="#members"><div class="ic">${icon("users")}</div><div class="k">審査待ちの入会申込</div><div class="v">${pending.length}<small>件</small></div></a>
       <a class="card stat ok" href="#members"><div class="ic">${icon("shield")}</div><div class="k">有効会員</div><div class="v">${active}<small>名</small></div></a>
-      <a class="card stat info" href="#contacts"><div class="ic">${icon("mail")}</div><div class="k">お問い合わせ</div><div class="v">${contacts.length}<small>件</small></div></a>
+      <a class="card stat info${tickets.length ? " has" : ""}" href="#contacts"><div class="ic">${icon("mail")}</div><div class="k">要対応のお問い合わせ</div><div class="v">${tickets.length}<small>件</small></div></a>
       <a class="card stat gold" href="#consent"><div class="ic">${icon("sign")}</div><div class="k">公開中の同意書 ／ 署名</div><div class="v">${published}<small>件 ／ ${sigs.length} 署名</small></div></a>
     </div>
     <div class="grid2">
@@ -433,9 +458,12 @@ async function renderDashboard() {
         </div>
       </section>
       <section class="card">
-        <div class="card-head"><h2>最近のお問い合わせ</h2><a class="btn btn-sm" href="#contacts">すべて見る</a></div>
-        ${recentContacts.length ? `<ul class="mini-list">${recentContacts.map(c => `<li><div class="t"><b>${esc(c.subject || "")}：${esc(c.name)}</b><small>${fmtDT(c.createdAt)}・${esc((c.message || "").slice(0, 80))}</small></div></li>`).join("")}</ul>`
-          : '<div class="empty">お問い合わせはありません。</div>'}
+        <div class="card-head"><h2>要対応のお問い合わせ</h2><a class="btn btn-sm" href="#contacts">すべて見る</a></div>
+        ${tickets.length ? `<ul class="mini-list">${tickets.slice(0, 5).map(t => `<li>
+          <div class="t"><b>${t.unreadStaff ? '<i class="unread-dot" title="未読"></i>' : ""}${esc(t.no || "")}　${esc(t.name || "")}</b>
+            <small>${ticketStatusPill(t)}${t.priority ? priorityPill(t) : ""} ${fmtDT(t.updatedAt)}・${esc((t.summary || t.lastText || "").slice(0, 80))}</small></div>
+          <button class="btn btn-sm" data-ticket="${esc(t.id)}">開く</button></li>`).join("")}</ul>`
+          : '<div class="empty">担当者の対応が必要なお問い合わせはありません。</div>'}
       </section>
       <section class="card">
         <div class="card-head"><h2>最近のお知らせ</h2><a class="btn btn-sm" href="#news">一覧へ</a></div>
@@ -845,6 +873,195 @@ $("page").addEventListener("click", async (e) => {
 // ============================================================
 //  お問い合わせ
 // ============================================================
+// ============================================================
+//  お問い合わせ（チケット）
+//  ・お問い合わせはチケット（tickets/{id}）として届き、AI チャットで 1 次対応される
+//  ・担当者はここで会話を確認し、返信（お客様にメールで通知）・引き継ぎ・完了ができる
+//  ・一覧と開いているチケットはリアルタイムで更新（onSnapshot）
+//  ・以前のフォームのお問い合わせは #contacts/legacy
+// ============================================================
+const TICKET_STATUS = {
+  ai: ["info", "AI対応中"], waiting_staff: ["ng", "担当者の確認待ち"], staff: ["pending", "担当者が対応中"], closed: ["draft", "対応完了"]
+};
+const TICKET_PRIORITY_LABEL = { urgent: "緊急", high: "高", normal: "通常", low: "低" };
+const ticketNeeds = (t) => t.status === "waiting_staff" || t.status === "staff" || !!t.unreadStaff;
+const ticketStatusPill = (t) => { const s = TICKET_STATUS[t.status] || TICKET_STATUS.ai; return pill(s[0], s[1]); };
+const priorityPill = (t) => pill(PRIORITY_PILL[t.priority] || "info", `優先度：${t.priorityLabel || TICKET_PRIORITY_LABEL[t.priority] || t.priority}`);
+const callFn = (name, data) => httpsCallable(getFunctions(app, "asia-northeast1"), name)(data).then(r => r.data);
+/** 文字を安全に表示し、URL だけリンクにする（改行は CSS で保持） */
+const linkify = (s) => esc(s).replace(/https?:\/\/[^\s<>"']+/g, (u) => `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`);
+
+const TICKET_FILTERS = { need: "要対応", ai: "AI対応中", closed: "対応完了", all: "すべて" };
+let ticketFilter = "need";
+const ticketMatch = (t, f) => f === "all" || (f === "need" ? ticketNeeds(t) : f === "ai" ? t.status === "ai" : t.status === "closed");
+
+function renderContacts(sub = "") {
+  if (sub === "legacy") return renderLegacyContacts();
+  $("page").innerHTML = `
+    <p class="page-intro">お問い合わせは「チケット」として届き、まず AI オペレータがチャットで対応します（個人情報は伏せ字にしてから AI に渡します）。
+      担当者の確認が必要なものは「要対応」に入ります。返信すると、お客様にメールで通知されます。</p>
+    <div class="toolbar">
+      <div class="chips" id="tchips">${Object.entries(TICKET_FILTERS).map(([k, l]) =>
+        `<button class="chip${ticketFilter === k ? " is-active" : ""}" data-tf="${k}">${l}<span class="n" data-tn="${k}">…</span></button>`).join("")}</div>
+      <span class="spacer"></span>
+      <input class="search" id="q" type="search" placeholder="番号・名前・メール・内容で検索">
+    </div>
+    <div class="card table-wrap"><table class="tbl cards" id="tbl">
+      <thead><tr><th>状態</th><th>チケット / お名前</th><th>内容（AI の要約）</th><th>更新</th><th></th></tr></thead>
+      <tbody><tr><td colspan="5" class="loading"><span class="spin"></span> 読み込み中…</td></tr></tbody></table></div>
+    <p class="legacy-link"><a href="#contacts/legacy">以前のフォームのお問い合わせ →</a></p>`;
+  let rows = null;
+  const draw = () => {
+    if (!rows) return;
+    for (const k of Object.keys(TICKET_FILTERS)) {
+      const el = document.querySelector(`[data-tn="${k}"]`);
+      if (el) el.textContent = rows.filter(t => ticketMatch(t, k)).length;
+    }
+    const q = ($("q")?.value || "").trim().toLowerCase();
+    const list = rows.filter(t => ticketMatch(t, ticketFilter))
+      .filter(t => !q || `${t.no} ${t.name} ${t.email} ${t.category} ${t.summary || ""} ${t.lastText || ""}`.toLowerCase().includes(q));
+    const tb = $("tbl")?.querySelector("tbody");
+    if (!tb) return;
+    tb.innerHTML = list.length ? list.map(t => `<tr class="clickable${t.unreadStaff ? " is-unread" : ""}" data-ticket="${esc(t.id)}">
+      <td class="st">${ticketStatusPill(t)}${t.priority ? priorityPill(t) : ""}${t.unreadStaff ? pill("ng", "未読") : ""}</td>
+      <td class="main"><b>${t.unreadStaff ? '<i class="unread-dot" title="未読"></i>' : ""}${esc(t.name || "（お名前なし）")}</b>
+        <span class="sub">${esc(t.no || "")}${t.category ? `・${esc(t.category)}` : ""}</span><span class="sub">${esc(t.email || "")}</span></td>
+      <td class="msg-cell">${esc(t.summary || t.lastText || "")}${t.summary && t.lastText ? `<span class="sub">最新：${esc({ customer: "お客様", ai: "AI", staff: "担当者", system: "システム" }[t.lastFrom] || "")}「${esc(t.lastText)}」</span>` : ""}</td>
+      <td data-label="更新">${fmtDT(t.updatedAt)}</td>
+      <td class="act"><button class="btn btn-sm" data-ticket="${esc(t.id)}">開く</button></td></tr>`).join("")
+      : `<tr><td colspan="5" class="empty">${ticketFilter === "need" ? "担当者の対応が必要なお問い合わせはありません。" : "該当するお問い合わせはありません。"}</td></tr>`;
+  };
+  $("q").addEventListener("input", draw);
+  $("tchips").addEventListener("click", e => {
+    const k = e.target.closest("[data-tf]")?.dataset.tf;
+    if (!k) return;
+    ticketFilter = k;
+    $("tchips").querySelectorAll(".chip").forEach(c => c.classList.toggle("is-active", c.dataset.tf === k));
+    draw();
+  });
+  pageStop = onSnapshot(query(collection(db, "tickets"), orderBy("updatedAt", "desc"), qLimit(200)), (snap) => {
+    rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    draw();
+    setTicketBadge(rows.filter(t => t.status === "waiting_staff" || t.unreadStaff));
+  }, (err) => {
+    console.error(err);
+    const tb = $("tbl")?.querySelector("tbody");
+    if (tb) tb.innerHTML = `<tr><td colspan="5" class="empty">読み込みに失敗しました：${esc(err.message)}</td></tr>`;
+  });
+  if (sub) openTicket(sub);
+}
+
+// チケットを開く（一覧・ダッシュボードの data-ticket）
+$("page").addEventListener("click", (e) => {
+  const id = e.target.closest("[data-ticket]")?.dataset.ticket;
+  if (id) openTicket(id);
+});
+
+/** チケットの詳細（会話・返信・状態の変更）。開いている間はリアルタイムで更新 */
+function openTicket(id) {
+  drawerStop?.(); drawerStop = null;
+  const body = openDrawer("お問い合わせ", `
+    <div id="tk-head"><div class="loading"><span class="spin"></span> 読み込み中…</div></div>
+    <div id="tk-ai"></div>
+    <h3 class="ct-h">会話</h3>
+    <div class="tk-thread" id="tk-thread"></div>
+    <form class="tk-compose" id="tk-form">
+      <label class="fld"><span>担当者として返信（お客様にメールで通知されます）</span>
+        <textarea id="tk-text" rows="4" maxlength="5000" placeholder="返信を入力…"></textarea></label>
+      <div class="tk-compose-row">
+        <label class="check"><input type="checkbox" id="tk-close"> 送信後に対応完了にする</label>
+        <span style="flex:1"></span>
+        <button type="submit" class="btn btn-primary" id="tk-send">返信を送信</button>
+      </div>
+      <div class="tk-actions" id="tk-actions"></div>
+    </form>`);
+  $("drawer").dataset.mode = "ticket";
+  let t = null, markedRead = false, firstMsgs = true;
+  const ref = doc(db, "tickets", id);
+
+  const renderHead = () => {
+    $("drawer-title").textContent = `お問い合わせ ${t.no || ""}`;
+    body.querySelector("#tk-head").innerHTML = `
+      <div class="ct-head">${ticketStatusPill(t)}${t.priority ? priorityPill(t) : ""}${t.category ? pill("draft", t.category) : ""}
+        <span>受付 ${fmtDT(t.createdAt)}${t.closedAt ? `・完了 ${fmtDT(t.closedAt)}` : ""}</span></div>
+      <dl class="dl">
+        <dt>チケット番号</dt><dd>${esc(t.no || id)}</dd>
+        <dt>お名前</dt><dd>${esc(t.name || "（未確認）")}</dd>
+        <dt>メール</dt><dd>${t.email ? `<a href="mailto:${esc(t.email)}">${esc(t.email)}</a>` : "（未確認）"}</dd>
+      </dl>`;
+    body.querySelector("#tk-ai").innerHTML = t.summary || t.todoForStaff ? `
+      <div class="ct-ai">
+        ${t.summary ? `<p><b>AI の要約：</b>${esc(t.summary)}</p>` : ""}
+        ${t.todoForStaff ? `<p><b>担当者がすべきこと：</b>${esc(t.todoForStaff)}</p>` : ""}
+      </div>` : "";
+    const btn = (status, label, cls = "") => `<button type="button" class="btn ${cls}" data-st="${status}">${label}</button>`;
+    body.querySelector("#tk-actions").innerHTML = [
+      t.status === "ai" || t.status === "waiting_staff" ? btn("staff", "担当者が引き継ぐ") : "",
+      t.status === "staff" || t.status === "waiting_staff" ? btn("ai", "AI に戻す") : "",
+      t.status !== "closed" ? btn("closed", "対応完了", "btn-ok") : btn("staff", "再開")
+    ].join("");
+  };
+  const FROM = { customer: "お客様", ai: "AI オペレータ", staff: "担当者", system: "" };
+  const renderThread = (msgs) => {
+    const box = body.querySelector("#tk-thread");
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+    box.innerHTML = msgs.length ? msgs.map(m => m.from === "system"
+      ? `<div class="tk-sys">${linkify(m.text || "")}<small>${fmtDT(m.at)}</small></div>`
+      : `<div class="tk-msg from-${esc(m.from)}">
+          <div class="tk-meta">${esc(m.from === "customer" ? `お客様（${t?.name || ""}）` : m.from === "staff" ? `担当者${m.staffName ? `（${m.staffName}）` : ""}` : FROM[m.from] || m.from)}・${fmtDT(m.at)}</div>
+          <div class="tk-bubble">${linkify(m.text || "")}</div></div>`).join("")
+      : '<div class="empty">メッセージはまだありません。</div>';
+    // 最初に開いたとき・最新を見ているときは、いちばん下（最新のメッセージ）へ
+    if (firstMsgs || atBottom) setTimeout(() => {
+      box.scrollTop = box.scrollHeight;
+      firstMsgs = false;
+    }, 0);
+  };
+
+  const stopTicket = onSnapshot(ref, (snap) => {
+    if (!snap.exists()) { body.querySelector("#tk-head").innerHTML = '<div class="note error">このお問い合わせは見つかりませんでした。</div>'; return; }
+    t = { id: snap.id, ...snap.data() };
+    renderHead();
+    if (t.unreadStaff && !markedRead) {
+      markedRead = true;
+      callFn("ticketSetStatus", { id, read: true }).catch(err => console.warn("既読にできませんでした", err));
+    }
+  }, fail("お問い合わせを読み込めませんでした"));
+  const stopMsgs = onSnapshot(query(collection(db, "tickets", id, "messages"), orderBy("at")), (snap) => {
+    renderThread(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  }, fail("会話を読み込めませんでした"));
+  drawerStop = () => { stopTicket(); stopMsgs(); };
+
+  // 状態の変更
+  body.querySelector("#tk-actions").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-st]");
+    if (!b || !t) return;
+    const status = b.dataset.st;
+    const msg = { staff: "担当者が対応します（AI は返信しなくなります）。", ai: "AI オペレータの対応に戻します。", closed: "このお問い合わせを対応完了にします。" }[status];
+    if (!window.confirm(`${msg}よろしいですか？`)) return;
+    b.disabled = true;
+    try { await callFn("ticketSetStatus", { id, status }); toast({ staff: "担当者が引き継ぎました。", ai: "AI の対応に戻しました。", closed: "対応完了にしました。" }[status]); }
+    catch (err) { fail("変更に失敗しました")(err); b.disabled = false; }
+  });
+  // 返信
+  body.querySelector("#tk-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!t) return;
+    const text = $("tk-text").value.trim();
+    if (text.length < 2) return toast("返信を入力してください。", "error");
+    const close = $("tk-close").checked;
+    if (!window.confirm(`${t.email || "お客様"} にメールでも通知されます。${close ? "送信後に対応完了にします。" : ""}送信しますか？`)) return;
+    const btn = $("tk-send");
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span> 送信中…';
+    try {
+      await callFn("ticketStaffReply", { id, text, close });
+      $("tk-text").value = ""; $("tk-close").checked = false;
+      toast("返信を送信しました。お客様にメールで通知しました。");
+    } catch (err) { fail("送信に失敗しました")(err); }
+    finally { btn.disabled = false; btn.textContent = "返信を送信"; }
+  });
+}
+
 // お問い合わせの状態（AI オペレータの 1 次対応の結果も含む）
 const CONTACT_STATUS = {
   open: ["ng", "要対応"], ai_resolved: ["ok", "AIが解決"], replied: ["info", "返信済み"], closed: ["draft", "対応完了"]
@@ -853,11 +1070,11 @@ const PRIORITY_PILL = { urgent: "ng", high: "pending", normal: "info", low: "dra
 let contactFilter = "open";
 const contactStatusOf = (r) => r.status || (r.ai?.status === "done" ? (r.ai.needsHuman ? "open" : "ai_resolved") : "open");
 
-async function renderContacts() {
+async function renderLegacyContacts() {
   const rows = (await getRows("contacts", true)).slice().sort((a, b) => (toDate(b.createdAt) || 0) - (toDate(a.createdAt) || 0));
   const count = (k) => k === "all" ? rows.length : rows.filter(r => contactStatusOf(r) === k).length;
   $("page").innerHTML = `
-    <p class="page-intro">お問い合わせには AI オペレータが 1 次対応します（個人情報は伏せ字にしてから AI に渡します）。AI が解決できないものは「要対応」に残ります。</p>
+    <p class="page-intro"><a class="btn btn-sm" href="#contacts">← チャットのお問い合わせ（チケット）へ</a>　以前のお問い合わせフォームから届いたものです。</p>
     <div class="toolbar">
       <div class="chips" id="cchips">${["open", "ai_resolved", "replied", "closed", "all"].map(k =>
         `<button class="chip${contactFilter === k ? " is-active" : ""}" data-cf="${k}">${k === "all" ? "すべて" : CONTACT_STATUS[k][1]}<span class="n">${count(k)}</span></button>`).join("")}</div>

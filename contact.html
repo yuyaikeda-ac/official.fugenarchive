@@ -11,7 +11,7 @@
 <link rel="icon" href="LOGO.png">
 <script src="assets/js/common.js" defer></script>
 </head>
-<body>
+<body class="no-chat-fab">
 <header id="site-header"></header>
 
 <main>
@@ -26,70 +26,118 @@
   </div>
 
   <div class="inner content">
-    <p>普賢に関する資料のご提供、委員会へのお問い合わせは、以下のフォームよりお送りください。</p>
-    <p class="notice info" style="font-size:13px">お問い合わせには、まず <strong>AI オペレータ</strong>（Anthropic 社の AI「Claude」）が自動で 1 次対応し、パスワードの再設定などはその場でご案内します。AI には、お名前・メールアドレス・電話番号・住所などの<strong>個人情報を伏せた内容だけ</strong>を渡します。担当者の確認が必要な内容は、担当者より折り返しご連絡いたします。</p>
+    <h2>チャットでお問い合わせ（チケット）</h2>
+    <p>普賢に関する資料のご提供、委員会へのお問い合わせは、以下のフォームから受け付けています。送信するとお問い合わせごとに<strong>チケット（専用のチャット）</strong>が作られ、そのチャットでやり取りします。</p>
+    <p class="notice info" style="font-size:13px">お問い合わせには、まず <strong>AI オペレータ</strong>（Anthropic 社の AI「Claude」）がチャットで 1 次対応し、パスワードの再設定などはその場でご案内します。担当者の確認が必要な内容は、担当者が引き継いでチャットでご返信します。<strong>返信があるたびにメールでお知らせ</strong>し、メールのリンクからチャットを開けます。AI には、お名前・メールアドレス・電話番号・住所などの<strong>個人情報を伏せた内容だけ</strong>を渡します。</p>
 
-    <form class="form" id="contact-form">
+    <form class="form tk-start" id="ticket-form" novalidate>
       <div class="form-row">
-        <label for="subject">お問い合わせ種別<span class="req">必須</span></label>
-        <select id="subject" name="subject" required>
+        <label for="name">お名前<span class="req">必須</span></label>
+        <input type="text" id="name" name="name" required maxlength="100" autocomplete="name">
+      </div>
+      <div class="form-row">
+        <label for="email">メールアドレス<span class="req">必須</span></label>
+        <input type="email" id="email" name="email" required maxlength="200" autocomplete="email">
+        <p class="tk-hint">返信のお知らせをこのアドレスにお送りします。</p>
+      </div>
+      <div class="form-row">
+        <label for="email2">メールアドレス（確認）<span class="req">必須</span></label>
+        <input type="email" id="email2" name="email2" required maxlength="200" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <label for="category">お問い合わせ種別<span class="req">必須</span></label>
+        <select id="category" name="category" required>
           <option value="">選択してください</option>
-          <option>資料提供について</option>
-          <option>アーカイブの利用について</option>
-          <option>行事・イベントについて</option>
+          <option>資料提供</option>
+          <option>アーカイブの利用</option>
+          <option>行事・イベント</option>
+          <option>入会・会員</option>
+          <option>ログイン・パスワード</option>
+          <option>取材・連携</option>
           <option>その他</option>
         </select>
       </div>
       <div class="form-row">
-        <label for="name">お名前<span class="req">必須</span></label>
-        <input type="text" id="name" name="name" required maxlength="100">
-      </div>
-      <div class="form-row">
-        <label for="email">メールアドレス<span class="req">必須</span></label>
-        <input type="email" id="email" name="email" required maxlength="200">
-      </div>
-      <div class="form-row">
-        <label for="message">お問い合わせ内容<span class="req">必須</span></label>
-        <textarea id="message" name="message" required maxlength="5000"></textarea>
+        <label for="text">お問い合わせ内容<span class="req">必須</span></label>
+        <textarea id="text" name="text" required maxlength="1500" placeholder="ご質問やご用件をご記入ください"></textarea>
+        <p class="tk-hint tk-count"><span id="count">0</span> / 1500 文字</p>
       </div>
       <div class="form-row">
         <label><input type="checkbox" id="agree" required> <span><a href="privacy.html" target="_blank">プライバシーポリシー</a>に同意する</span></label>
       </div>
       <div id="result"></div>
-      <button type="submit" class="btn btn-primary" id="submit">送信する</button>
+      <button type="submit" class="btn btn-primary" id="submit">チャットを開始する</button>
     </form>
+
+    <section class="tk-recent" id="recent" hidden>
+      <h2>最近のお問い合わせ</h2>
+      <p class="tk-hint">この端末から送信したお問い合わせです。チャットを開いて続きのやり取りができます。</p>
+      <ul id="recent-list"></ul>
+    </section>
   </div>
 </main>
 
 <footer id="site-footer"></footer>
 
 <script type="module">
-  import { addContact, isDemo } from "./assets/js/db.js";
+  import { app, isDemo } from "./assets/js/db.js";
+  import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
   import { showDemoBanner } from "./assets/js/render.js";
   if (isDemo) showDemoBanner();
 
-  const form = document.getElementById("contact-form");
+  const form = document.getElementById("ticket-form");
   const result = document.getElementById("result");
   const btn = document.getElementById("submit");
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const show = (type, html) => { result.innerHTML = html ? `<div class="notice ${type}">${html}</div>` : ""; };
 
+  // 文字数
+  const text = form.elements.text;
+  text.addEventListener("input", () => { document.getElementById("count").textContent = text.value.length; });
+
+  // 最近のお問い合わせ（この端末に保存したチケット）
+  const loadTickets = () => { try { return JSON.parse(localStorage.getItem("fugen-tickets") || "[]"); } catch { return []; } };
+  const tickets = loadTickets();
+  if (tickets.length) {
+    document.getElementById("recent").hidden = false;
+    document.getElementById("recent-list").innerHTML = tickets.slice(0, 10).map(t =>
+      `<li><a href="ticket.html#${encodeURIComponent(t.id)}.${encodeURIComponent(t.token)}"><b>${esc(t.no || "お問い合わせ")}</b><span>${esc(t.category || "")}</span><small>${esc(t.at ? new Date(t.at).toLocaleString("ja-JP") : "")}</small></a></li>`).join("");
+  }
+
+  let busy = false;
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    btn.disabled = true; btn.textContent = "送信中…";
+    if (busy) return;
+    const f = form.elements;
+    const name = f.name.value.trim(), email = f.email.value.trim(), email2 = f.email2.value.trim();
+    const category = f.category.value, body = f.text.value.trim();
+    if (!name) return show("error", "お名前を入力してください。"), f.name.focus();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return show("error", "メールアドレスを正しく入力してください。"), f.email.focus();
+    if (email.toLowerCase() !== email2.toLowerCase()) return show("error", "確認用のメールアドレスが一致しません。"), f.email2.focus();
+    if (!category) return show("error", "お問い合わせ種別を選んでください。"), f.category.focus();
+    if (!body) return show("error", "お問い合わせ内容を入力してください。"), f.text.focus();
+    if (!f.agree.checked) return show("error", "プライバシーポリシーへの同意が必要です。");
+    if (isDemo) return show("error", "現在お問い合わせを受け付けられません。時間をおいて再度お試しください。");
+
+    busy = true;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="tk-spin"></span> 送信中…';
+    show("info", '<span class="tk-spin"></span> AI が確認しています…（数十秒かかることがあります。このままお待ちください）');
     try {
-      const f = form.elements;
-      await addContact({
-        subject: f.subject.value,
-        name: f.name.value.trim(),
-        email: f.email.value.trim(),
-        message: f.message.value.trim()
-      });
-      form.reset();
-      result.innerHTML = '<div class="notice success">送信しました。お問い合わせありがとうございました。</div>';
+      const create = httpsCallable(getFunctions(app, "asia-northeast1"), "ticketCreate", { timeout: 120000 });
+      const { data } = await create({ name, email, category, text: body });
+      try {
+        const list = loadTickets().filter(t => t.id !== data.id);
+        list.unshift({ id: data.id, token: data.token, no: data.no, category, at: new Date().toISOString() });
+        localStorage.setItem("fugen-tickets", JSON.stringify(list.slice(0, 20)));
+      } catch {}
+      location.href = `ticket.html#${encodeURIComponent(data.id)}.${encodeURIComponent(data.token)}`;
     } catch (err) {
       console.error(err);
-      result.innerHTML = '<div class="notice error">送信に失敗しました。時間をおいて再度お試しください。</div>';
-    } finally {
-      btn.disabled = false; btn.textContent = "送信する";
+      show("error", esc(err?.message && err.code !== "functions/internal" ? err.message : "送信に失敗しました。時間をおいて再度お試しください。"));
+      busy = false;
+      btn.disabled = false;
+      btn.textContent = "チャットを開始する";
     }
   });
 </script>

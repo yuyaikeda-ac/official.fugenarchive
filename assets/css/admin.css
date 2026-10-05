@@ -421,3 +421,33 @@ dialog::backdrop { background: rgba(10,18,32,.55); backdrop-filter: blur(2px); }
 .ct-reply { margin-bottom: 10px; }
 .ct-reply small { display: block; color: var(--muted); }
 #ct-form textarea { min-height: 180px; }
+
+/* ============ お問い合わせ（チケット） ============ */
+.unread-dot { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--danger); vertical-align: 2px; }
+.tbl tr.is-unread td.main b { color: var(--text); }
+.legacy-link { margin: 14px 2px 0; font-size: 13px; }
+.legacy-link a { color: var(--muted); }
+.tk-thread { display: flex; flex-direction: column; gap: 12px; max-height: max(220px, calc(100vh - 680px)); overflow-y: auto; padding: 14px; border-radius: 12px; background: #f5f7fa; border: 1px solid var(--line); }
+.tk-msg { display: flex; flex-direction: column; max-width: 82%; }
+.tk-msg.from-customer { align-self: flex-start; }
+.tk-msg.from-ai, .tk-msg.from-staff { align-self: flex-end; align-items: flex-end; }
+.tk-meta { margin: 0 4px 3px; font-size: 11.5px; color: var(--muted); }
+.tk-bubble { padding: 10px 13px; border-radius: 14px; white-space: pre-wrap; word-break: break-word; font-size: 13.5px; line-height: 1.75; }
+.tk-msg.from-customer .tk-bubble { background: #fff; border: 1px solid var(--line); border-top-left-radius: 4px; }
+.tk-msg.from-ai .tk-bubble { background: #e8f0fd; border: 1px solid #c9d6ea; border-top-right-radius: 4px; }
+.tk-msg.from-staff .tk-bubble { background: #0f2a4f; color: #fff; border-top-right-radius: 4px; }
+.tk-msg.from-staff .tk-bubble a { color: #bcd4ff; }
+.tk-sys { align-self: center; max-width: 90%; padding: 4px 12px; border-radius: 99px; background: #e6ebf2; color: var(--muted); font-size: 12px; text-align: center; white-space: pre-wrap; }
+.tk-sys small { margin-left: 6px; opacity: .8; }
+.tk-compose { position: sticky; bottom: 0; z-index: 3; margin: 16px -22px 0; padding: 14px 22px; background: #fff; border-top: 1px solid var(--line); }
+.tk-compose .fld { margin-bottom: 8px; }
+.tk-compose textarea { min-height: 84px; }
+.tk-compose-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tk-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.tk-actions:empty { display: none; }
+@media (max-width: 860px) {
+  .tk-compose { position: static; margin: 16px -14px 0; padding: 12px 14px 16px; }
+  .tk-msg { max-width: 92%; }
+  .tk-thread { max-height: none; }
+  .tk-compose-row .btn-primary { flex: 1 1 100%; }
+}

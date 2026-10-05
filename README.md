@@ -12,7 +12,8 @@ about.html        委員会について（概要・挨拶・名簿・規程・�
 news.html         お知らせ一覧／詳細（news.html?id=xxx）
 archive.html      普賢アーカイブについて（紹介ページ・外部サイトへのリンク）※HTMLを直接編集
 events.html       行事・イベント
-contact.html      資料提供・お問い合わせフォーム（Firestore の contacts に保存）
+contact.html      お問い合わせ（チケットを発行して専用チャットへ）
+ticket.html       お問い合わせの専用チャット（ticket.html#ID.トークン。AI オペレータ・担当者とやりとり）
 join.html         入会案内（会員特典・会員種別・入会の流れ・FAQ）
 apply.html        入会お申込みフォーム（4ステップ。apply.html?type=student で種別を選択済みにできる）
 apply-done.html   お申込み完了ページ
@@ -42,6 +43,10 @@ assets/js/rich-view.js       エディタで作った本文の表示（DOMPurify
 assets/js/consent-core.js    電子同意書のハッシュ計算・手書きサイン入力欄・署名の保存
 assets/js/doc-files.js       会員限定資料のファイル（Storage の member_docs/。会員のみ閲覧、管理者のみアップロード）
 functions/consent.js         署名の封印（HMAC-SHA256・ハッシュチェーン）と検証
+functions/tickets.js         お問い合わせチケット（専用チャット・AI オペレータ・担当者の返信・メール通知）
+functions/ai-operator.js     以前のフォーム（contacts）に届いたお問い合わせの AI 1 次対応
+functions/ai-knowledge.js    AI オペレータが回答に使う知識（サイトの内容が変わったら更新）
+functions/pii.js             個人情報のマスク（AI に渡す前に必ず通す）
 functions/review.js          理事会による入会審査（承認依頼メール・回答の受付・全員承認／1人でも非承認で自動確定）
 storage.rules                Firebase Storage セキュリティルール（画像は管理者のみアップロード可）
 LOGO.png                     ロゴ（ヘッダー・ファビコン・紹介ブロックで使用）
@@ -134,6 +139,7 @@ firebase.json                Firebase Hosting 設定
 | `consent_forms` | 電子同意書。`title`, `bodyHtml`, `version`, `status`（draft/published/closed）, `audience`（members/public/both）, `purpose`（general/membership）, `extraFields`, `contentHash`（公開時の SHA-256） |
 | `consent_signatures` | 署名の記録（変更不可）。`formId`, `formHash`, `name`, `email`, `signatureImage`, `signatureHash`, `recordHash`、サーバーが付ける `seq`, `prevSeal`, `seal` |
 | `consent_chain/head` | 封印の連鎖の先頭（サーバーのみ） |
+| `tickets` | お問い合わせチケット（管理者のみ閲覧・書き込みはサーバーのみ）。`messages` にやりとり、`private/state` にトークン・個人情報の対応表・AI の履歴 |
 | `board_groups` | 理事会のグループ。`name`, `description`, `members`（`name`, `email` の一覧） |
 | `settings/review` | 入会審査を担当する理事会（`groupId`）。空なら従来どおり管理者が承認 |
 | `reviews` | 入会審査の記録。ID = 会員の UID。理事ごとの判断・理由・日時（管理者のみ閲覧、申込者には非公開） |
@@ -149,6 +155,17 @@ firebase.json                Firebase Hosting 設定
 5. 行事の参加登録者は、管理画面の「行事」タブに人数と氏名が表示されます。
 
 会員サイトの操作：`Ctrl + K`（Mac は `⌘ + K`）で検索・ページ移動、`1`〜`6` キーでページ切替、`/` キーで検索欄へ移動できます。
+
+## お問い合わせ（チケット＋ AI オペレータ）
+
+1. お問い合わせページで送信すると **チケット**（例：T-2026-0001）が発行され、専用チャット（`ticket.html`）が開きます
+2. **AI オペレータ**（Claude）が 1 次対応します。パスワード再設定メールの送信・行事やお知らせの案内などはその場で行います
+3. 担当者が必要なとき（AI の判断、またはお客様が「担当者に相談する」）は **担当者へ引き継ぎ**、管理画面の「お問い合わせ」から同じチャットに返信します
+4. **メール**：AI・担当者の返信ごとにお客様へ（チャットのリンク付き）。引き継ぎ時と、担当者の対応中にお客様が送信したときは委員会へ
+5. **個人情報**：お名前・メール・電話・住所・会員番号などは `[氏名1]` のような記号に置き換えてから AI に渡します（`functions/pii.js`）。記号と元の値の対応・AI の会話履歴・チャットのリンクのトークンは `tickets/{id}/private`（だれも読めない）にだけ保存します
+
+- 必要な設定：Secret Manager の `ANTHROPIC_API_KEY`（`firebase functions:secrets:set ANTHROPIC_API_KEY`）。未設定のときは、すべて担当者の対応になります
+- AI が回答に使う内容は `functions/ai-knowledge.js`、モデルや上限の設定は `functions/tickets.js` の `TICKET`
 
 ## 理事会による入会審査
 
