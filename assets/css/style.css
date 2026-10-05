@@ -475,3 +475,17 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
 }
 /* チャットのページでは「ページトップ」ボタンを出さない（入力欄と重なるため） */
 .tk-page .pagetop { display: none; }
+
+/* AI が終了を確認したときのボタン（ticket.html） */
+.tk-ask { margin: 4px 0 14px; padding: 14px 16px; border-radius: 14px; background: #f3f7fc; border: 1px solid #d5e1f0; text-align: center; animation: tk-ask-in .25s ease-out; }
+@keyframes tk-ask-in { from { opacity: 0; transform: translateY(4px); } }
+.tk-ask p { margin: 0 0 10px; font-size: 14px; font-weight: 700; color: var(--main, #0b3a6e); }
+.tk-ask-btns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-width: 460px; margin: 0 auto; }
+.tk-ask-btns button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 12px; border-radius: 999px; font: 700 14px/1.2 inherit; cursor: pointer; white-space: nowrap; }
+.tk-ask-btns button svg { width: 16px; height: 16px; }
+.tk-ask-yes { border: 0; background: #1e6b3a; color: #fff; }
+.tk-ask-yes:hover { background: #18582f; }
+.tk-ask-yes:disabled { opacity: .6; cursor: default; }
+.tk-ask-no { border: 1px solid #b8c4d6; background: #fff; color: var(--main, #0b3a6e); }
+.tk-ask-no:hover { border-color: var(--main, #0b3a6e); }
+@media (max-width: 380px) { .tk-ask-btns { grid-template-columns: 1fr; } }

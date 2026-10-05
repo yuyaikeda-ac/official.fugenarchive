@@ -80,13 +80,29 @@ function bubble(m) {
   </div>`;
 }
 
+// AI が終了を確認した返事の下に出すボタン（最新の AI の返事で、そのあとにお客様が発言していないときだけ）
+let dismissedAsk = "";
+function askCloseHtml() {
+  const t = state.ticket;
+  if (t.status !== "ai" || sending) return "";
+  const last = state.messages[state.messages.length - 1];
+  if (!last || last.from !== "ai" || !last.askClose || dismissedAsk === last.id) return "";
+  return `<div class="tk-ask" role="group" aria-label="お問い合わせを終了しますか">
+    <p>ご質問は解決しましたか？</p>
+    <div class="tk-ask-btns">
+      <button type="button" class="tk-ask-yes" data-ask="close">${ICON.check || "✓"} 解決したので終了する</button>
+      <button type="button" class="tk-ask-no" data-ask="more">まだ質問がある</button>
+    </div>
+  </div>`;
+}
+
 function renderLog(scroll = false) {
   const log = document.getElementById("tk-log");
   const atBottom = getComputedStyle(log).overflowY === "visible"
     ? log.getBoundingClientRect().bottom <= window.innerHeight - (document.getElementById("tk-composer")?.offsetHeight || 0) + 120
     : log.scrollHeight - log.scrollTop - log.clientHeight < 80;
   const list = [...state.messages, ...(pending ? [pending] : [])];
-  log.innerHTML = list.map(bubble).join("") +
+  log.innerHTML = list.map(bubble).join("") + askCloseHtml() +
     (sending && state.ticket.status === "ai" ? `<div class="tk-msg ai tk-typing"><div class="tk-who">${ICON.ai}AI オペレータ</div><div class="tk-bubble"><span class="tk-dots"><i></i><i></i><i></i></span> 入力中…</div></div>` : "");
   if (scroll || atBottom) scrollToEnd();
 }
@@ -127,13 +143,14 @@ function renderComposer() {
   box.querySelector("#tk-human")?.addEventListener("click", () => {
     if (window.confirm("担当者（人）に引き継ぎます。入力中のメッセージがあれば一緒に送ります。よろしいですか？")) send(true);
   });
-  box.querySelector("#tk-close").addEventListener("click", closeTicket);
+  box.querySelector("#tk-close").addEventListener("click", () => closeTicket(false));
 }
 
 function render(scroll = false) {
   renderHead();
-  renderLog(scroll);
+  // 入力欄を先に描く（下に固定した入力欄の高さを使って、最新のメッセージが隠れない位置までスクロールするため）
   renderComposer();
+  renderLog(scroll);
 }
 
 // ---------- 通信 ----------
@@ -166,11 +183,27 @@ async function send(requestHuman) {
   sending = false; pending = null; render(true);
 }
 
-async function closeTicket() {
-  if (!window.confirm("このお問い合わせを終了します。終了後は、このチャットで送信できなくなります。よろしいですか？")) return;
-  try { apply(await call("ticketClose", { id, token }), true); }
+async function closeTicket(resolved = false) {
+  if (!resolved && !window.confirm("このお問い合わせを終了します。終了後は、このチャットで送信できなくなります。よろしいですか？")) return;
+  try { apply(await call("ticketClose", { id, token, resolved }), true); }
   catch (e) { console.error(e); toastError(errText(e)); }
 }
+
+// 「解決したので終了する」「まだ質問がある」
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-ask]");
+  if (!b) return;
+  if (b.dataset.ask === "close") {
+    b.disabled = true;
+    closeTicket(true);
+  } else {
+    dismissedAsk = state.messages[state.messages.length - 1]?.id || "";
+    renderLog();
+    const ta = document.getElementById("tk-text");
+    ta?.focus();
+    ta?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+});
 
 async function refresh() {
   if (sending || document.hidden || !state || state.ticket.status === "closed") return;

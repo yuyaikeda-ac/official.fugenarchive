@@ -448,7 +448,7 @@ ${signature()}`
 //  お問い合わせチケット（tickets.js）
 // ============================================================
 // ---------- AI・担当者の返信（お客様へ。返信のたびに送信） ----------
-function ticketReplyToCustomer({ to, name, no, link, from, text, first = false, closed = false, category = "" }) {
+function ticketReplyToCustomer({ to, name, no, link, from, text, first = false, closed = false, category = "", askClose = false }) {
   const who = from === "staff" ? "担当者" : "AI オペレータ";
   return [{
     to,
@@ -467,7 +467,7 @@ ${text.trim()}
 ▼ このお問い合わせの専用チャット（返信・続きはこちらから）
 ${link}
 ※ このリンクはお客様専用です。他の方に転送しないでください。
-${closed ? "\nこのお問い合わせは完了となりました。新しいお問い合わせはお問い合わせページからお送りください。\n" : ""}${from === "ai" ? `
+${askClose && !closed ? "\n解決した場合は、専用チャットの「解決したので終了する」ボタンでお問い合わせを終了できます。\n" : ""}${closed ? "\nこのお問い合わせは完了となりました。新しいお問い合わせはお問い合わせページからお送りください。\n" : ""}${from === "ai" ? `
 ※ AI オペレータの返信は自動で作成しています。担当者との対応をご希望の場合は、専用チャットの「担当者に相談する」を押してください。` : ""}
 ${signature()}`
   }];
@@ -501,4 +501,34 @@ ${escalated ? `■ 優先度　：${t.priorityLabel || "—"}
   }];
 }
 
-module.exports = { CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided , contactAiReply, passwordResetByAi, contactAiNotify, contactStaffReply , ticketReplyToCustomer, ticketToStaff };
+// ---------- ログイン方法の案内（パスワード再設定を頼まれたが、パスワードのないアカウント・管理者だった場合） ----------
+function loginGuideByAi({ to, name, kind, hasPassword = false }) {
+  const body = kind === "admin"
+    ? `このメールアドレスは、ウェブサイトの管理者アカウントとして登録されています。
+安全のため、管理者アカウントのパスワードはお問い合わせ窓口からは再設定できません。
+
+▼ 管理画面のログイン
+${CONFIG.siteUrl}/admin.html
+${hasPassword ? "・パスワードを忘れた場合は、ログイン画面でメールアドレスを入力し「パスワードの設定・再設定」を押してください。" : "・このアカウントにはパスワードがありません。ログイン画面の「Google でログイン」を押してください。"}`
+    : `このメールアドレスのアカウントは「Google アカウント」でログインする設定のため、パスワードはありません。
+会員ログイン画面で「Google でログイン」を押し、このメールアドレスの Google アカウントを選んでください。
+
+▼ 会員ログイン
+${CONFIG.siteUrl}/member-login.html`;
+  return [{
+    to,
+    subject: `【${CONFIG.orgName}】ログイン方法のご案内`,
+    text:
+`${name ? name + " 様" : "ご登録の方へ"}
+
+${CONFIG.orgName}です。
+お問い合わせ窓口でパスワードの再設定のご依頼がありましたので、ログイン方法をご案内します。
+
+${body}
+
+お心当たりのない場合は、このメールを破棄してください。
+${signature()}`
+  }];
+}
+
+module.exports = { CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided , contactAiReply, passwordResetByAi, contactAiNotify, contactStaffReply , ticketReplyToCustomer, ticketToStaff , loginGuideByAi };

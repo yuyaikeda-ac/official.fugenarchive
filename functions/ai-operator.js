@@ -161,7 +161,10 @@ module.exports = function aiOperator({ defineSecret, getFirestore, getAuth, Fiel
       async send_password_reset() {
         if (!acct.user) return { sent: false, reason: "このメールアドレスで登録されたアカウントがありません。登録時のメールアドレスから、もう一度お問い合わせいただく必要があります。" };
         if (acct.isAdmin) return { sent: false, reason: "管理者アカウントのため、自動では送信できません（担当者に回してください）。" };
-        if (!providers.includes("password")) return { sent: false, reason: "Google アカウントでログインする方のため、パスワードはありません。会員ログイン画面の「Google でログイン」を使うよう案内してください。" };
+        if (!providers.includes("password")) {
+          await sendAll(mails.loginGuideByAi({ to: contact.email, name: acct.member?.name || contact.name, kind: "google" }), "AI：ログイン方法の案内");
+          return { sent: false, reason: "Google アカウントでログインする方のため、パスワードはありません。ログイン方法の案内メールを送りました。会員ログイン画面の「Google でログイン」を使うよう案内してください。" };
+        }
         // 連続送信の防止（同じアドレスへは一定時間あける）
         const key = crypto.createHash("sha256").update(contact.email.toLowerCase()).digest("hex").slice(0, 32);
         const ref = db.doc(`ai_actions/${key}`);
