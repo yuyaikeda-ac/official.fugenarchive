@@ -60,16 +60,6 @@ const HEADER_HTML = `
 </nav>`;
 
 const FOOTER_HTML = `
-<div class="footer-links">
-  <div class="inner">
-    <ul>
-      ${NAV.map(([label, href]) => `<li><a href="${href}">${label}</a></li>`).join("")}
-      <li><a href="sitemap.html">サイトマップ</a></li>
-      <li><a href="privacy.html">プライバシーポリシー</a></li>
-      <li><a data-archive-link>普賢アーカイブ（外部サイト）↗</a></li>
-    </ul>
-  </div>
-</div>
 <div class="footer-main">
   <div class="inner">
     <p class="footer-name">${SITE.name}</p>
