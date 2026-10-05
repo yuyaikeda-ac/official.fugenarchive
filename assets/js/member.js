@@ -137,7 +137,7 @@ async function startPortal() {
   const m = state.member;
   // サイドバー・タブバー
   $("side-nav").innerHTML = ROUTES.map((r, i) =>
-    `<li><a href="#${r.id}" data-route="${r.id}">${icon(r.icon)}${r.label}<span class="badge" data-badge="${r.id}" hidden></span><kbd>${i + 1}</kbd></a></li>`).join("");
+    `<li><a href="#${r.id}" data-route="${r.id}">${icon(r.icon)}${r.label}<span class="badge" data-badge="${r.id}" hidden></span></a></li>`).join("");
   $("tabbar").innerHTML = ROUTES.filter(r => r.id !== "profile").map(r =>
     `<a href="#${r.id}" data-route="${r.id}">${icon(r.icon)}${r.short}<span class="badge tab-badge" data-badge="${r.id}" hidden></span></a>`).join("") +
     `<a href="#profile" data-route="profile">${icon("user")}設定</a>`;
