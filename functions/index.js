@@ -103,6 +103,16 @@ exports.mailOnSignatureRewrite = onDocumentUpdated({ document: "members/{uid}", 
   if (after.signatureRewrite === "allowed") await sendAll(mails.signatureRewriteAllowed(after), "署名の書き直し許可");
 });
 
+// ---------- 会員種別の変更：申請 → 委員会へ通知／許可・却下 → 本人へ通知 ----------
+exports.mailOnTypeChange = onDocumentUpdated({ document: "members/{uid}", ...opts }, async (event) => {
+  const before = event.data?.before.data(), after = event.data?.after.data();
+  if (!before || !after) return;
+  if (!before.typeRequest && after.typeRequest) await sendAll(mails.typeChangeRequested(after), "会員種別の変更申請");
+  // 管理者が許可・却下した（本人の取り消しでは typeDecidedAt は変わらない）
+  const decided = after.typeDecidedAt && String(after.typeDecidedAt?.toMillis?.()) !== String(before.typeDecidedAt?.toMillis?.());
+  if (before.typeRequest && !after.typeRequest && decided) await sendAll(mails.typeChangeDecided(after, before.type), "会員種別の変更結果");
+});
+
 // ---------- お問い合わせ → 委員会へ通知 ＋ 送信者へ自動返信 ----------
 exports.mailOnContact = onDocumentCreated({ document: "contacts/{id}", ...opts }, async (event) => {
   const c = event.data?.data();

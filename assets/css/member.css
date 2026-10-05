@@ -999,3 +999,19 @@ button.doc { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 .dv-desc { margin: 0; padding: 12px 18px 0; color: #c9d3e1; font-size: 13px; white-space: pre-wrap; }
 .dv-foot { display: flex; justify-content: flex-end; padding: 12px 14px; }
 .dv-foot .lux-btn { background: transparent; color: #fff; border-color: rgba(255,255,255,.4); }
+
+/* ============ 会員種別の変更 ============ */
+.type-note { margin: 0 0 14px; color: var(--muted); font-size: 13px; line-height: 1.8; }
+.type-note b { color: var(--navy); }
+.type-req { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.type-req-badge { padding: 3px 12px; border-radius: 999px; background: var(--gold-soft); border: 1px solid #ecdcb2; color: var(--gold-dark); font-size: 12px; font-weight: 700; letter-spacing: .1em; }
+.type-req-flow { display: flex; align-items: center; gap: 10px; margin: 4px 0 0; font-size: 15px; color: var(--pearl); }
+.type-req-flow span { color: var(--muted); }
+.type-req-flow b { color: var(--navy); }
+.type-req-reason { margin: 0; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
+.type-choice { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.type-choice label { position: relative; display: grid; place-items: center; padding: 12px; border-radius: 12px; border: 1.5px solid var(--line-soft); cursor: pointer; font-weight: 700; color: var(--navy); font-size: 14px; }
+.type-choice input { position: absolute; opacity: 0; pointer-events: none; }
+.type-choice label:has(input:checked) { border-color: var(--navy); background: var(--ink-3); box-shadow: 0 0 0 3px rgba(11,58,110,.1); }
+.type-choice label:has(input:focus-visible) { outline: 2px solid var(--navy-2); outline-offset: 2px; }
+.sig-dialog textarea { min-height: 80px; }

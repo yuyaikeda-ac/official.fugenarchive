@@ -364,7 +364,7 @@ $("scrim").addEventListener("click", () => $("app").classList.remove("nav-open")
 async function refreshBadges() {
   try {
     const rows = await getRows("members");
-    const n = rows.filter(r => r.status === "pending" || r.signatureRewrite === "requested").length;
+    const n = rows.filter(r => r.status === "pending" || r.signatureRewrite === "requested" || r.typeRequest).length;
     document.querySelectorAll('[data-badge="pending"]').forEach(b => { b.hidden = !n; b.textContent = n; });
   } catch (e) { console.warn(e); }
 }
@@ -384,8 +384,17 @@ async function renderDashboard() {
   const recentContacts = [...contacts].sort((a, b) => (toDate(b.createdAt) || 0) - (toDate(a.createdAt) || 0)).slice(0, 5);
 
   const sigRequests = members.filter(m => m.signatureRewrite === "requested");
+  const typeRequests = members.filter(m => m.typeRequest);
   $("page").innerHTML = `
     <p class="page-intro">${esc(currentAdmin.email)} さん、お疲れさまです。最新の状況です。</p>
+    ${typeRequests.length ? `<section class="card sigreq-card">
+      <div class="card-head"><h2>会員種別の変更申請（${typeRequests.length}件）</h2><a class="btn btn-sm" href="#members">会員管理へ</a></div>
+      <ul class="mini-list">${typeRequests.map(m => `<li><div class="t"><b>${esc(m.name)}：${esc(MEMBER_TYPE[m.type] || m.type)} → ${esc(MEMBER_TYPE[m.typeRequest] || m.typeRequest)}</b>
+          <small>${esc(m.memberNo || "")}・${fmtD(m.typeRequestAt)} 申請${m.typeRequestReason ? `・理由：${esc(m.typeRequestReason)}` : ""}</small></div>
+        ${m.typeRequest === "student" ? `<button class="btn btn-sm" data-sid="${esc(m.id)}">学生証</button>` : ""}
+        <button class="btn btn-sm btn-ok" data-typeallow="${esc(m.id)}">許可</button>
+        <button class="btn btn-sm btn-danger" data-typedeny="${esc(m.id)}">却下</button></li>`).join("")}</ul>
+    </section>` : ""}
     ${sigRequests.length ? `<section class="card sigreq-card">
       <div class="card-head"><h2>会員証の署名の書き直し申請（${sigRequests.length}件）</h2><a class="btn btn-sm" href="#members">会員管理へ</a></div>
       <ul class="mini-list">${sigRequests.map(m => `<li><div class="t"><b>${esc(m.name)}</b><small>${esc(m.memberNo || "")}・${fmtD(m.signatureRewriteAt)} 申請</small></div>
@@ -694,16 +703,19 @@ async function renderMembers() {
       .sort((a, b) => (a.status === "pending" ? 0 : 1) - (b.status === "pending" ? 0 : 1));
     $("tbl").querySelector("tbody").innerHTML = list.length ? list.map(r => `<tr>
       <td class="st">${pill(r.status, MEMBER_STATUS[r.status] || r.status)}${reviewBadge(reviewOf(reviews, r.id))}${
-        r.signatureRewrite === "requested" ? pill("pending", "署名の書き直し申請中") : r.signatureRewrite === "allowed" ? pill("info", "署名の書き直し許可済み") : ""}</td>
+        r.signatureRewrite === "requested" ? pill("pending", "署名の書き直し申請中") : r.signatureRewrite === "allowed" ? pill("info", "署名の書き直し許可済み") : ""}${
+        r.typeRequest ? pill("pending", `種別変更の申請：→ ${MEMBER_TYPE[r.typeRequest] || r.typeRequest}`) : ""}</td>
       <td class="main"><b>${esc(r.name)}</b>（${esc(r.kana || "")}）<span class="sub"><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></span>${r.occupation || r.affiliation ? `<span class="sub">${esc([r.occupation, r.affiliation].filter(Boolean).join("／"))}</span>` : ""}</td>
       <td data-label="種別">${esc(MEMBER_TYPE[r.type] || r.type)}${r.memberNo ? `<span class="sub">${esc(r.memberNo)}</span>` : r.status === "pending" ? '<span class="sub hide-sm">承認時に自動付与</span>' : ""}
-        ${r.type === "student" && r.status === "pending" ? `<button class="btn btn-sm" data-sid="${esc(r.id)}" style="margin-top:4px">学生証を見る</button>` : ""}</td>
+        ${(r.type === "student" && r.status === "pending") || r.typeRequest === "student" ? `<button class="btn btn-sm" data-sid="${esc(r.id)}" style="margin-top:4px">学生証を見る</button>` : ""}
+        ${r.typeRequest && r.typeRequestReason ? `<span class="sub">変更の理由：${esc(r.typeRequestReason)}</span>` : ""}</td>
       <td data-label="申込日">${fmtD(r.createdAt)}${r.approvedAt ? `<span class="sub">承認 ${fmtD(r.approvedAt)}</span>` : ""}</td>
       <td class="act">
         ${reviewOf(reviews, r.id) || (r.status === "pending" && hasGroup) ? `<button class="btn btn-sm" data-review="${esc(r.id)}">審査状況</button>` : ""}
         ${r.status === "pending" ? `<button class="btn btn-sm btn-ok" data-approve="${esc(r.id)}">承認</button><button class="btn btn-sm btn-danger" data-reject="${esc(r.id)}">否認</button>` : ""}
         ${r.signatureRewrite === "requested" ? `<button class="btn btn-sm btn-ok" data-sigallow="${esc(r.id)}">署名の書き直しを許可</button><button class="btn btn-sm btn-danger" data-sigdeny="${esc(r.id)}">却下</button>` : ""}
         ${r.signatureRewrite === "allowed" ? `<button class="btn btn-sm" data-sigdeny="${esc(r.id)}">許可を取り消す</button>` : ""}
+        ${r.typeRequest ? `<button class="btn btn-sm btn-ok" data-typeallow="${esc(r.id)}">種別変更を許可</button><button class="btn btn-sm btn-danger" data-typedeny="${esc(r.id)}">却下</button>` : ""}
         ${r.cardSignature ? `<button class="btn btn-sm" data-sigview="${esc(r.id)}">署名</button>` : ""}
         ${r.status === "active" ? `<button class="btn btn-sm" data-suspend="${esc(r.id)}">停止</button>` : ""}
         ${r.status === "suspended" ? `<button class="btn btn-sm" data-activate="${esc(r.id)}">再開</button>` : ""}
@@ -737,13 +749,31 @@ const removeStudentId = (id) => adminApi.remove("student_ids", id).catch(err => 
 $("page").addEventListener("click", async (e) => {
   const t = e.target.closest("button");
   if (!t) return;
-  const { sid, approve, reject, suspend, activate, review, sigallow, sigdeny, sigview } = t.dataset;
+  const { sid, approve, reject, suspend, activate, review, sigallow, sigdeny, sigview, typeallow, typedeny } = t.dataset;
   const isMembers = location.hash.startsWith("#members");
   const del = isMembers ? t.dataset.del : null, edit = isMembers ? t.dataset.edit : null;
-  if (!(sid || approve || reject || suspend || activate || del || edit || review || sigallow || sigdeny || sigview)) return;
+  const target = sid || approve || reject || suspend || activate || del || edit || review || sigallow || sigdeny || sigview || typeallow || typedeny;
+  if (!target) return;
   const members = await getRows("members");
-  const r = members.find(x => x.id === (sid || approve || reject || suspend || activate || del || edit || review || sigallow || sigdeny || sigview));
+  const r = members.find(x => x.id === target);
   if (!r) return;
+  // 会員種別の変更申請（許可・却下）。学生証の画像は審査にのみ使うので、どちらの場合も削除
+  if (typeallow || typedeny) {
+    const allow = !!typeallow;
+    const from = MEMBER_TYPE[r.type] || r.type, to = MEMBER_TYPE[r.typeRequest] || r.typeRequest;
+    if (!window.confirm(allow ? `${r.name} さんの会員種別を「${from}」から「${to}」に変更します。よろしいですか？` : `${r.name} さんの会員種別の変更申請（${from} → ${to}）を却下します。よろしいですか？`)) return;
+    try {
+      await updateDoc(doc(db, "members", r.id), {
+        ...(allow ? { type: r.typeRequest } : {}),
+        typeRequest: deleteField(), typeRequestReason: deleteField(), typeRequestAt: deleteField(),
+        typeDecision: allow ? "approved" : "rejected", typeDecisionTo: r.typeRequest, typeDecidedBy: currentAdmin.uid, typeDecidedAt: new Date()
+      });
+      if (r.typeRequest === "student") await removeStudentId(r.id);
+      toast(allow ? `会員種別を「${to}」に変更しました。本人にメールでお知らせします。` : "申請を却下しました。本人にメールでお知らせします。");
+      invalidate("members"); refreshBadges(); route();
+    } catch (err) { console.error(err); toast("更新に失敗しました：" + err.message, "error"); }
+    return;
+  }
   // 会員証の署名の書き直し（申請の許可・却下、現在の署名の確認）
   if (sigview) {
     const body = openModal(`${r.name} さんの会員証の署名`, '<div class="sig-view"><img alt="署名"></div>');

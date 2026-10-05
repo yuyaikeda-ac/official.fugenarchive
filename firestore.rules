@@ -109,6 +109,21 @@ service cloud.firestore {
             || (rwAfter == 'requested' && rwBefore == null && !sigChanged)
             || (rwAfter == null && rwBefore == 'allowed' && sigChanged));
     }
+    // 会員種別の変更申請（本人による更新）
+    //  ・本人ができるのは「申請（typeRequest に変更先の種別）」と「申請の取り消し（消す）」だけ。種別（type）そのものは変更できない
+    //  ・申請中に別の種別へ出し直すことはできない（いったん取り消してから）
+    //  ・許可・却下は管理者のみ（管理者の更新）
+    function selfTypeRequestOk() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let rqBefore = before.get('typeRequest', null);
+      let rqAfter = after.get('typeRequest', null);
+      return rqAfter == rqBefore
+        || rqAfter == null
+        || (rqBefore == null && before.status == 'active'
+            && rqAfter in ['regular', 'associate', 'student'] && rqAfter != before.type
+            && str(after.get('typeRequestReason', ''), 500));
+    }
     // 会員証の裏面の直筆署名（任意項目。PNG 画像・300KB まで）
     function validCardSignature(d) {
       return !('cardSignature' in d)
@@ -138,9 +153,11 @@ service cloud.firestore {
           && (request.resource.data.status != 'active' || request.resource.data.approvedBy is string))
         || (signedIn() && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['name', 'kana', 'occupation', 'affiliation', 'phone', 'address', 'newsletter', 'cardSignature', 'signatureRewrite', 'signatureRewriteAt', 'email'])
+             .hasOnly(['name', 'kana', 'occupation', 'affiliation', 'phone', 'address', 'newsletter', 'cardSignature', 'signatureRewrite', 'signatureRewriteAt', 'email',
+                       'typeRequest', 'typeRequestReason', 'typeRequestAt'])
         && validCardSignature(request.resource.data)
         && selfSignatureOk()
+        && selfTypeRequestOk()
         // メールアドレスは、ログイン中のアカウント（確認済み）のアドレスに合わせる場合のみ
         && (request.resource.data.get('email', '') == resource.data.get('email', '')
             || (request.auth.token.email_verified == true && request.resource.data.email == request.auth.token.email))
@@ -151,17 +168,22 @@ service cloud.firestore {
 
     // ---------- 学生証の画像（ID = 会員の UID、学生会員の申込時のみ） ----------
     // 本人が審査中の間だけ登録・差し替え可。閲覧は本人と管理者、削除は管理者のみ
+    // 学生証を提出できるのは「審査中の学生会員（入会申込）」か「学生会員への種別変更を申請中の有効会員」
+    function studentIdAllowed(m) {
+      return (m.status == 'pending' && m.type == 'student')
+        || (m.status == 'active' && m.get('typeRequest', null) == 'student');
+    }
     match /student_ids/{uid} {
       allow read: if (signedIn() && request.auth.uid == uid) || isAdmin();
       allow create, update: if signedIn() && request.auth.uid == uid
-        && get(/databases/$(database)/documents/members/$(uid)).data.status == 'pending'
-        && get(/databases/$(database)/documents/members/$(uid)).data.type == 'student'
+        && studentIdAllowed(getAfter(/databases/$(database)/documents/members/$(uid)).data)
         && request.resource.data.keys().hasOnly(['image', 'createdAt'])
         && request.resource.data.image is string
         && request.resource.data.image.size() <= 900000
         && request.resource.data.image.matches('^data:image/jpeg;base64,.*')
         && request.resource.data.createdAt == request.time;
-      allow delete: if isAdmin();
+      // 本人も削除できる（種別変更の申請を取り消したときなど）
+      allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
     }
 
     // ---------- 理事会による入会審査 ----------

@@ -311,4 +311,45 @@ ${signature()}`
   }];
 }
 
-module.exports = { CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed };
+// ---------- 会員種別の変更申請（委員会へ） ----------
+function typeChangeRequested(m) {
+  return [{
+    to: CONFIG.notifyTo,
+    subject: `【会員種別の変更申請】${m.name} 様：${TYPE_LABEL[m.type] || m.type} → ${TYPE_LABEL[m.typeRequest] || m.typeRequest}`,
+    text:
+`会員から、会員種別の変更申請がありました。
+管理画面の「会員管理」から、許可または却下してください。${m.typeRequest === "student" ? "\n学生会員への変更のため、学生証（表面）の画像が提出されています。" : ""}
+
+■ お名前　：${m.name}
+■ 会員番号：${m.memberNo || "—"}
+■ 変更内容：${TYPE_LABEL[m.type] || m.type} → ${TYPE_LABEL[m.typeRequest] || m.typeRequest}
+■ 理由　　：${m.typeRequestReason || "—"}
+
+▼ 管理画面
+${CONFIG.siteUrl}/admin.html#members
+`
+  }];
+}
+
+// ---------- 会員種別の変更結果（本人へ） ----------
+function typeChangeDecided(m, beforeType) {
+  const ok = m.typeDecision === "approved";
+  const to = TYPE_LABEL[m.typeDecisionTo] || m.typeDecisionTo;
+  return [{
+    to: m.email,
+    subject: `【${CONFIG.orgName}】会員種別の変更について（${ok ? "承認" : "結果のお知らせ"}）`,
+    text:
+`${m.name} 様
+
+${CONFIG.orgName}です。
+会員種別の変更（${TYPE_LABEL[beforeType] || beforeType} → ${to}）のお申し出について、${ok
+  ? `委員会で承認し、会員種別を「${to}」に変更しました。\nデジタル会員証にも反映されています。`
+  : "誠に恐れ入りますが、今回は変更を見送らせていただきました。\nご不明な点は、お問い合わせフォームからご連絡ください。"}
+
+▼ 会員サイト
+${CONFIG.siteUrl}/member.html
+${signature()}`
+  }];
+}
+
+module.exports = { CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided };

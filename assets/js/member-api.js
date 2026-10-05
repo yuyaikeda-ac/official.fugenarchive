@@ -2,7 +2,7 @@
 //  会員機能のデータ処理（入会申込・ログイン・会員ポータル）
 // ============================================================
 import {
-  doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, collection, getDocs, query, where, orderBy, serverTimestamp
+  doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, writeBatch, collection, getDocs, query, where, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
@@ -135,6 +135,23 @@ export async function saveCardSignature(uid, image, { rewrite = false } = {}) {
 /** 署名の書き直しを管理者に申請 */
 export async function requestSignatureRewrite(uid) {
   await updateDoc(doc(db, "members", uid), { signatureRewrite: "requested", signatureRewriteAt: serverTimestamp() });
+}
+
+// ---------- 会員種別の変更（申請 → 管理者が許可） ----------
+/**
+ * 種別の変更を申請。学生会員へ変更する場合は学生証（表面）の画像も一緒に提出
+ * @param studentIdImage compressImage() で縮小した data URL（学生会員以外は不要）
+ */
+export async function requestTypeChange(uid, newType, reason, studentIdImage = "") {
+  const batch = writeBatch(db);
+  batch.update(doc(db, "members", uid), { typeRequest: newType, typeRequestReason: reason, typeRequestAt: serverTimestamp() });
+  if (newType === "student") batch.set(doc(db, "student_ids", uid), { image: studentIdImage, createdAt: serverTimestamp() });
+  await batch.commit();
+}
+/** 申請を取り消す（提出した学生証の画像も削除） */
+export async function cancelTypeChange(uid, hadStudentId) {
+  await updateDoc(doc(db, "members", uid), { typeRequest: deleteField(), typeRequestReason: deleteField(), typeRequestAt: deleteField() });
+  if (hadStudentId) await deleteDoc(doc(db, "student_ids", uid)).catch(() => {});
 }
 
 // ---------- メールアドレスの変更 ----------

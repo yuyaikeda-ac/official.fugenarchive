@@ -4,7 +4,8 @@
 import {
   onAuth, logout, resetPassword, getMember, updateProfile, getMemberNews, getMemberDocs,
   getEvents, getMyRsvps, rsvp, errorMessage, MEMBER_TYPES, STATUS_LABEL, OCCUPATIONS, saveCardSignature,
-  requestSignatureRewrite, canChangeEmail, requestEmailChange, syncMemberEmail
+  requestSignatureRewrite, canChangeEmail, requestEmailChange, syncMemberEmail,
+  requestTypeChange, cancelTypeChange, compressImage
 } from "./member-api.js";
 import { esc, isDemo, app } from "./db.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
@@ -753,11 +754,87 @@ routeOf("profile").after = () => {
     }
   });
   $("email-change")?.addEventListener("click", openEmailChange);
+  $("type-open")?.addEventListener("click", openTypeChange);
+  $("type-cancel")?.addEventListener("click", async (e) => {
+    const b = e.currentTarget;
+    if (!window.confirm("会員種別の変更の申請を取り消します。よろしいですか？")) return;
+    b.disabled = true;
+    try {
+      await cancelTypeChange(state.member.id, state.member.typeRequest === "student");
+      delete state.member.typeRequest; delete state.member.typeRequestReason; delete state.member.typeRequestAt;
+      rerender(); toast("申請を取り消しました");
+    } catch (err) { console.error(err); toast(errorMessage(err), true); b.disabled = false; }
+  });
   $("pw-reset").addEventListener("click", async () => {
     try { await resetPassword(state.member.email || state.user.email); toast("パスワード再設定メールを送信しました"); }
     catch (err) { console.error(err); toast(errorMessage(err), true); }
   });
 };
+// 会員種別の変更を申請（学生会員へ変更する場合は学生証の画像も）
+function openTypeChange() {
+  const m = state.member;
+  const options = Object.entries(MEMBER_TYPES).filter(([k]) => k !== m.type);
+  const dlg = document.createElement("dialog");
+  dlg.className = "sig-dialog";
+  dlg.innerHTML = `<form novalidate>
+      <h3>会員種別の変更を申請</h3>
+      <p>現在の会員種別は「${esc(MEMBER_TYPES[m.type]?.label || m.type)}」です。委員会の承認後に変更されます。</p>
+      <div class="field"><label>変更後の会員種別</label>
+        <div class="type-choice">${options.map(([k, v], i) => `<label><input type="radio" name="newType" value="${k}"${i === 0 ? " checked" : ""}><span>${esc(v.label)}</span></label>`).join("")}</div></div>
+      <div class="field"><label for="tc-reason">変更の理由</label><textarea id="tc-reason" maxlength="500" placeholder="例：大学に入学したため／卒業して就職したため"></textarea></div>
+      <div class="field" id="tc-sid" hidden><label>学生証の画像（表面のみ）</label>
+        <label class="sid-drop" for="tc-file"><img alt="学生証のプレビュー" hidden><span>タップして撮影・画像を選択</span></label>
+        <input id="tc-file" type="file" accept="image/*" hidden>
+        <p class="hint">お名前・学校名・有効期限が読み取れるように撮影してください。審査にのみ使用し、審査後に削除します。</p></div>
+      <p class="sig-err" hidden></p>
+      <div class="sig-actions">
+        <button class="lux-btn ghost sm" type="button" data-cancel>キャンセル</button>
+        <button class="lux-btn sm" type="submit">申請する</button>
+      </div>
+    </form>`;
+  document.body.appendChild(dlg);
+  dlg.addEventListener("close", () => dlg.remove());
+  dlg.querySelector("[data-cancel]").addEventListener("click", () => dlg.close());
+  dlg.showModal();
+  const form = dlg.querySelector("form");
+  const err = dlg.querySelector(".sig-err");
+  const fail = (msg) => { err.textContent = msg; err.hidden = false; };
+  const sidBox = dlg.querySelector("#tc-sid");
+  let sidImage = "";
+  const sync = () => { sidBox.hidden = form.elements.newType.value !== "student"; };
+  form.addEventListener("change", sync); sync();
+  dlg.querySelector("#tc-file").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      sidImage = await compressImage(file);
+      const img = sidBox.querySelector("img");
+      img.src = sidImage; img.hidden = false;
+      sidBox.querySelector(".sid-drop span").textContent = "タップして画像を選び直す";
+      err.hidden = true;
+    } catch (ex) { console.error(ex); sidImage = ""; fail("この画像は読み込めませんでした。JPEG または PNG の画像を選んでください。"); }
+  });
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const newType = form.elements.newType.value;
+    const reason = dlg.querySelector("#tc-reason").value.trim();
+    if (!reason) return fail("変更の理由を入力してください。");
+    if (newType === "student" && !sidImage) return fail("学生証（表面）の画像を選んでください。");
+    const btn = form.querySelector("[type=submit]");
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> 送信中…';
+    try {
+      await requestTypeChange(m.id, newType, reason, sidImage);
+      Object.assign(m, { typeRequest: newType, typeRequestReason: reason });
+      dlg.close(); rerender();
+      toast("会員種別の変更を申請しました。結果はメールでお知らせします");
+    } catch (ex) {
+      console.error(ex);
+      fail(errorMessage(ex));
+      btn.disabled = false; btn.textContent = "申請する";
+    }
+  });
+}
+
 // メールアドレスの変更（新しいアドレスに確認メール → リンクを開くと切り替え → 次回ログイン時に会員データへ反映）
 function openEmailChange() {
   const dlg = document.createElement("dialog");
@@ -846,6 +923,20 @@ function renderProfile() {
         <p style="color:var(--muted);font-size:13px;margin:0 0 16px">ご登録のメールアドレスにパスワード再設定用のリンクをお送りします。</p>
         <button class="lux-btn ghost sm" id="pw-reset">パスワードを変更する</button>
         <button class="lux-btn ghost sm" data-action="logout" style="margin-top:10px">ログアウト</button>
+      </section>
+      <section class="panel" id="type-panel">
+        <div class="panel-head"><h3>会員種別の変更</h3></div>
+        ${m.typeRequest ? `
+          <div class="type-req">
+            <span class="type-req-badge">申請中</span>
+            <p class="type-req-flow">${esc(MEMBER_TYPES[m.type]?.label || m.type)}<span>→</span><b>${esc(MEMBER_TYPES[m.typeRequest]?.label || m.typeRequest)}</b></p>
+            ${m.typeRequestReason ? `<p class="type-req-reason">理由：${esc(m.typeRequestReason)}</p>` : ""}
+            <p class="type-note">委員会で確認のうえ、結果をメールでお知らせします。</p>
+            <button class="lux-btn ghost sm" type="button" id="type-cancel">申請を取り消す</button>
+          </div>`
+        : `
+          <p class="type-note">現在の会員種別：<b>${esc(MEMBER_TYPES[m.type]?.label || m.type)}</b><br>変更は委員会の承認後に反映されます。学生会員への変更には学生証（表面）の画像が必要です。</p>
+          <button class="lux-btn ghost sm" type="button" id="type-open">会員種別の変更を申請する</button>`}
       </section>
     </div>
   </div>`;
