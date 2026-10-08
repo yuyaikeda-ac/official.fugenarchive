@@ -1247,3 +1247,9 @@ button.doc { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 .ev-actions .ev-qr { grid-column: 1 / -1; background: linear-gradient(135deg, #b8912f, #8a6a1f); border-color: #8a6a1f; }
 .ev-actions .ev-qr:hover { background: linear-gradient(135deg, #c9a144, #8a6a1f); }
 .ev-actions .ev-qr svg { width: 18px; height: 18px; }
+
+/* ============ 数字の形をそろえる ============
+   Cormorant Garamond（--display）の数字は高さが不ぞろいな形（3・4・5・7・9 が下にはみ出す）なので、
+   数字を大きく見せるところは Noto Serif JP にする。ほかの場所も、対応するフォントでは高さのそろった数字に */
+html { font-variant-numeric: lining-nums; }
+.ev-date .d, .benefit .num, .flow .dot, .steps li span { font-family: var(--serif); }
