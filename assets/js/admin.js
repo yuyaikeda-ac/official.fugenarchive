@@ -324,9 +324,16 @@ $("google-btn").addEventListener("click", async () => {
 });
 
 // ---------- 招待された方の初回登録 ----------
+$("reg-show").addEventListener("change", e => { for (const id of ["reg-pass", "reg-pass2"]) $(id).type = e.target.checked ? "text" : "password"; });
+// 招待メールのリンク（admin.html?invite=メールアドレス）から来たら、登録欄を開いてメールアドレスを入れておく
+{
+  const inv = new URLSearchParams(location.search).get("invite");
+  if (inv) { $("register-box").open = true; $("reg-email").value = inv; }
+}
 $("register-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   notice("register-msg", "", "");
+  if ($("reg-pass").value !== $("reg-pass2").value) { notice("register-msg", "error", "確認のためのパスワードが一致しません。同じパスワードを 2 回入力してください。"); return; }
   sendVerifyOnEnter = true;   // 確認待ちの画面を出すときに確認メールを送る（enter）
   try {
     await adminApi.register($("reg-email").value.trim(), $("reg-pass").value);

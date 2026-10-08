@@ -86,6 +86,8 @@ button { font: inherit; }
 .or-line::before, .or-line::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .invite-box { margin-top: 20px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: #f8fafc; }
 .invite-box summary { cursor: pointer; font-weight: 500; font-size: 13px; color: var(--accent-2); }
+.reg-steps { margin: 10px 0 14px; padding-left: 1.4em; font-size: 13px; }
+.reg-steps li { margin: 2px 0; }
 .auth-back { display: block; margin-top: 18px; text-align: center; font-size: 12px; color: var(--muted); }
 
 /* ============ レイアウト ============ */

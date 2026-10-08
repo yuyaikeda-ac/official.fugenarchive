@@ -42,10 +42,19 @@
     <!-- 招待された方の初回登録 -->
     <details class="invite-box" id="register-box">
       <summary>管理者として招待された方（初めての方）はこちら</summary>
-      <p class="muted small">オーナーから招待されたメールアドレスで登録してください。Google アカウントのメールアドレスに招待された場合は、上の「Googleでログイン」だけで登録が完了します。</p>
+      <p class="muted small">招待メールが届いたメールアドレスが <b>Google アカウント（Gmail など）</b>なら、ここでの登録は不要です。上の「Googleでログイン」を押すだけで登録が完了します。</p>
+      <ol class="reg-steps">
+        <li>招待メールが届いたメールアドレスを入力</li>
+        <li>この管理画面で使う<b>パスワードを新しく決めて</b>入力</li>
+        <li>届いた確認メールのリンクを開いて完了</li>
+      </ol>
       <form id="register-form" class="stack">
         <label class="fld"><span>招待されたメールアドレス</span><input type="email" id="reg-email" required autocomplete="username"></label>
-        <label class="fld"><span>パスワード（8文字以上）</span><input type="password" id="reg-pass" required minlength="8" autocomplete="new-password"></label>
+        <label class="fld"><span>新しく決めるパスワード（8文字以上）</span>
+          <input type="password" id="reg-pass" required minlength="8" autocomplete="new-password">
+          <span class="hint">メールアドレスのパスワードではありません。この管理画面にログインするためのパスワードを、ここで新しく決めてください。次回からはこのパスワードでログインします。</span></label>
+        <label class="fld"><span>パスワード（確認のためもう一度）</span><input type="password" id="reg-pass2" required minlength="8" autocomplete="new-password"></label>
+        <label class="check small"><input type="checkbox" id="reg-show"> パスワードを表示する</label>
         <div id="register-msg"></div>
         <button class="btn btn-primary btn-block" type="submit">登録して確認メールを受け取る</button>
       </form>
