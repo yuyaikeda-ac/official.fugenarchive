@@ -1061,14 +1061,13 @@ button.doc { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 }
 
 /* ============ 入会案内（join.html）：動き・浮き上がりなし ============
-   body.still のページでは、マウスを当てたときの浮き上がり・回転・出現アニメーションを止める
-   （ボタンやリンクの色の変化は残す） */
+   body.still のページでは、マウスを当てたときの浮き上がり・出現アニメーションを止める
+   （ボタンやリンクの色の変化と、エンブレムの周りの回転は残す） */
 .still .benefit, .still .plan, .still .lux-btn, .still .benefit::before { transition: none; }
 .still .benefit:hover, .still .plan:hover { transform: none; box-shadow: var(--shadow); border-color: var(--line-soft); }
 .still .benefit:hover::before { transform: scaleX(0); }
 .still .lux-btn:hover, .still .lux-btn:active { transform: none; }
 .still .lux-btn:not(.ghost):hover { box-shadow: 0 10px 24px -12px rgba(11,58,110,.6); }
-.still .emblem::after, .still .emblem .orbit { animation: none; }
 .still .faq .a { animation: none; }
 .still .reveal { opacity: 1; transform: none; transition: none; }
 /* 入会の流れ：番号なしの小さな点（線の高さ 34px に中心を合わせる） */
