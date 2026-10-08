@@ -1209,3 +1209,36 @@ button.doc { width: 100%; font: inherit; text-align: left; cursor: pointer; }
   .lux-btn:hover, .lux-btn:active, .benefit:hover, .plan:hover, .quick a:hover, .ev:hover, .doc:hover { transform: none; }
   .benefit:hover::before { transform: scaleX(0); }
 }
+
+/* ============ スマホ：下のメニュー（5 項目）と「その他」のシート ============ */
+.more-sheet { display: none; }
+@media (max-width: 860px) {
+  .topbar { padding-top: max(12px, env(safe-area-inset-top)); padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); gap: 10px; }
+  .topbar h1 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .view { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
+  .tabbar { bottom: max(12px, env(safe-area-inset-bottom)); padding-bottom: 6px; }
+  .tabbar a, .tab-more { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; padding: 7px 0 6px; border: 0; border-radius: 12px; background: none;
+    color: var(--muted); font: 11px var(--sans); text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .tabbar a svg, .tab-more svg { width: 22px; height: 22px; }
+  .tab-more.is-active { color: var(--navy); background: var(--ink-3); font-weight: 500; }
+  .toasts { bottom: calc(92px + env(safe-area-inset-bottom)); }
+
+  .more-sheet:not([hidden]) { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; background: rgba(31,42,60,.4); backdrop-filter: blur(3px); animation: fadeIn .2s; }
+  .more-panel { width: 100%; max-height: 85dvh; overflow-y: auto; padding: 10px 12px calc(16px + env(safe-area-inset-bottom)); border-radius: 20px 20px 0 0; background: #fff; box-shadow: 0 -20px 50px -20px rgba(16,36,70,.4); animation: sheetUp .28s var(--ease); }
+  .more-panel::before { content: ""; display: block; width: 40px; height: 4px; margin: 0 auto 12px; border-radius: 2px; background: #d5dce7; }
+  .more-me { display: flex; align-items: center; gap: 12px; padding: 4px 10px 14px; border-bottom: 1px solid var(--line-soft); }
+  .more-me .me-type { font-size: 12px; color: var(--muted); }
+  .more-list { list-style: none; margin: 8px 0 0; padding: 0; }
+  .more-list a { display: flex; align-items: center; gap: 14px; min-height: 52px; padding: 0 12px; border-radius: 12px; color: #3f4b5e; text-decoration: none; font-size: 15px; }
+  .more-list a svg { width: 21px; height: 21px; flex-shrink: 0; color: var(--navy-2); }
+  .more-list a span:not(.badge) { flex: 1; }
+  .more-list a.is-active { background: var(--ink-3); color: var(--navy); font-weight: 500; }
+  .more-list .badge { min-width: 22px; padding: 0 7px; border-radius: 11px; background: var(--danger); color: #fff; font-size: 12px; font-weight: 700; line-height: 22px; text-align: center; }
+  .more-list .more-sep { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line-soft); }
+  body.more-open { overflow: hidden; }
+}
+@keyframes sheetUp { from { transform: translateY(40px); opacity: .6; } }
+/* 5 項目になったので、狭いスマホでも文字を小さくしすぎない */
+@media (max-width: 360px) {
+  .tabbar a, .tab-more { font-size: 10px; letter-spacing: 0; }
+}

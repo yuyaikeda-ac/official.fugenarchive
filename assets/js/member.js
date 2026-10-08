@@ -51,6 +51,8 @@ const ROUTES = [
 
 /** ID でメニューの項目を取り出す（並べ替えても壊れないように） */
 const routeOf = (id) => ROUTES.find(r => r.id === id);
+// スマホの下のメニューに出す画面（残りは「その他」のシートから）
+const TABBAR = ["dashboard", "news", "events", "card"];
 
 // ---------- 状態 ----------
 const $ = (id) => document.getElementById(id);
@@ -141,9 +143,14 @@ async function startPortal() {
   // サイドバー・タブバー
   $("side-nav").innerHTML = ROUTES.map((r, i) =>
     `<li><a href="#${r.id}" data-route="${r.id}">${icon(r.icon)}${r.label}<span class="badge" data-badge="${r.id}" hidden></span></a></li>`).join("");
-  $("tabbar").innerHTML = ROUTES.filter(r => r.id !== "profile").map(r =>
+  $("tabbar").innerHTML = ROUTES.filter(r => TABBAR.includes(r.id)).map(r =>
     `<a href="#${r.id}" data-route="${r.id}">${icon(r.icon)}${r.short}<span class="badge tab-badge" data-badge="${r.id}" hidden></span></a>`).join("") +
-    `<a href="#profile" data-route="profile">${icon("user")}設定</a>`;
+    `<button type="button" class="tab-more" id="tab-more" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg>その他<span class="badge tab-badge" id="more-badge" hidden></span></button>`;
+  $("more-list").innerHTML = ROUTES.filter(r => !TABBAR.includes(r.id)).map(r =>
+    `<li><a href="#${r.id}" data-route="${r.id}">${icon(r.icon)}<span>${r.label}</span><span class="badge" data-badge="${r.id}" hidden></span></a></li>`).join("") +
+    `<li class="more-sep"><a href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>公式サイトへ</span></a></li>
+     <li><a href="#" data-action="logout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg><span>ログアウト</span></a></li>`;
+  $("tab-more").addEventListener("click", () => toggleMore(true));
   fillMe();
   $("portal").hidden = false;
   hideBoot();
@@ -191,7 +198,20 @@ function fillMe() {
   $("me-avatar").textContent = (m.name || "?").trim().charAt(0);
   $("me-name").textContent = `${m.name} 様`;
   $("me-type").textContent = MEMBER_TYPES[m.type]?.label || "";
+  $("more-avatar").textContent = $("me-avatar").textContent;
+  $("more-name").textContent = $("me-name").textContent;
+  $("more-type").textContent = $("me-type").textContent;
 }
+
+// ---------- スマホ：「その他」のシート ----------
+function toggleMore(open) {
+  const s = $("more-sheet");
+  if (open === s.hidden) s.hidden = !open; else return;
+  document.body.classList.toggle("more-open", open);
+  $("tab-more")?.classList.toggle("is-active", open || !TABBAR.includes(state.route));
+}
+$("more-sheet").addEventListener("click", e => { if (e.target.id === "more-sheet" || e.target.closest("a")) toggleMore(false); });
+addEventListener("keydown", e => { if (e.key === "Escape") toggleMore(false); });
 
 // ---------- ルーティング ----------
 function route() {
@@ -203,6 +223,8 @@ function route() {
     a.classList.toggle("is-active", on);
     on ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current");
   });
+  toggleMore(false);
+  $("tab-more")?.classList.toggle("is-active", !TABBAR.includes(r.id));
   $("view-title").textContent = r.label;
   document.title = r.id === "dashboard" ? "会員専用サイト｜普賢アーカイブ運営委員会" : `${r.label}｜会員サイト｜普賢アーカイブ運営委員会`;
   rerender();
@@ -236,6 +258,11 @@ function updateBadges() {
   document.querySelectorAll('[data-badge="consent"]').forEach(b => { b.hidden = !c; b.textContent = c; });
   const v = Poll.todoCount(state);
   document.querySelectorAll('[data-badge="votes"]').forEach(b => { b.hidden = !v; b.textContent = v; });
+  // 「その他」のボタンには、シートの中にある項目の合計を表示
+  const more = { news: n, consent: c, votes: v };
+  const total = ROUTES.filter(r => !TABBAR.includes(r.id)).reduce((s, r) => s + (more[r.id] || 0), 0);
+  const mb = $("more-badge");
+  if (mb) { mb.hidden = !total; mb.textContent = total > 99 ? "99+" : total; }
 }
 
 // ============================================================
