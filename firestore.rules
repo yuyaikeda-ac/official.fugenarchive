@@ -7,6 +7,7 @@ rules_version = '2';
 //  - members        : 本人が「審査中」で申込、本人は一部項目のみ編集可、承認は管理者
 //  - member_news / member_docs : 有効な会員のみ閲覧、管理者のみ書き込み
 //  - rsvps          : 有効な会員が自分の参加登録のみ作成・取消
+//  - checkins       : 行事当日の受付（QRコード）。記録は Cloud Functions のみ、閲覧は管理者と本人
 //  - student_ids    : 学生会員の学生証（表面）の画像。本人が申込時に登録、閲覧は本人と管理者
 //  - consent_forms / consent_signatures : 電子同意書と署名の記録（公開後の本文・署名は変更不可）
 //  - board_groups / settings / reviews : 理事会による入会審査（理由は管理者のみ閲覧。申込者には非公開）
@@ -302,6 +303,13 @@ service cloud.firestore {
       allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
       allow create, update: if false;
       allow delete: if isAdmin();
+    }
+
+    // ---------- 行事当日の受付（入室の記録。ID = 行事ID_UID、会員以外は自動ID） ----------
+    // 記録・取り消しは Cloud Functions（eventCheckin）経由のみ。会員は自分の出席記録だけ読める
+    match /checkins/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.get('uid', '') == request.auth.uid);
+      allow write: if false;
     }
   }
 }

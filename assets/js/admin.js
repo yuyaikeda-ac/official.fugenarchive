@@ -382,6 +382,7 @@ const VIEWS = {
   news: { title: "お知らせ", render: (sub) => renderContent("news", sub) },
   member_news: { title: "会員向けお知らせ", render: (sub) => renderContent("member_news", sub) },
   events: { title: "行事", render: (sub) => renderContent("events", sub) },
+  checkin: { title: "当日受付", render: renderCheckin, nav: "events" },
   member_docs: { title: "会員限定資料", render: (sub) => renderContent("member_docs", sub) },
   members: { title: "会員管理", render: renderMembers },
   consent: { title: "電子同意書", render: renderConsent },
@@ -396,7 +397,7 @@ function route() {
   const [name, sub] = (location.hash.slice(1) || "dashboard").split("/");
   const view = VIEWS[name] && (!VIEWS[name].owner || isOwner()) ? VIEWS[name] : VIEWS.dashboard;
   const key = VIEWS[name] === view ? name : "dashboard";
-  document.querySelectorAll("[data-nav]").forEach(a => a.classList.toggle("is-active", a.dataset.nav === key));
+  document.querySelectorAll("[data-nav]").forEach(a => a.classList.toggle("is-active", a.dataset.nav === (view.nav || key)));
   $("page-title").textContent = view.title;
   document.title = `${view.title}｜管理コンソール｜普賢アーカイブ運営委員会`;
   $("app").classList.remove("nav-open");
@@ -556,7 +557,7 @@ async function renderContent(name, sub = "") {
       ${cols.map(c => `<td${c.key === "title" ? ' class="main"' : c.type === "checkbox" ? "" : ` data-label="${esc(c.label.replace(/（.*）/, ""))}"`}>${c.key === "title" ? `<b>${cell(c, r)}</b>${r.bodyHtml ? ' <span class="pill info">装飾つき</span>' : ""}${r.notifiedAt ? ` <span class="pill ok" title="${esc(fmtDT(r.notifiedAt))}">メール送信済み</span>` : ""}` : cell(c, r)}</td>`).join("")}
       ${rsvpBy ? `<td data-label="参加登録">${(rsvpBy[r.id] || []).length} 名${r.capacity ? ` ／ 定員 ${esc(r.capacity)} 名` : ""}
         <span class="sub">${r.date && r.date < new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" }) ? pill("draft", "終了") : r.rsvpOpen !== false ? (r.capacity && (rsvpBy[r.id] || []).length >= r.capacity ? pill("ng", "満員") : pill("ok", "受付中")) : pill("draft", "受付なし")}${r.rsvpDeadline ? ` 締切 ${esc(fmtDate(r.rsvpDeadline))}` : ""}</span></td>` : ""}
-      <td class="act">${rsvpBy ? `<button class="btn btn-sm" data-attend="${esc(r.id)}">参加者</button>` : ""}<button class="btn btn-sm" data-edit="${esc(r.id)}">編集</button><button class="btn btn-sm btn-danger" data-del="${esc(r.id)}">削除</button></td></tr>`).join("")
+      <td class="act">${rsvpBy ? `<a class="btn btn-sm" href="#checkin/${esc(encodeURIComponent(r.id))}">受付</a><button class="btn btn-sm" data-attend="${esc(r.id)}">参加者</button>` : ""}<button class="btn btn-sm" data-edit="${esc(r.id)}">編集</button><button class="btn btn-sm btn-danger" data-del="${esc(r.id)}">削除</button></td></tr>`).join("")
       : `<tr><td colspan="${cols.length + 2}" class="empty">データがありません。</td></tr>`;
   };
   draw();
@@ -602,6 +603,261 @@ function openAttendees(ev, list) {
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
+}
+
+// ============================================================
+//  行事の当日受付（#checkin/行事ID）
+//  ・運営のスマホのカメラで、参加者のデジタル会員証の QR コード（verify.html?t=…）を読み取って入室を記録
+//  ・会員番号の手入力・会員以外（一般・来賓）の記録もできる
+//  ・記録は eventCheckin（functions/events.js）経由で checkins に保存。複数のスマホで同時に受付できる
+//  ・受付済みの一覧はリアルタイムで更新。事前の参加登録（rsvps）と照らして未着の人もわかる
+// ============================================================
+let jsQrLib = null;
+function loadJsQr() {
+  if (window.jsQR) return Promise.resolve();
+  jsQrLib ||= new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
+    s.onload = resolve; s.onerror = () => { jsQrLib = null; reject(new Error("QRコードの読み取り部品を読み込めませんでした")); };
+    document.head.appendChild(s);
+  });
+  return jsQrLib;
+}
+
+/** QR コードの中身から cardToken を取り出す（会員証以外の QR は null） */
+function cardTokenFrom(text) {
+  try {
+    const u = new URL(text);
+    const t = u.pathname.endsWith("/verify.html") ? u.searchParams.get("t") : null;
+    return t && /^[0-9a-f]{32}$/.test(t) ? t : null;
+  } catch { return null; }
+}
+
+/** 読み取ったときの音（OK：高い音 1 回／注意：低い音 2 回） */
+let audioCtx = null;
+function beep(ok) {
+  try {
+    audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
+    (ok ? [0] : [0, 0.22]).forEach(t0 => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.frequency.value = ok ? 1320 : 440; o.connect(g); g.connect(audioCtx.destination);
+      const t = audioCtx.currentTime + t0;
+      g.gain.setValueAtTime(0.2, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      o.start(t); o.stop(t + 0.2);
+    });
+  } catch {}
+  navigator.vibrate?.(ok ? 120 : [80, 60, 80]);
+}
+
+async function renderCheckin(eventId) {
+  const ev = (await getRows("events")).find(r => r.id === eventId) || (await getRows("events", true)).find(r => r.id === eventId);
+  if (!ev) { $("page").innerHTML = `<div class="note error">行事が見つかりません。</div><p><a href="#events">← 行事の一覧へ</a></p>`; return; }
+  let rsvps = [];
+  try { rsvps = (await getDocs(query(collection(db, "rsvps"), where("eventId", "==", eventId)))).docs.map(d => ({ id: d.id, ...d.data() })); }
+  catch (e) { console.error(e); }
+  let checkins = [];
+  let tab = "done";
+
+  $("page").innerHTML = `
+    <p class="small"><a href="#events">← 行事の一覧へ</a></p>
+    <div class="card ci-head">
+      <div><b class="ci-title">${esc(ev.title)}</b>
+        <span class="muted small">${esc(fmtDate(ev.date))}${ev.startTime ? " " + esc(ev.startTime) : ""}${ev.place ? "・" + esc(ev.place) : ""}</span></div>
+      <div class="ci-stats" id="ci-stats"></div>
+    </div>
+    <div class="ci-grid">
+      <div class="card ci-scan">
+        <div class="ci-video" id="ci-video-box">
+          <video id="ci-video" playsinline muted></video>
+          <div class="ci-frame"></div>
+          <div class="ci-idle" id="ci-idle"><p>参加者のデジタル会員証の<br>QRコードを読み取ります</p><button class="btn btn-primary" id="ci-start">カメラを起動</button></div>
+        </div>
+        <div class="ci-result" id="ci-result" hidden></div>
+        <div class="ci-tools">
+          <button class="btn btn-sm" id="ci-stop" hidden>カメラを止める</button>
+          <button class="btn btn-sm" id="ci-flip" hidden>カメラ切替</button>
+        </div>
+        <form class="ci-manual" id="ci-manual">
+          <label class="fld"><span>会員番号で受付（QRコードが読めないとき）</span>
+            <div class="ci-row"><input name="no" placeholder="FA-2026-0001" autocomplete="off" autocapitalize="characters"><button class="btn">受付</button></div></label>
+        </form>
+        <details class="ci-guest">
+          <summary>会員以外の参加者を記録</summary>
+          <form id="ci-guest" class="ci-row" style="margin-top:8px">
+            <input name="name" placeholder="お名前" required maxlength="100"><input name="aff" placeholder="ご所属（任意）" maxlength="100"><button class="btn">記録</button>
+          </form>
+        </details>
+      </div>
+      <div class="card ci-list">
+        <div class="toolbar" style="padding:12px 14px 0;margin:0">
+          <div class="ci-tabs" role="tablist">
+            <button class="btn btn-sm" data-tab="done" role="tab">受付済み</button>
+            <button class="btn btn-sm" data-tab="wait" role="tab">未着（参加登録あり）</button>
+          </div>
+          <span class="spacer"></span>
+          <button class="btn btn-sm" id="ci-csv">CSV</button>
+        </div>
+        <div id="ci-list" class="table-wrap"></div>
+      </div>
+    </div>`;
+
+  const stats = () => {
+    const members = checkins.filter(c => !c.guest);
+    const fromRsvp = members.filter(c => c.rsvp).length;
+    $("ci-stats").innerHTML = `
+      <div><span>受付済み</span><b>${checkins.length}</b>名</div>
+      <div><span>参加登録</span><b>${rsvps.length}</b>名${ev.capacity ? `<small>／定員 ${esc(ev.capacity)}</small>` : ""}</div>
+      <div><span>うち来場</span><b>${fromRsvp}</b>名</div>
+      <div><span>当日・会員以外</span><b>${checkins.length - fromRsvp}</b>名</div>`;
+  };
+  const METHOD = { qr: "QR", manual: "手入力", guest: "会員以外" };
+  const drawList = () => {
+    document.querySelectorAll("[data-tab]").forEach(b => b.classList.toggle("btn-primary", b.dataset.tab === tab));
+    const box = $("ci-list");
+    if (tab === "done") {
+      box.innerHTML = checkins.length ? `<table class="tbl cards"><thead><tr><th>時刻</th><th>お名前</th><th>会員番号</th><th>区分</th><th></th></tr></thead><tbody>
+        ${checkins.map(c => `<tr><td data-label="時刻">${c.at ? toDate(c.at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "…"}</td>
+          <td class="main"><b>${esc(c.name)}</b>${c.affiliation ? `<span class="sub">${esc(c.affiliation)}</span>` : ""}</td>
+          <td data-label="会員番号">${esc(c.memberNo || "—")}</td>
+          <td data-label="区分">${esc(c.type || "")} ${c.guest ? "" : c.rsvp ? pill("ok", "登録済") : pill("info", "当日")} <span class="sub">${esc(METHOD[c.method] || "")}${c.byEmail ? `・${esc(c.byEmail)}` : ""}</span></td>
+          <td class="act"><button class="btn btn-sm btn-danger" data-undo="${esc(c.id)}">取消</button></td></tr>`).join("")}
+        </tbody></table>` : '<div class="empty">まだ受付はありません。</div>';
+    } else {
+      const done = new Set(checkins.map(c => c.uid).filter(Boolean));
+      const wait = rsvps.filter(r => !done.has(r.uid));
+      box.innerHTML = wait.length ? `<table class="tbl cards"><thead><tr><th>お名前</th><th>会員番号</th><th></th></tr></thead><tbody>
+        ${wait.map(r => `<tr><td class="main"><b>${esc(r.name)}</b></td><td data-label="会員番号">${esc(r.memberNo || "—")}</td>
+          <td class="act">${r.memberNo ? `<button class="btn btn-sm" data-no="${esc(r.memberNo)}">受付する</button>` : ""}</td></tr>`).join("")}
+        </tbody></table>` : `<div class="empty">${rsvps.length ? "参加登録した方は全員受付済みです。" : "参加登録はありません。"}</div>`;
+    }
+  };
+  stats(); drawList();
+
+  // 受付済みの一覧（リアルタイム）
+  const stopList = onSnapshot(query(collection(db, "checkins"), where("eventId", "==", eventId)), (snap) => {
+    checkins = snap.docs.map(d => ({ id: d.id, ...d.data({ serverTimestamps: "estimate" }) }))
+      .sort((a, b) => (toDate(b.at)?.getTime() || 0) - (toDate(a.at)?.getTime() || 0));
+    stats(); drawList();
+  }, (e) => { console.error(e); toast("受付一覧を読み込めませんでした。", "error"); });
+
+  // ---- 受付（サーバーへ） ----
+  const call = (data) => callFn("eventCheckin", { eventId, ...data });
+  let resultTimer = null;
+  const showResult = (r) => {
+    const kind = r.result === "ok" ? "ok" : r.result === "already" ? "warn" : "ng";
+    const head = { ok: "受付しました", already: "受付済みです", invalid: "入室できません", unknown: "確認できません" }[r.result] || "確認できません";
+    const detail = r.result === "ok" ? (r.guest ? "会員以外の参加者" : r.rsvp ? "事前の参加登録あり" : "参加登録なし（当日参加）")
+      : r.result === "already" ? `${r.at ? new Date(r.at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) + " に" : "すでに"}受付しています`
+      : r.reason || "";
+    const box = $("ci-result");
+    box.className = `ci-result ${kind}`;
+    box.innerHTML = `<b>${esc(head)}</b>${r.name ? `<div class="ci-name">${esc(r.name)} <small>様</small></div>` : ""}
+      ${r.memberNo ? `<div class="small">${esc(r.memberNo)}${r.type ? "・" + esc(r.type) : ""}</div>` : ""}<div class="small">${esc(detail)}</div>`;
+    box.hidden = false;
+    beep(kind === "ok");
+    clearTimeout(resultTimer);
+    resultTimer = setTimeout(() => { box.hidden = true; }, 6000);
+  };
+  const run = async (data) => {
+    try { showResult(await call(data)); }
+    catch (e) { showResult({ result: "unknown", reason: e.message || "受付できませんでした。" }); }
+  };
+
+  // ---- カメラで読み取り ----
+  const video = $("ci-video");
+  let stream = null, raf = 0, facing = "environment", busy = false, lastText = "", lastAt = 0;
+  const detector = "BarcodeDetector" in window ? new window.BarcodeDetector({ formats: ["qr_code"] }) : null;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  const stopCam = () => {
+    cancelAnimationFrame(raf); raf = 0;
+    stream?.getTracks().forEach(t => t.stop()); stream = null;
+    video.srcObject = null;
+    $("ci-idle").hidden = false; $("ci-stop").hidden = true; $("ci-flip").hidden = true;
+  };
+  const onCode = async (text) => {
+    const now = Date.now();
+    if (busy || (text === lastText && now - lastAt < 4000)) return; // 同じ QR を続けて読まない
+    lastText = text; lastAt = now;
+    const token = cardTokenFrom(text);
+    busy = true;
+    if (!token) showResult({ result: "unknown", reason: "会員証のQRコードではありません。" });
+    else await run({ token });
+    setTimeout(() => { busy = false; }, 1200);
+  };
+  const scan = async () => {
+    if (!stream) return;
+    if (video.readyState >= 2 && !busy) {
+      try {
+        if (detector) {
+          const codes = await detector.detect(video);
+          if (codes[0]) await onCode(codes[0].rawValue);
+        } else if (window.jsQR) {
+          const w = canvas.width = Math.min(640, video.videoWidth), h = canvas.height = Math.round(video.videoHeight * w / video.videoWidth);
+          ctx.drawImage(video, 0, 0, w, h);
+          const code = window.jsQR(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: "dontInvert" });
+          if (code?.data) await onCode(code.data);
+        }
+      } catch (e) { console.warn(e); }
+    }
+    raf = requestAnimationFrame(scan);
+  };
+  const startCam = async () => {
+    try {
+      if (!detector) await loadJsQr();
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+      video.srcObject = stream;
+      await video.play();
+      $("ci-idle").hidden = true; $("ci-stop").hidden = false; $("ci-flip").hidden = false;
+      try { audioCtx ||= new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch {} // iPhone：ボタンを押したときに音を有効化
+      raf = requestAnimationFrame(scan);
+    } catch (e) {
+      console.error(e); stopCam();
+      toast(e.name === "NotAllowedError" ? "カメラの使用が許可されていません。ブラウザの設定で許可してください。" : `カメラを起動できませんでした：${e.message}`, "error");
+    }
+  };
+  $("ci-start").addEventListener("click", startCam);
+  $("ci-stop").addEventListener("click", stopCam);
+  $("ci-flip").addEventListener("click", () => { facing = facing === "environment" ? "user" : "environment"; stopCam(); startCam(); });
+
+  // ---- 手入力・会員以外 ----
+  $("ci-manual").addEventListener("submit", async e => {
+    e.preventDefault();
+    const no = e.target.elements.no.value.trim();
+    if (!no) return;
+    await run({ memberNo: no });
+    e.target.reset();
+  });
+  $("ci-guest").addEventListener("submit", async e => {
+    e.preventDefault();
+    const f = e.target.elements;
+    await run({ guestName: f.name.value.trim(), guestAffiliation: f.aff.value.trim() });
+    e.target.reset();
+  });
+
+  // ---- 一覧の操作 ----
+  document.querySelector(".ci-tabs").addEventListener("click", e => { const t = e.target.closest("[data-tab]"); if (t) { tab = t.dataset.tab; drawList(); } });
+  $("ci-list").addEventListener("click", async e => {
+    const { undo, no } = e.target.dataset;
+    if (no) return run({ memberNo: no });
+    if (undo) {
+      const c = checkins.find(x => x.id === undo);
+      if (!window.confirm(`${c?.name || ""} さんの受付を取り消します。よろしいですか？`)) return;
+      try { await call({ undo }); toast("受付を取り消しました。"); }
+      catch (err) { fail("取り消しに失敗しました")(err); }
+    }
+  });
+  $("ci-csv").addEventListener("click", () => {
+    const done = new Set(checkins.map(c => c.uid).filter(Boolean));
+    const t = (v) => v ? toDate(v).toLocaleString("ja-JP") : "";
+    downloadCsv(`出席_${ev.date || ""}_${(ev.title || "").slice(0, 20)}`, [
+      ["状態", "お名前", "ご所属", "会員番号", "区分", "参加登録", "受付時刻", "受付方法", "受付担当"],
+      ...checkins.slice().reverse().map(c => ["出席", c.name, c.affiliation || "", c.memberNo || "", c.type || "", c.rsvp ? "あり" : "なし", t(c.at), METHOD[c.method] || "", c.byEmail || ""]),
+      ...rsvps.filter(r => !done.has(r.uid)).map(r => ["欠席（未着）", r.name, "", r.memberNo || "", "", "あり", "", "", ""])
+    ]);
+  });
+
+  pageStop = () => { stopList(); stopCam(); clearTimeout(resultTimer); };
 }
 
 /** プレーンテキストを段落の HTML に（古いお知らせを編集するとき） */
