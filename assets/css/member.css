@@ -37,6 +37,8 @@
 [hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 img { max-width: 100%; }
+/* スマホ：ボタン・リンクを 1 回のタップで反応させる（ダブルタップ拡大の判定待ちをなくす） */
+a, button, input, select, textarea, label, summary, [role="button"], [role="tab"] { touch-action: manipulation; }
 
 /* ---------- 共通パーツ ---------- */
 .lux { background: var(--ink); color: var(--pearl); font-family: var(--sans); }
@@ -223,6 +225,8 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
 .sid-drop:hover, .student-id:has(input:focus-visible) .sid-drop { border-color: var(--navy); background: var(--ink-3); }
 .sid-drop img { max-width: 100%; max-height: 260px; border-radius: 8px; margin-bottom: 10px; }
 .student-id.is-invalid .sid-drop { border-color: var(--danger); }
+.sid-lead { margin: 0 0 14px; font-size: 13.5px; line-height: 1.7; }
+.student-id > .sno-label, #tc-sid > .sno-label { margin-top: 18px; }
 .sid-confirm { display: block; max-width: 240px; border-radius: 8px; border: 1px solid var(--line-soft); }
 .type-select label:has(input:focus-visible) { outline: 2px solid var(--navy-2); outline-offset: 3px; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
@@ -407,15 +411,6 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
 .empty-state svg { width: 40px; height: 40px; color: #b8c4d6; margin-bottom: 10px; }
 
 /* お知らせ（アコーディオン） */
-.news-acc details { border-radius: 14px; background: #fff; border: 1px solid var(--line-soft); margin-bottom: 10px; box-shadow: var(--shadow); transition: border-color .3s; }
-.news-acc details[open] { border-color: #b8c4d6; }
-.news-acc summary { list-style: none; cursor: pointer; display: flex; gap: 18px; align-items: center; padding: 18px 24px; }
-.news-acc summary::-webkit-details-marker { display: none; }
-.news-acc summary time { color: var(--muted); font-size: 13px; width: 92px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
-.news-acc summary .ttl { flex: 1; font-size: 15px; font-weight: 500; color: var(--navy); }
-.news-acc summary::after { content: ""; width: 8px; height: 8px; border-right: 2px solid var(--navy); border-bottom: 2px solid var(--navy); transform: rotate(45deg); transition: transform .3s; flex-shrink: 0; }
-.news-acc details[open] summary::after { transform: rotate(225deg); }
-.news-acc .body { margin: 0 24px; padding: 18px 0 22px 110px; border-top: 1px solid var(--line-soft); color: #3f4b5e; white-space: pre-wrap; line-height: 2; font-size: 14px; animation: fadeDown .35s var(--ease); }
 
 
 /* ============ 装飾つき本文（管理画面のエディタで作成した HTML。assets/js/rich-view.js で表示） ============ */
@@ -661,9 +656,6 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
   .welcome .pc-only { display: none; }
   .welcome .sp-only { display: inline; }
   .welcome .mini-card { width: 100%; max-width: 320px; }
-  .news-acc .body { padding: 16px 0 20px; margin: 0 18px; }
-  .news-acc summary { flex-wrap: wrap; gap: 4px 12px; padding: 16px 18px; }
-  .news-acc summary .ttl { flex-basis: 100%; order: 3; }
   .card-info { grid-template-columns: 1fr; }
   .events { grid-template-columns: 1fr; }
   .tabbar { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 50; display: flex; justify-content: space-around; padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); border-radius: 18px; background: rgba(255,255,255,.95); border: 1px solid var(--line-soft); backdrop-filter: blur(14px); box-shadow: 0 14px 34px -12px rgba(16,36,70,.35); }
@@ -675,8 +667,6 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
 }
 @media (max-width: 520px) { .quick { grid-template-columns: 1fr 1fr; gap: 10px; } .quick a { padding: 16px; } }
 
-/* 会員向けお知らせの本文（装飾つき）は通常の折り返し */
-.news-acc .body.rich-body:has(> *) { white-space: normal; }
 
 /* ============ 電子同意書（assets/js/consent-ui.js） ============ */
 /* 同意書の本文 */
@@ -1040,24 +1030,26 @@ button.doc { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 @media (max-width: 380px) { .ev-tabs button { font-size: 12px; gap: 4px; } }
 .ev-pad { height: 20px; }
 
-/* ============ 会員向けお知らせ（整理版） ============ */
-.news-acc summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "meta chev" "ttl chev"; align-items: center; gap: 6px 14px; padding: 16px 18px 16px 22px; }
-.news-acc summary::after { display: none; }
-.news-acc .na-meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.news-acc .na-meta time { width: auto; font-size: 12.5px; }
-.news-acc .na-meta .pill { margin: 0; }
-.news-acc summary .ttl { grid-area: ttl; flex: none; order: 0; font-size: 15px; font-weight: 600; line-height: 1.6; overflow-wrap: anywhere; }
-.news-acc .na-chev { grid-area: chev; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--ink-3); transition: background .2s, transform .3s; }
-.news-acc .na-chev::before { content: ""; width: 7px; height: 7px; margin-top: -3px; border-right: 2px solid var(--navy); border-bottom: 2px solid var(--navy); transform: rotate(45deg); }
-.news-acc details[open] .na-chev { transform: rotate(180deg); background: var(--navy); }
-.news-acc details[open] .na-chev::before { border-color: #fff; }
-.news-acc summary:hover .na-chev { background: #dfe7f2; }
-.news-acc details[open] summary:hover .na-chev { background: var(--navy-2); }
-.news-acc .body { padding-left: 0; margin: 0 22px; }
+/* ============ 会員向けお知らせ：一覧 → 1 件ずつの記事ページ ============ */
+.news-list { list-style: none; margin: 0; padding: 0; }
+.news-list li { margin-bottom: 10px; }
+.news-list a { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "meta chev" "ttl chev"; align-items: center; gap: 6px 14px; padding: 16px 18px 16px 22px; border-radius: 14px; background: #fff; border: 1px solid var(--line-soft); box-shadow: var(--shadow); color: inherit; text-decoration: none; transition: border-color .2s; }
+.news-list a:hover { border-color: #b8c4d6; }
+.na-meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.na-meta time { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.na-meta .pill { margin: 0; }
+.news-list .ttl { grid-area: ttl; font-size: 15px; font-weight: 600; line-height: 1.6; color: var(--navy); overflow-wrap: anywhere; }
+.news-list .na-chev { grid-area: chev; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--ink-3); transition: background .2s; }
+.news-list .na-chev::before { content: ""; width: 7px; height: 7px; margin-left: -3px; border-right: 2px solid var(--navy); border-bottom: 2px solid var(--navy); transform: rotate(-45deg); }
+.news-list a:hover .na-chev { background: #dfe7f2; }
+.news-article { padding: 28px 32px 32px; }
+.news-article .news-title { margin: 10px 0 0; padding-bottom: 18px; border-bottom: 1px solid var(--line-soft); font-size: 20px; line-height: 1.6; color: var(--navy); overflow-wrap: anywhere; }
+.news-article .body { padding-top: 20px; color: #3f4b5e; white-space: pre-wrap; line-height: 2; font-size: 14.5px; overflow-wrap: anywhere; }
+.news-article .body.rich-body:has(> *) { white-space: normal; }
 @media (max-width: 860px) {
-  .news-acc summary { flex-wrap: nowrap; padding: 14px 14px 14px 18px; gap: 6px 10px; }
-  .news-acc summary .ttl { flex-basis: auto; order: 0; }
-  .news-acc .body { margin: 0 18px; }
+  .news-list a { padding: 14px 14px 14px 18px; gap: 6px 10px; }
+  .news-article { padding: 22px 18px 26px; }
+  .news-article .news-title { font-size: 18px; }
 }
 
 /* ============ 入会案内（join.html）：動き・浮き上がりなし ============
@@ -1210,3 +1202,10 @@ button.doc { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 .auth-card .row { flex-wrap: wrap; gap: 8px 12px; }
 .keep-login { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); cursor: pointer; }
 .keep-login input { width: 16px; height: 16px; margin: 0; accent-color: var(--navy); }
+
+/* ============ タッチ端末（スマホ・タブレット）：触れたときの浮き上がりを止める ============
+   指を置いた瞬間にボタンやカードが動くと、1 回目のタップが反応しないことがあるため */
+@media (hover: none) {
+  .lux-btn:hover, .lux-btn:active, .benefit:hover, .plan:hover, .quick a:hover, .ev:hover, .doc:hover { transform: none; }
+  .benefit:hover::before { transform: scaleX(0); }
+}

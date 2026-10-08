@@ -38,9 +38,7 @@ function memberApplied(m) {
 ■ お名前　：${m.name}（${m.kana || ""}）
 ■ メール　：${m.email}
 ■ ご職業　：${m.occupation || "—"}
-■ ご所属　：${m.affiliation || "—"}
-■ 電話番号：${m.phone || "—"}
-■ ご住所　：${m.address || "—"}
+■ ご所属　：${m.affiliation || "—"}${m.type === "student" ? `\n■ 学籍番号：${m.studentNo || "—"}` : ""}
 ■ 申込日時：${fmtDate(m.createdAt)}
 
 ■ 入会の動機・メッセージ
@@ -337,12 +335,12 @@ function typeChangeRequested(m) {
     subject: `【会員種別の変更申請】${m.name} 様：${TYPE_LABEL[m.type] || m.type} → ${TYPE_LABEL[m.typeRequest] || m.typeRequest}`,
     text:
 `会員から、会員種別の変更申請がありました。
-管理画面の「会員管理」から、許可または却下してください。${m.typeRequest === "student" ? "\n学生会員への変更のため、学生証（表面）の画像が提出されています。" : ""}
+管理画面の「会員管理」から、許可または却下してください。${m.typeRequest === "student" ? (m.typeRequestStudentNo ? "\n学生会員への変更のため、学籍番号が入力されています（学生証の画像も提出されている場合があります）。" : "\n学生会員への変更のため、学生証（表面）の画像が提出されています。") : ""}
 
 ■ お名前　：${m.name}
 ■ 会員番号：${m.memberNo || "—"}
 ■ 変更内容：${TYPE_LABEL[m.type] || m.type} → ${TYPE_LABEL[m.typeRequest] || m.typeRequest}
-■ 理由　　：${m.typeRequestReason || "—"}
+■ 理由　　：${m.typeRequestReason || "—"}${m.typeRequest === "student" ? `\n■ 学籍番号：${m.typeRequestStudentNo || "—"}` : ""}
 
 ▼ 管理画面
 ${CONFIG.siteUrl}/admin.html#members

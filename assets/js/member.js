@@ -303,18 +303,20 @@ function renderDashboard() {
 //  画面：お知らせ
 // ============================================================
 routeOf("news").after = () => {
-  // 本文（装飾つき HTML は安全な形にしてから）を表示
-  document.querySelectorAll(".news-acc [data-body]").forEach(el => {
-    const n = state.news.find(x => x.id === el.dataset.body);
-    if (n) renderRich(el, n);
-  });
+  const id = location.hash.split("/")[1];
+  // 記事を開いているとき：本文（装飾つき HTML は安全な形にしてから）を表示
+  if (id) {
+    const n = state.news?.find(x => x.id === id);
+    const el = document.querySelector(".news-article [data-body]");
+    if (n && el) renderRich(el, n);
+    return;
+  }
   const q = $("news-q");
-  const target = location.hash.split("/")[1];
   // 絞り込み（すべて／重要／新着）と検索
   const apply = () => {
     const v = (q?.value || "").trim().toLowerCase();
     let shown = 0;
-    document.querySelectorAll(".news-acc details").forEach(d => {
+    document.querySelectorAll(".news-list li").forEach(d => {
       const hit = (!v || d.dataset.text.includes(v)) && (newsFilter === "all" || d.dataset[newsFilter] === "1");
       d.hidden = !hit; if (hit) shown++;
     });
@@ -328,30 +330,35 @@ routeOf("news").after = () => {
     apply();
   }));
   apply();
-  if (target) {
-    const d = document.querySelector(`details[data-id="${CSS.escape(target)}"]`);
-    if (d) { d.open = true; setTimeout(() => d.scrollIntoView({ behavior: "smooth", block: "center" }), 80); }
-  }
 };
 let newsFilter = "all";
+const newsMeta = (n) => `<span class="na-meta"><time>${ymd(n.date)}</time>${n.important ? '<span class="pill imp">重要</span>' : ""}${isNew(n.date) ? '<span class="pill new">NEW</span>' : ""}</span>`;
 function renderNews() {
-  if (!state.news) return `<div class="news-acc">${Array.from({ length: 4 }, () => '<div class="skel" style="height:64px;margin-bottom:12px;border-radius:16px"></div>').join("")}</div>`;
+  if (!state.news) return `<div class="news-list">${Array.from({ length: 4 }, () => '<div class="skel" style="height:64px;margin-bottom:12px;border-radius:16px"></div>').join("")}</div>`;
   if (state.errors.news) return emptyState(state.errors.news);
+  const back = `<a class="consent-back" href="#news">← お知らせの一覧へ</a>`;
+  const id = location.hash.split("/")[1];
+  // 1 件の記事
+  if (id) {
+    const n = state.news.find(x => x.id === id);
+    if (!n) return `${back}${emptyState("このお知らせは見つかりませんでした", "bell")}`;
+    return `${back}
+    <article class="panel news-article">
+      ${newsMeta(n)}
+      <h2 class="news-title">${esc(n.title)}</h2>
+      <div class="body" data-body="${esc(n.id)}"></div>
+    </article>`;
+  }
   if (!state.news.length) return emptyState("会員向けのお知らせはまだありません", "bell");
   const count = { all: state.news.length, imp: state.news.filter(n => n.important).length, new: state.news.filter(n => isNew(n.date)).length };
   const tab = (k, l) => `<button type="button" role="tab" data-nf="${k}" aria-selected="${newsFilter === k}" class="${newsFilter === k ? "is-active" : ""}">${l}<span>${count[k]}</span></button>`;
   return `
   <div class="ev-tabs" role="tablist" aria-label="お知らせの絞り込み">${tab("all", "すべて")}${tab("imp", "重要")}${tab("new", "新着")}</div>
   <div class="toolbar"><label class="search">${icon("search", 2)}<input id="news-q" type="search" placeholder="お知らせを検索（/ キーで移動）" aria-label="お知らせを検索"></label></div>
-  <div class="news-acc">${state.news.map((n, i) => `
-    <details data-id="${esc(n.id)}" data-imp="${n.important ? 1 : 0}" data-new="${isNew(n.date) ? 1 : 0}" data-text="${esc(`${n.title} ${n.body || htmlToText(n.bodyHtml)}`.toLowerCase())}"${i === 0 ? " open" : ""}>
-      <summary>
-        <span class="na-meta"><time>${ymd(n.date)}</time>${n.important ? '<span class="pill imp">重要</span>' : ""}${isNew(n.date) ? '<span class="pill new">NEW</span>' : ""}</span>
-        <span class="ttl">${esc(n.title)}</span>
-        <span class="na-chev" aria-hidden="true"></span>
-      </summary>
-      <div class="body" data-body="${esc(n.id)}"></div>
-    </details>`).join("")}</div>
+  <ul class="news-list">${state.news.map(n => `
+    <li data-imp="${n.important ? 1 : 0}" data-new="${isNew(n.date) ? 1 : 0}" data-text="${esc(`${n.title} ${n.body || htmlToText(n.bodyHtml)}`.toLowerCase())}">
+      <a href="#news/${esc(n.id)}">${newsMeta(n)}<span class="ttl">${esc(n.title)}</span><span class="na-chev" aria-hidden="true"></span></a>
+    </li>`).join("")}</ul>
   <div id="news-none" hidden>${emptyState("該当するお知らせはありません", "search")}</div>`;
 }
 
@@ -827,7 +834,7 @@ routeOf("profile").after = () => {
     if (!f.name.value.trim()) { f.name.focus(); return toast("お名前を入力してください", true); }
     const data = {
       name: f.name.value.trim(), kana: f.kana.value.trim(), occupation: f.occupation.value, affiliation: f.affiliation.value.trim(),
-      phone: f.phone.value.trim(), address: f.address.value.trim(), newsletter: f.newsletter.checked
+      newsletter: f.newsletter.checked
     };
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> 保存中…';
     try {
@@ -850,7 +857,7 @@ routeOf("profile").after = () => {
     b.disabled = true;
     try {
       await cancelTypeChange(state.member.id, state.member.typeRequest === "student");
-      delete state.member.typeRequest; delete state.member.typeRequestReason; delete state.member.typeRequestAt;
+      delete state.member.typeRequest; delete state.member.typeRequestReason; delete state.member.typeRequestAt; delete state.member.typeRequestStudentNo;
       rerender(); toast("申請を取り消しました");
     } catch (err) { console.error(err); toast(errorMessage(err), true); b.disabled = false; }
   });
@@ -872,7 +879,7 @@ routeOf("profile").after = () => {
     catch (err) { console.error(err); toast(errorMessage(err), true); }
   });
 };
-// 会員種別の変更を申請（学生会員へ変更する場合は学生証の画像も）
+// 会員種別の変更を申請（学生会員へ変更する場合は学生証の画像か学籍番号も）
 function openTypeChange() {
   const m = state.member;
   const options = Object.entries(MEMBER_TYPES).filter(([k]) => k !== m.type);
@@ -884,10 +891,15 @@ function openTypeChange() {
       <div class="field"><label>変更後の会員種別</label>
         <div class="type-choice">${options.map(([k, v], i) => `<label><input type="radio" name="newType" value="${k}"${i === 0 ? " checked" : ""}><span>${esc(v.label)}</span></label>`).join("")}</div></div>
       <div class="field"><label for="tc-reason">変更の理由</label><textarea id="tc-reason" maxlength="500" placeholder="例：大学に入学したため／卒業して就職したため"></textarea></div>
-      <div class="field" id="tc-sid" hidden><label>学生証の画像（表面のみ）</label>
+      <div class="field" id="tc-sid" hidden>
+        <p class="sid-lead">学生の確認のため、<strong>学生証の画像</strong>か<strong>学籍番号</strong>のどちらかを入力してください</p>
+        <label>学生証の画像（表面のみ）</label>
         <label class="sid-drop" for="tc-file"><img alt="学生証のプレビュー" hidden><span>タップして撮影・画像を選択</span></label>
         <input id="tc-file" type="file" accept="image/*" hidden>
-        <p class="hint">お名前・学校名・有効期限が読み取れるように撮影してください。審査にのみ使用し、審査後に削除します。</p></div>
+        <p class="hint">お名前・学校名・有効期限が読み取れるように撮影してください。審査にのみ使用し、審査後に削除します。</p>
+        <label for="tc-sno" class="sno-label">学籍番号</label>
+        <input id="tc-sno" autocomplete="off" placeholder="例：A1234567" maxlength="50">
+        <p class="hint">学生証の画像を出さない場合は、学籍番号を入力してください（ご所属に学校名もご記入ください）。</p></div>
       <p class="sig-err" hidden></p>
       <div class="sig-actions">
         <button class="lux-btn ghost sm" type="button" data-cancel>キャンセル</button>
@@ -921,12 +933,13 @@ function openTypeChange() {
     const newType = form.elements.newType.value;
     const reason = dlg.querySelector("#tc-reason").value.trim();
     if (!reason) return fail("変更の理由を入力してください。");
-    if (newType === "student" && !sidImage) return fail("学生証（表面）の画像を選んでください。");
+    const studentNo = newType === "student" ? dlg.querySelector("#tc-sno").value.trim() : "";
+    if (newType === "student" && !sidImage && !studentNo) return fail("学生証の画像か学籍番号のどちらかを入力してください。");
     const btn = form.querySelector("[type=submit]");
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> 送信中…';
     try {
-      await requestTypeChange(m.id, newType, reason, sidImage);
-      Object.assign(m, { typeRequest: newType, typeRequestReason: reason });
+      await requestTypeChange(m.id, newType, reason, sidImage, studentNo);
+      Object.assign(m, { typeRequest: newType, typeRequestReason: reason, ...(studentNo ? { typeRequestStudentNo: studentNo } : {}) });
       dlg.close(); rerender();
       toast("会員種別の変更を申請しました。結果はメールでお知らせします");
     } catch (ex) {
@@ -1005,7 +1018,6 @@ function renderProfile() {
         <div class="field"><label for="p-occupation">ご職業</label><select id="p-occupation" name="occupation"><option value="">選択してください</option>${OCCUPATIONS.map(g =>
           `<optgroup label="${esc(g.group)}">${g.items.map(v => `<option${m.occupation === v ? " selected" : ""}>${esc(v)}</option>`).join("")}</optgroup>`).join("")}</select></div>
         ${f("affiliation", "ご所属", 'autocomplete="organization" maxlength="200"')}
-        <div class="grid-2">${f("phone", "電話番号", 'type="tel" autocomplete="tel" maxlength="30"')}${f("address", "ご住所", 'autocomplete="street-address" maxlength="300"')}</div>
         <div class="field"><label class="check"><input type="checkbox" name="newsletter"${m.newsletter ? " checked" : ""}> 会員向けのお知らせをメールで受け取る</label></div>
         <button class="lux-btn" id="save-btn" type="submit" disabled>変更を保存</button>
       </form>
@@ -1040,7 +1052,7 @@ function renderProfile() {
             <button class="lux-btn ghost sm" type="button" id="type-cancel">申請を取り消す</button>
           </div>`
         : `
-          <p class="type-note">現在の会員種別：<b>${esc(MEMBER_TYPES[m.type]?.label || m.type)}</b><br>変更は委員会の承認後に反映されます。学生会員への変更には学生証（表面）の画像が必要です。</p>
+          <p class="type-note">現在の会員種別：<b>${esc(MEMBER_TYPES[m.type]?.label || m.type)}</b><br>変更は委員会の承認後に反映されます。学生会員への変更には学生証（表面）の画像か学籍番号が必要です。</p>
           <button class="lux-btn ghost sm" type="button" id="type-open">会員種別の変更を申請する</button>`}
       </section>
     </div>

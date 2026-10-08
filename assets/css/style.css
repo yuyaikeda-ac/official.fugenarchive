@@ -24,6 +24,8 @@
 [hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 html { scroll-behavior: smooth; }
+/* スマホ：ボタン・リンクを 1 回のタップで反応させる（ダブルタップ拡大の判定待ちをなくす） */
+a, button, input, select, textarea, label, summary, [role="button"], [role="tab"] { touch-action: manipulation; }
 body { margin: 0; font-family: var(--font); color: var(--text); background: var(--bg); line-height: 1.8; font-size: 15px; }
 img { max-width: 100%; height: auto; vertical-align: bottom; }
 a { color: var(--main); }
@@ -505,3 +507,8 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled { opacity: .5; cur
 body:has(> #site-footer) { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
 body:has(> #site-footer) > main { flex: 1 0 auto; }
 body:has(> #site-footer) > #site-footer { flex-shrink: 0; }
+
+/* タッチ端末（スマホ・タブレット）：触れたときの浮き上がりを止める（1 回目のタップが外れるのを防ぐ） */
+@media (hover: none) {
+  .quick-links a:hover { transform: none; }
+}

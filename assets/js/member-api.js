@@ -30,7 +30,7 @@ export const OCCUPATIONS = [
 export const STATUS_LABEL = { pending: "審査中", active: "有効", suspended: "停止中", rejected: "否認" };
 
 // 本人が後から編集できる項目（firestore.rules と揃えています）
-export const EDITABLE_FIELDS = ["name", "kana", "occupation", "affiliation", "phone", "address", "newsletter"];
+export const EDITABLE_FIELDS = ["name", "kana", "occupation", "affiliation", "newsletter"];
 
 function requireFirebase() {
   if (isDemo) throw new Error("Firebase が未設定です。assets/js/firebase-config.js を設定してください。");
@@ -67,7 +67,8 @@ export async function applyWithGoogle(form) {
 async function saveApplication(uid, form, email) {
   await setDoc(doc(db, "members", uid), {
     name: form.name, kana: form.kana, email, type: form.type,
-    occupation: form.occupation || "", affiliation: form.affiliation || "", phone: form.phone || "", address: form.address || "",
+    occupation: form.occupation || "", affiliation: form.affiliation || "",
+    ...(form.studentNo ? { studentNo: form.studentNo } : {}),
     message: form.message || "", newsletter: !!form.newsletter,
     ...(form.cardSignature ? { cardSignature: form.cardSignature } : {}),
     status: "pending", createdAt: serverTimestamp()
@@ -142,15 +143,15 @@ export async function requestSignatureRewrite(uid) {
  * 種別の変更を申請。学生会員へ変更する場合は学生証（表面）の画像も一緒に提出
  * @param studentIdImage compressImage() で縮小した data URL（学生会員以外は不要）
  */
-export async function requestTypeChange(uid, newType, reason, studentIdImage = "") {
+export async function requestTypeChange(uid, newType, reason, studentIdImage = "", studentNo = "") {
   const batch = writeBatch(db);
-  batch.update(doc(db, "members", uid), { typeRequest: newType, typeRequestReason: reason, typeRequestAt: serverTimestamp() });
-  if (newType === "student") batch.set(doc(db, "student_ids", uid), { image: studentIdImage, createdAt: serverTimestamp() });
+  batch.update(doc(db, "members", uid), { typeRequest: newType, typeRequestReason: reason, typeRequestAt: serverTimestamp(), ...(studentNo ? { typeRequestStudentNo: studentNo } : {}) });
+  if (newType === "student" && studentIdImage) batch.set(doc(db, "student_ids", uid), { image: studentIdImage, createdAt: serverTimestamp() });
   await batch.commit();
 }
 /** 申請を取り消す（提出した学生証の画像も削除） */
 export async function cancelTypeChange(uid, hadStudentId) {
-  await updateDoc(doc(db, "members", uid), { typeRequest: deleteField(), typeRequestReason: deleteField(), typeRequestAt: deleteField() });
+  await updateDoc(doc(db, "members", uid), { typeRequest: deleteField(), typeRequestReason: deleteField(), typeRequestAt: deleteField(), typeRequestStudentNo: deleteField() });
   if (hadStudentId) await deleteDoc(doc(db, "student_ids", uid)).catch(() => {});
 }
 

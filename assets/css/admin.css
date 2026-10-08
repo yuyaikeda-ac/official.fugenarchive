@@ -24,6 +24,8 @@
 }
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
+/* スマホ：ボタン・リンクを 1 回のタップで反応させる（ダブルタップ拡大の判定待ちをなくす） */
+a, button, input, select, textarea, label, summary, [role="button"], [role="tab"] { touch-action: manipulation; }
 body.adm { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.7 var(--font); }
 a { color: var(--accent-2); }
 [hidden] { display: none !important; }

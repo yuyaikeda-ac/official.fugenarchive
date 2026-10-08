@@ -122,8 +122,8 @@ module.exports = function review({ onDocumentCreated, onDocumentUpdated, onCall,
       },
       me: { name: voter.name, email: voter.email, decision: voter.decision, reason: voter.reason, decidedAt: ts(voter.decidedAt) },
       member: m && {
-        name: m.name, kana: m.kana, email: m.email, type: m.type, occupation: m.occupation || "", affiliation: m.affiliation || "",
-        phone: m.phone || "", address: m.address || "", message: m.message || "", status: m.status, createdAt: ts(m.createdAt)
+        name: m.name, kana: m.kana, email: m.email, type: m.type, occupation: m.occupation || "", affiliation: m.affiliation || "", studentNo: m.studentNo || "",
+        message: m.message || "", status: m.status, createdAt: ts(m.createdAt)
       },
       studentIdImage: sidSnap.exists ? sidSnap.get("image") : null
     };

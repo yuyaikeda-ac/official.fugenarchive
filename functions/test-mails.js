@@ -3,7 +3,7 @@ const mails = require("./mails");
 
 const member = {
   name: "普賢 太郎", kana: "フゲン タロウ", email: "taro@example.com", type: "associate",
-  affiliation: "○○大学", phone: "", address: "", message: "記録の継承に協力したいです。",
+  affiliation: "○○大学", message: "記録の継承に協力したいです。",
   status: "pending", createdAt: new Date(), memberNo: "FA-2026-0001"
 };
 const contact = { subject: "資料提供について", name: "山田 花子", email: "hanako@example.com", message: "写真を提供できます。", createdAt: new Date() };

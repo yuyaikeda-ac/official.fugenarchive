@@ -90,8 +90,7 @@ const SCHEMA = {
       { key: "email", label: "メールアドレス", type: "text" },
       { key: "occupation", label: "職業", type: "select", options: Object.fromEntries([["", "（未選択）"], ...OCCUPATIONS.flatMap(g => g.items).map(v => [v, v])]), half: true },
       { key: "affiliation", label: "所属", type: "text", half: true },
-      { key: "phone", label: "電話番号", type: "text", half: true },
-      { key: "address", label: "住所", type: "text", half: true },
+      { key: "studentNo", label: "学籍番号（学生会員）", type: "text", half: true },
       { key: "message", label: "入会時のメッセージ", type: "textarea" },
       { key: "newsletter", label: "お知らせメールを受け取る", type: "checkbox" }
     ]
@@ -465,7 +464,7 @@ async function renderDashboard() {
     ${typeRequests.length ? `<section class="card sigreq-card">
       <div class="card-head"><h2>会員種別の変更申請（${typeRequests.length}件）</h2><a class="btn btn-sm" href="#members">会員管理へ</a></div>
       <ul class="mini-list">${typeRequests.map(m => `<li><div class="t"><b>${esc(m.name)}：${esc(MEMBER_TYPE[m.type] || m.type)} → ${esc(MEMBER_TYPE[m.typeRequest] || m.typeRequest)}</b>
-          <small>${esc(m.memberNo || "")}・${fmtD(m.typeRequestAt)} 申請${m.typeRequestReason ? `・理由：${esc(m.typeRequestReason)}` : ""}</small></div>
+          <small>${esc(m.memberNo || "")}・${fmtD(m.typeRequestAt)} 申請${m.typeRequestReason ? `・理由：${esc(m.typeRequestReason)}` : ""}${m.typeRequestStudentNo ? `・学籍番号：${esc(m.typeRequestStudentNo)}` : ""}</small></div>
         ${m.typeRequest === "student" ? `<button class="btn btn-sm" data-sid="${esc(m.id)}">学生証</button>` : ""}
         <button class="btn btn-sm btn-ok" data-typeallow="${esc(m.id)}">許可</button>
         <button class="btn btn-sm btn-danger" data-typedeny="${esc(m.id)}">却下</button></li>`).join("")}</ul>
@@ -835,7 +834,9 @@ async function renderMembers() {
       <td class="main"><b>${esc(r.name)}</b>（${esc(r.kana || "")}）<span class="sub"><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></span>${r.occupation || r.affiliation ? `<span class="sub">${esc([r.occupation, r.affiliation].filter(Boolean).join("／"))}</span>` : ""}</td>
       <td data-label="種別">${esc(MEMBER_TYPE[r.type] || r.type)}${r.memberNo ? `<span class="sub">${esc(r.memberNo)}</span>` : r.status === "pending" ? '<span class="sub hide-sm">承認時に自動付与</span>' : ""}
         ${(r.type === "student" && r.status === "pending") || r.typeRequest === "student" ? `<button class="btn btn-sm" data-sid="${esc(r.id)}" style="margin-top:4px">学生証を見る</button>` : ""}
-        ${r.typeRequest && r.typeRequestReason ? `<span class="sub">変更の理由：${esc(r.typeRequestReason)}</span>` : ""}</td>
+        ${r.type === "student" && r.studentNo ? `<span class="sub">学籍番号：${esc(r.studentNo)}</span>` : ""}
+        ${r.typeRequest && r.typeRequestReason ? `<span class="sub">変更の理由：${esc(r.typeRequestReason)}</span>` : ""}
+        ${r.typeRequest === "student" && r.typeRequestStudentNo ? `<span class="sub">申請の学籍番号：${esc(r.typeRequestStudentNo)}</span>` : ""}</td>
       <td data-label="申込日">${fmtD(r.createdAt)}${r.approvedAt ? `<span class="sub">承認 ${fmtD(r.approvedAt)}</span>` : ""}</td>
       <td class="act">
         ${reviewOf(reviews, r.id) || (r.status === "pending" && hasGroup) ? `<button class="btn btn-sm" data-review="${esc(r.id)}">審査状況</button>` : ""}
@@ -893,7 +894,8 @@ $("page").addEventListener("click", async (e) => {
     try {
       await updateDoc(doc(db, "members", r.id), {
         ...(allow ? { type: r.typeRequest } : {}),
-        typeRequest: deleteField(), typeRequestReason: deleteField(), typeRequestAt: deleteField(),
+        ...(allow && r.typeRequest === "student" && r.typeRequestStudentNo ? { studentNo: r.typeRequestStudentNo } : {}),
+        typeRequest: deleteField(), typeRequestReason: deleteField(), typeRequestAt: deleteField(), typeRequestStudentNo: deleteField(),
         typeDecision: allow ? "approved" : "rejected", typeDecisionTo: r.typeRequest, typeDecidedBy: currentAdmin.uid, typeDecidedAt: new Date()
       });
       if (r.typeRequest === "student") await removeStudentId(r.id);

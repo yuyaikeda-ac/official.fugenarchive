@@ -129,7 +129,8 @@ service cloud.firestore {
         || rqAfter == null
         || (rqBefore == null && before.status == 'active'
             && rqAfter in ['regular', 'associate', 'student'] && rqAfter != before.type
-            && str(after.get('typeRequestReason', ''), 500));
+            && str(after.get('typeRequestReason', ''), 500)
+            && str(after.get('typeRequestStudentNo', ''), 50));
     }
     // 会員証の裏面の直筆署名（任意項目。PNG 画像・300KB まで）
     function validCardSignature(d) {
@@ -141,8 +142,8 @@ service cloud.firestore {
 
       // 入会申込（本人・審査中のみ）
       allow create: if signedIn() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['name', 'kana', 'email', 'type', 'occupation', 'affiliation', 'phone',
-             'address', 'message', 'newsletter', 'cardSignature', 'status', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['name', 'kana', 'email', 'type', 'occupation', 'affiliation',
+             'studentNo', 'message', 'newsletter', 'cardSignature', 'status', 'createdAt'])
         && validCardSignature(request.resource.data)
         && request.resource.data.status == 'pending'
         && request.resource.data.type in ['regular', 'associate', 'student']
@@ -151,6 +152,7 @@ service cloud.firestore {
         && str(request.resource.data.email, 200)
         && str(request.resource.data.message, 2000)
         && str(request.resource.data.occupation, 50)
+        && str(request.resource.data.get('studentNo', ''), 50)
         && request.resource.data.createdAt == request.time;
 
       // 委員会承認制：状態（status）を変えられるのは管理者のみ。
@@ -160,8 +162,8 @@ service cloud.firestore {
           && (request.resource.data.status != 'active' || request.resource.data.approvedBy is string))
         || (signedIn() && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['name', 'kana', 'occupation', 'affiliation', 'phone', 'address', 'newsletter', 'cardSignature', 'signatureRewrite', 'signatureRewriteAt', 'email',
-                       'typeRequest', 'typeRequestReason', 'typeRequestAt'])
+             .hasOnly(['name', 'kana', 'occupation', 'affiliation', 'newsletter', 'cardSignature', 'signatureRewrite', 'signatureRewriteAt', 'email',
+                       'typeRequest', 'typeRequestReason', 'typeRequestAt', 'typeRequestStudentNo'])
         && validCardSignature(request.resource.data)
         && selfSignatureOk()
         && selfTypeRequestOk()

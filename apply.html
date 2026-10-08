@@ -61,20 +61,20 @@
             <div class="field"><label for="f-email">メールアドレス<span class="req">必須</span></label><input id="f-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required maxlength="200"><p class="hint">ご連絡先・ログインIDとして使用します（Google で申し込む場合は Google アカウントのアドレスになります）</p><p class="err">正しいメールアドレスを入力してください</p></div>
             <div class="field"><label for="f-occ">現在のご職業<span class="req">必須</span></label><select id="f-occ" name="occupation" required></select><p class="err">ご職業を選んでください</p></div>
             <div class="field"><label for="f-aff">ご所属（勤務先・学校名など）</label><input id="f-aff" name="affiliation" autocomplete="organization" maxlength="200"></div>
-            <div class="grid-2">
-              <div class="field"><label for="f-phone">電話番号</label><input id="f-phone" name="phone" type="tel" autocomplete="tel" placeholder="090-0000-0000" maxlength="30"></div>
-              <div class="field"><label for="f-address">ご住所</label><input id="f-address" name="address" autocomplete="street-address" maxlength="300"></div>
-            </div>
-            <!-- 学生会員のみ：学生証（表面）の画像 -->
+            <!-- 学生会員のみ：学生証（表面）の画像 か 学籍番号 のどちらか -->
             <div class="field student-id" id="student-id-field" hidden>
-              <label for="f-sid">学生証の画像（表面のみ）<span class="req">必須</span></label>
+              <p class="sid-lead">学生の確認のため、<strong>学生証の画像</strong>か<strong>学籍番号</strong>のどちらかを入力してください<span class="req">必須</span></p>
+              <label for="f-sid">学生証の画像（表面のみ）</label>
               <label class="sid-drop" for="f-sid">
                 <img id="sid-preview" alt="学生証のプレビュー" hidden>
                 <span id="sid-empty">タップして撮影・画像を選択</span>
               </label>
               <input id="f-sid" name="studentId" type="file" accept="image/*">
               <p class="hint">学生証の<strong>表面</strong>をお名前・学校名・有効期限が読み取れるように撮影してください。裏面は不要です。画像は審査にのみ使用し、委員会の管理者だけが確認します。</p>
-              <p class="err" id="sid-err">学生証（表面）の画像を選んでください</p>
+              <label for="f-sno" class="sno-label">学籍番号</label>
+              <input id="f-sno" name="studentNo" autocomplete="off" placeholder="例：A1234567" maxlength="50">
+              <p class="hint">学生証の画像を出さない場合は、学籍番号を入力してください（ご所属に学校名もご記入ください）。</p>
+              <p class="err" id="sid-err">学生証の画像か学籍番号のどちらかを入力してください</p>
             </div>
           </div>
 
@@ -204,12 +204,13 @@
       sidField.classList.add("is-invalid");
       return;
     }
-    sidErr.textContent = "学生証（表面）の画像を選んでください";
+    sidErr.textContent = "学生証の画像か学籍番号のどちらかを入力してください";
   });
 
   // ---------- 入力チェック ----------
   const rules = {
-    studentId: () => !isStudent() || !!studentIdImage,
+    studentId: () => !isStudent() || !!studentIdImage || !!F.studentNo.value.trim(),
+    studentNo: () => !isStudent() || !!studentIdImage || !!F.studentNo.value.trim(),
     occupation: v => !!v,
     name: v => v.trim().length > 0,
     kana: v => /^[ァ-ヶーぁ-ゖ\s　]+$/.test(v.trim()),
@@ -288,7 +289,7 @@
   }));
 
   // ---------- 下書き保存（パスワードは保存しません） ----------
-  const DRAFT_FIELDS = ["type", "name", "kana", "email", "occupation", "affiliation", "phone", "address", "message"];
+  const DRAFT_FIELDS = ["type", "name", "kana", "email", "occupation", "affiliation", "studentNo", "message"];
   function saveDraft() {
     try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(Object.fromEntries(DRAFT_FIELDS.map(k => [k, F[k].value])))); } catch {}
   }
@@ -311,12 +312,12 @@
     const rows = [
       ["会員種別", `${MEMBER_TYPES[F.type.value].label}（入会金・年会費 無料）`],
       ["お名前", F.name.value], ["フリガナ", F.kana.value], ["メールアドレス", F.email.value], ["ご職業", F.occupation.value],
-      ["ご所属", F.affiliation.value || "—"], ["電話番号", F.phone.value || "—"], ["ご住所", F.address.value || "—"],
+      ["ご所属", F.affiliation.value || "—"], ...(isStudent() ? [["学籍番号", F.studentNo.value.trim() || "—"]] : []),
       ["メッセージ", F.message.value || "—"], ["お知らせメール", F.newsletter.checked ? "受け取る" : "受け取らない"],
       ["ログイン方法", useGoogle() ? "Googleアカウント（確定時にGoogleのログイン画面が開きます）" : "メールアドレスとパスワード"]
     ];
     document.getElementById("confirm").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("") +
-      (isStudent() ? `<dt>学生証（表面）</dt><dd><img src="${studentIdImage}" alt="学生証" class="sid-confirm"></dd>` : "") +
+      (isStudent() ? `<dt>学生証（表面）</dt><dd>${studentIdImage ? `<img src="${studentIdImage}" alt="学生証" class="sid-confirm">` : "—"}</dd>` : "") +
       (termsForm ? `<dt>規約への署名</dt><dd>${esc(termsForm.title)}（第 ${esc(termsForm.version || 1)} 版）に同意<img src="${termsPad.toDataURL()}" alt="署名" class="confirm-sig"><small class="hint">会員証の裏面にも表示されます</small></dd>`
         : `<dt>会員証の署名</dt><dd><img src="${cardPad.toDataURL()}" alt="署名" class="confirm-sig"></dd>`);
   }
@@ -331,7 +332,7 @@
     try {
       const data = {
         type: F.type.value, name: F.name.value.trim(), kana: F.kana.value.trim(), email: F.email.value.trim(),
-        occupation: F.occupation.value, affiliation: F.affiliation.value.trim(), phone: F.phone.value.trim(), address: F.address.value.trim(),
+        occupation: F.occupation.value, affiliation: F.affiliation.value.trim(), studentNo: isStudent() ? F.studentNo.value.trim() : "",
         message: F.message.value.trim(), newsletter: F.newsletter.checked, password: F.password.value,
         studentId: isStudent() ? studentIdImage : "",
         cardSignature: signatureImage()
