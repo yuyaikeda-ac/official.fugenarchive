@@ -25,6 +25,7 @@ const I = {
   book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
   card: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
   qr: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
   user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
   pin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
@@ -218,6 +219,7 @@ addEventListener("keydown", e => { if (e.key === "Escape") toggleMore(false); })
 function route() {
   const id = location.hash.slice(1).split("/")[0];
   const r = ROUTES.find(x => x.id === id) || ROUTES[0];
+  if (r.id !== state.route) profileEdit = false;
   state.route = r.id;
   document.querySelectorAll("[data-route]").forEach(a => {
     const on = a.dataset.route === r.id;
@@ -905,7 +907,15 @@ routeOf("votes").after = () => Poll.after(pollCtx());
 //  画面：プロフィール
 // ============================================================
 routeOf("profile").after = () => {
+  $("profile-edit")?.addEventListener("click", () => { profileEdit = true; rerender(); $("p-name")?.focus({ preventScroll: true }); });
+  $("profile-cancel")?.addEventListener("click", () => { profileEdit = false; rerender(); });
+  bindProfileForm();
+  bindProfileSide();
+};
+// 登録情報の変更フォーム（「変更する」を押したときだけ表示）
+function bindProfileForm() {
   const form = $("profile-form");
+  if (!form) return;
   const btn = $("save-btn");
   form.addEventListener("input", () => { btn.disabled = false; });
   form.addEventListener("submit", async e => {
@@ -922,7 +932,7 @@ routeOf("profile").after = () => {
       Object.assign(state.member, data);
       fillMe();
       toast("プロフィールを保存しました");
-      btn.textContent = "変更を保存";
+      profileEdit = false; rerender();
     } catch (err) {
       console.error(err);
       toast(errorMessage(err), true);
@@ -930,6 +940,9 @@ routeOf("profile").after = () => {
     }
   });
   $("email-change")?.addEventListener("click", openEmailChange);
+}
+// 右側（会員ステータス・セキュリティ・会員種別の変更）
+function bindProfileSide() {
   $("type-open")?.addEventListener("click", openTypeChange);
   $("type-cancel")?.addEventListener("click", async (e) => {
     const b = e.currentTarget;
@@ -1084,12 +1097,35 @@ function openEmailChange() {
   });
 }
 
+// プロフィール：登録情報を変更中か（「変更する」を押したときだけフォームを出す）
+let profileEdit = false;
+
+/** 登録情報（表示用）。きれいに読めるように並べ、「変更する」でフォームに切り替える */
+function profileViewHtml(m) {
+  const email = state.user.email || m.email;
+  const row = (ic, label, value, sub = "") => `<div class="pv-row">${icon(ic)}<dt>${label}</dt><dd>${value ? esc(value) : '<span class="pv-empty">未登録</span>'}${sub}</dd></div>`;
+  return `<section class="panel pv">
+      <div class="panel-head"><h3><small>Profile</small>登録情報</h3><button class="lux-btn ghost sm" type="button" id="profile-edit">${icon("sign")}変更する</button></div>
+      <div class="pv-head">
+        <div class="pv-avatar">${esc((m.name || "?").trim().charAt(0))}</div>
+        <div class="pv-name"><b>${esc(m.name || "")}<small> 様</small></b>${m.kana ? `<span>${esc(m.kana)}</span>` : ""}</div>
+        <span class="pv-type">${esc(MEMBER_TYPES[m.type]?.label || "")}</span>
+      </div>
+      <dl class="pv-list">
+        ${row("mail", "メールアドレス", email)}
+        ${row("user", "ご職業", m.occupation)}
+        ${row("home", "ご所属", m.affiliation)}
+        <div class="pv-row">${icon("bell")}<dt>お知らせメール</dt><dd>${m.newsletter ? '<span class="pv-on">受け取る</span>' : '<span class="pv-off">受け取らない</span>'}</dd></div>
+      </dl>
+    </section>`;
+}
+
 function renderProfile() {
   const m = state.member;
   const f = (name, label, attrs = "") => `<div class="field"><label for="p-${name}">${label}</label><input id="p-${name}" name="${name}" value="${esc(m[name] || "")}" ${attrs}></div>`;
   return `<div class="profile-grid">
-    <section class="panel">
-      <div class="panel-head"><h3>登録情報</h3></div>
+    ${!profileEdit ? profileViewHtml(m) : `<section class="panel">
+      <div class="panel-head"><h3><small>Profile</small>登録情報を変更</h3></div>
       <form id="profile-form" novalidate>
         <div class="grid-2">${f("name", "お名前", 'autocomplete="name" maxlength="100" required')}${f("kana", "フリガナ", 'maxlength="100"')}</div>
         <div class="field"><label>メールアドレス</label>
@@ -1099,9 +1135,9 @@ function renderProfile() {
           `<optgroup label="${esc(g.group)}">${g.items.map(v => `<option${m.occupation === v ? " selected" : ""}>${esc(v)}</option>`).join("")}</optgroup>`).join("")}</select></div>
         ${f("affiliation", "ご所属", 'autocomplete="organization" maxlength="200"')}
         <div class="field"><label class="check"><input type="checkbox" name="newsletter"${m.newsletter ? " checked" : ""}> 会員向けのお知らせをメールで受け取る</label></div>
-        <button class="lux-btn" id="save-btn" type="submit" disabled>変更を保存</button>
+        <div class="pv-actions"><button class="lux-btn ghost" id="profile-cancel" type="button">キャンセル</button><button class="lux-btn" id="save-btn" type="submit" disabled>変更を保存</button></div>
       </form>
-    </section>
+    </section>`}
     <div style="display:flex;flex-direction:column;gap:24px">
       <section class="panel">
         <div class="panel-head"><h3>会員ステータス</h3></div>
