@@ -401,6 +401,7 @@ routeOf("events").after = () => {
   });
   document.querySelectorAll("[data-evf]").forEach(b => b.addEventListener("click", () => { evFilter = b.dataset.evf; rerender(); }));
   document.querySelectorAll("[data-rsvp]").forEach(b => b.addEventListener("click", () => toggleRsvp(b)));
+  document.querySelectorAll("[data-ev-qr]").forEach(b => b.addEventListener("click", openScan));
 };
 function renderEvents() {
   if (!state.events) return `<div class="events">${Array.from({ length: 3 }, () => '<div class="skel" style="height:220px;border-radius:22px"></div>').join("")}</div>`;
@@ -442,6 +443,8 @@ function renderEvents() {
 function evActions(e, past, on) {
   const rs = eventRsvpState(e, today());
   const btns = [
+    // 当日受付で会員証の QR コードを使う行事（管理画面の「当日受付で会員証のQRコードを使う」）：受付で見せる QR をすぐ出せるように
+    e.checkinQr && !past && state.member.cardToken ? `<button type="button" class="lux-btn ev-qr" data-ev-qr="${esc(e.id)}">${icon("card")}受付用QRを表示</button>` : "",
     e.url ? `<a class="lux-btn ghost" href="${esc(e.url)}" target="_blank" rel="noopener">詳細を見る ${icon("ext")}</a>` : "",
     past || e.rsvpOpen === false ? "" : on
       ? `<button type="button" class="lux-btn ghost ev-cancel" data-rsvp="${esc(e.id)}">登録を取り消す</button>`

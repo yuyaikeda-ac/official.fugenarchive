@@ -64,7 +64,9 @@ const SCHEMA = {
       // ---- 会員のワンクリック参加登録 ----
       { key: "rsvpOpen", label: "会員の参加登録（ワンクリック）を受け付ける", type: "checkbox", section: "参加登録", default: true },
       { key: "capacity", label: "定員（空欄で制限なし）", type: "number", half: true },
-      { key: "rsvpDeadline", label: "申込締切日（空欄で開催日まで）", type: "date", half: true }
+      { key: "rsvpDeadline", label: "申込締切日（空欄で開催日まで）", type: "date", half: true },
+      // ---- 当日受付（会員証の QR コードを運営のスマホで読み取る） ----
+      { key: "checkinQr", label: "当日受付で会員証のQRコードを使う（会員サイトの行事に「受付用QRを表示」ボタンを出す）", type: "checkbox", section: "当日受付" }
     ]
   },
   member_docs: {
@@ -587,7 +589,7 @@ async function renderContent(name, sub = "") {
     const q = $("q").value.trim().toLowerCase();
     const list = rows.filter(r => !q || `${r.title} ${r.body || ""} ${r.place || ""} ${r.category || ""}`.toLowerCase().includes(q));
     $("tbl").querySelector("tbody").innerHTML = list.length ? list.map(r => `<tr>
-      ${cols.map(c => `<td${c.key === "title" ? ' class="main"' : c.type === "checkbox" ? "" : ` data-label="${esc(c.label.replace(/（.*）/, ""))}"`}>${c.key === "title" ? `<b>${cell(c, r)}</b>${r.bodyHtml ? ' <span class="pill info">装飾つき</span>' : ""}${r.notifiedAt ? ` <span class="pill ok" title="${esc(fmtDT(r.notifiedAt))}">メール送信済み</span>` : ""}` : cell(c, r)}</td>`).join("")}
+      ${cols.map(c => `<td${c.key === "title" ? ' class="main"' : c.type === "checkbox" ? "" : ` data-label="${esc(c.label.replace(/（.*）/, ""))}"`}>${c.key === "title" ? `<b>${cell(c, r)}</b>${r.bodyHtml ? ' <span class="pill info">装飾つき</span>' : ""}${r.notifiedAt ? ` <span class="pill ok" title="${esc(fmtDT(r.notifiedAt))}">メール送信済み</span>` : ""}${r.checkinQr ? ` ${pill("info", "QR受付")}` : ""}` : cell(c, r)}</td>`).join("")}
       ${rsvpBy ? `<td data-label="参加登録">${(rsvpBy[r.id] || []).length} 名${r.capacity ? ` ／ 定員 ${esc(r.capacity)} 名` : ""}
         <span class="sub">${r.date && r.date < new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" }) ? pill("draft", "終了") : r.rsvpOpen !== false ? (r.capacity && (rsvpBy[r.id] || []).length >= r.capacity ? pill("ng", "満員") : pill("ok", "受付中")) : pill("draft", "受付なし")}${r.rsvpDeadline ? ` 締切 ${esc(fmtDate(r.rsvpDeadline))}` : ""}</span></td>` : ""}
       <td class="act">${rsvpBy ? `<a class="btn btn-sm" href="#checkin/${esc(encodeURIComponent(r.id))}">受付</a><button class="btn btn-sm" data-attend="${esc(r.id)}">参加者</button>` : ""}<button class="btn btn-sm" data-edit="${esc(r.id)}">編集</button><button class="btn btn-sm btn-danger" data-del="${esc(r.id)}">削除</button></td></tr>`).join("")

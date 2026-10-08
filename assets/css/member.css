@@ -1242,3 +1242,8 @@ button.doc { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 @media (max-width: 360px) {
   .tabbar a, .tab-more { font-size: 10px; letter-spacing: 0; }
 }
+
+/* 行事：受付用QRを表示（当日受付で会員証のQRコードを使う行事）。ほかのボタンより目立つよう 1 行使う */
+.ev-actions .ev-qr { grid-column: 1 / -1; background: linear-gradient(135deg, #b8912f, #8a6a1f); border-color: #8a6a1f; }
+.ev-actions .ev-qr:hover { background: linear-gradient(135deg, #c9a144, #8a6a1f); }
+.ev-actions .ev-qr svg { width: 18px; height: 18px; }
