@@ -101,7 +101,7 @@
               <p class="err">パスワードが一致しません</p>
             </div>
             </div>
-            <div class="field"><label for="f-msg">入会の動機・メッセージ（任意）</label><textarea id="f-msg" name="message" maxlength="2000" placeholder="普賢との関わりや、活動への想いなどをお聞かせください"></textarea></div>
+            <div class="field"><label for="f-msg">入会の動機・メッセージ<span class="req">必須</span></label><textarea id="f-msg" name="message" maxlength="2000" required placeholder="普賢との関わりや、活動への想いなどをお聞かせください"></textarea><p class="err">入会の動機を入力してください</p></div>
             <div class="field"><label class="check"><input type="checkbox" name="newsletter" checked> 会員向けのお知らせをメールで受け取る</label></div>
             <!-- 会員証の裏面に印字する直筆の署名（入会規約の署名欄がある場合はそちらの署名を使うので非表示） -->
             <div class="field" id="card-sig-field">
@@ -212,6 +212,7 @@
     studentId: () => !isStudent() || !!studentIdImage || !!F.studentNo.value.trim(),
     studentNo: () => !isStudent() || !!studentIdImage || !!F.studentNo.value.trim(),
     occupation: v => !!v,
+    message: v => v.trim().length > 0,
     name: v => v.trim().length > 0,
     kana: v => /^[ァ-ヶーぁ-ゖ\s　]+$/.test(v.trim()),
     email: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()),

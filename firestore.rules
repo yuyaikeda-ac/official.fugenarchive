@@ -151,6 +151,7 @@ service cloud.firestore {
         && str(request.resource.data.kana, 100)
         && str(request.resource.data.email, 200)
         && str(request.resource.data.message, 2000)
+        && request.resource.data.message.size() > 0
         && str(request.resource.data.occupation, 50)
         && str(request.resource.data.get('studentNo', ''), 50)
         && request.resource.data.createdAt == request.time;
