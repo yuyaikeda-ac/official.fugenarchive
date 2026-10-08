@@ -249,6 +249,9 @@ if (isDemo) {
 }
 adminApi.onAuth(user => { if (!isDemo) enter(user); });
 
+// 招待された方の初回登録の直後か（確認メールの送信に使う）
+let sendVerifyOnEnter = false;
+
 // ログイン状態に応じて画面を切り替える
 async function enter(user) {
   $("verify-box").hidden = true;
@@ -272,6 +275,14 @@ async function enter(user) {
       $("login-form").hidden = true; $("register-box").hidden = true;
       $("verify-email").textContent = user.email;
       $("verify-box").hidden = false;
+      // 登録した直後なら、ここで確認メールを送る
+      // （アカウント作成と同時にこの処理が走るため、登録処理の中で送ると取りこぼすことがあった。失敗もこの画面に表示する）
+      if (sendVerifyOnEnter) {
+        sendVerifyOnEnter = false;
+        notice("verify-msg", "", "");
+        try { await adminApi.sendVerification(user); }
+        catch (err) { console.error(err); notice("verify-msg", "error", "確認メールを送信できませんでした。「確認メールを再送する」を押してください。"); }
+      }
       return;
     }
     try {
@@ -316,9 +327,11 @@ $("google-btn").addEventListener("click", async () => {
 $("register-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   notice("register-msg", "", "");
+  sendVerifyOnEnter = true;   // 確認待ちの画面を出すときに確認メールを送る（enter）
   try {
     await adminApi.register($("reg-email").value.trim(), $("reg-pass").value);
   } catch (err) {
+    sendVerifyOnEnter = false;
     console.error(err);
     const msg = {
       "auth/email-already-in-use": "このメールアドレスは登録済みです。上のフォームからログインしてください（パスワードが不明な場合は「パスワードの設定・再設定」）。",

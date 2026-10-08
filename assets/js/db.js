@@ -174,10 +174,9 @@ export const adminApi = {
     });
     await deleteDoc(doc(db, "admin_invites", invite.id));
   },
-  /** 招待された人のアカウント作成 → 確認メール送信 */
+  /** 招待された人のアカウント作成（確認メールは、確認待ちの画面を出すときに admin.js が送る） */
   async register(email, password) {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
-    await sendEmailVerification(cred.user);
     return cred.user;
   },
   sendVerification: (user) => sendEmailVerification(user),
