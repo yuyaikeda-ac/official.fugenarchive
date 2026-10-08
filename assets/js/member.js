@@ -24,6 +24,7 @@ const I = {
   cal: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
   book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
   card: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
+  qr: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/>',
   user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
   pin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
@@ -281,49 +282,95 @@ function renderDashboard() {
   const upcoming = (state.events || []).filter(e => e.date >= today()).sort((a, b) => a.date.localeCompare(b.date));
   const left = daysLeft(m.validUntil);
   const unread = unreadCount();
+  const now = new Date();
+  const WEEK_EN = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+  const next = upcoming[0];
+  const panelHead = (en, ja, href, more) => `<div class="panel-head"><h3><small>${en}</small>${ja}</h3><a href="${href}">${more} →</a></div>`;
   return `
-  <section class="welcome">
-    <div>
+  <section class="hero">
+    <svg class="hero-lines" viewBox="0 0 600 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${heroContours()}</svg>
+    <div class="hero-main">
+      <div class="hero-date"><span>${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, "0")}.${String(now.getDate()).padStart(2, "0")}</span><i></i><span>${WEEK_EN[now.getDay()]}</span></div>
       <div class="greet">${en}</div>
-      <h2>${ja}<span class="pc-only">、</span><span class="sp-only">。<br></span>${esc(m.name)} 様</h2>
-      <p>会員番号 ${esc(m.memberNo || "—")}　／　入会日 ${ymd(m.approvedAt)}
-        ${left !== null && left <= 60 ? `<span class="pill imp">有効期限まであと${left}日</span>` : ""}</p>
+      <h2>${ja}<span class="pc-only">、</span><span class="sp-only"><br></span><b>${esc(m.name)}</b> 様</h2>
+      <ul class="hero-chips">
+        <li><span>会員番号</span><b>${esc(m.memberNo || "—")}</b></li>
+        <li><span>会員種別</span><b>${esc(MEMBER_TYPES[m.type]?.label || "—")}</b></li>
+        <li><span>入会日</span><b>${ymd(m.approvedAt)}</b></li>
+        ${left !== null && left <= 60 ? `<li class="warn"><span>有効期限</span><b>${left >= 0 ? `あと${left}日` : "期限切れ"}</b></li>` : ""}
+      </ul>
+      <div class="hero-actions">
+        <a class="hero-btn gold" href="#card">${icon("card")}会員証を表示</a>
+        ${m.cardToken ? `<button type="button" class="hero-btn ghost" data-hero-scan>${icon("qr")}受付用QR</button>` : ""}
+      </div>
     </div>
-    <a class="mini-card" href="#card" aria-label="会員証を表示">${cardHtml(true)}</a>
+    <a class="hero-card mini-card" href="#card" aria-label="会員証を表示">${cardHtml(true)}</a>
   </section>
   ${todoForms().length ? `<a class="notice-bar" href="#consent">${icon("sign")}<span>署名が必要な同意書が <b>${todoForms().length} 件</b> あります</span><span>確認する →</span></a>` : ""}
   ${Poll.todoCount(state) ? `<a class="notice-bar" href="#votes">${icon("vote")}<span>受付中の投票・アンケートが <b>${Poll.todoCount(state)} 件</b> あります</span><span>投票する →</span></a>` : ""}
 
+  ${next ? nextEventHtml(next) : ""}
+
   <div class="quick">
-    <a href="#news"><span class="ico">${icon("bell")}</span><strong>お知らせ</strong><small>${state.news ? (unread ? `未読 ${unread} 件` : "すべて既読") : "読み込み中…"}</small></a>
-    <a href="#events"><span class="ico">${icon("cal")}</span><strong>行事・参加登録</strong><small>${state.events ? `今後の予定 ${upcoming.length} 件` : "読み込み中…"}</small></a>
-    <a href="#docs"><span class="ico">${icon("book")}</span><strong>資料室</strong><small>${state.docs ? `${state.docs.length} 件の資料` : "読み込み中…"}</small></a>
-    <a href="#profile"><span class="ico">${icon("user")}</span><strong>プロフィール</strong><small>登録情報の確認・変更</small></a>
+    <a href="#news"><span class="ico">${icon("bell")}</span><span class="q-t"><strong>お知らせ</strong><small>${state.news ? (unread ? "未読があります" : "すべて既読") : "読み込み中…"}</small></span><b class="q-n${unread ? " hot" : ""}">${state.news ? unread : "–"}<small>件</small></b></a>
+    <a href="#events"><span class="ico">${icon("cal")}</span><span class="q-t"><strong>行事</strong><small>今後の予定</small></span><b class="q-n">${state.events ? upcoming.length : "–"}<small>件</small></b></a>
+    <a href="#docs"><span class="ico">${icon("book")}</span><span class="q-t"><strong>資料室</strong><small>会員限定の資料</small></span><b class="q-n">${state.docs ? state.docs.length : "–"}<small>件</small></b></a>
+    <a href="#profile"><span class="ico">${icon("user")}</span><span class="q-t"><strong>プロフィール</strong><small>登録情報の確認・変更</small></span><span class="q-arrow" aria-hidden="true">→</span></a>
   </div>
 
   <div class="dash-grid">
     <section class="panel">
-      <div class="panel-head"><h3>最新のお知らせ</h3><a href="#news">すべて見る →</a></div>
+      ${panelHead("News", "最新のお知らせ", "#news", "すべて見る")}
       <ul class="rows">${!state.news ? skelRows() : state.news.length ? state.news.slice(0, 4).map(n => `
         <li class="row-item"><time>${ymd(n.date)}</time><div class="t"><strong><a href="#news/${esc(n.id)}" style="color:inherit;text-decoration:none">${esc(n.title)}</a>
           ${n.important ? '<span class="pill imp">重要</span>' : ""}${isNew(n.date) ? '<span class="pill new">NEW</span>' : ""}</strong></div></li>`).join("")
         : `<li>${emptyState("お知らせはまだありません", "bell")}</li>`}</ul>
     </section>
     <section class="panel">
-      <div class="panel-head"><h3>次の行事</h3><a href="#events">すべて見る →</a></div>
-      <ul class="rows">${!state.events ? skelRows() : upcoming.length ? upcoming.slice(0, 3).map(e => `
-        <li class="row-item"><time>${ymd(e.date).slice(5)}</time><div class="t"><strong>${esc(e.title)}</strong>
-          <p>${e.place ? esc(e.place) + "　" : ""}${state.rsvps.has(e.id) ? '<span class="pill ok" style="margin:0">参加登録済み</span>' : ""}</p></div></li>`).join("")
+      ${panelHead("Schedule", "今後の行事", "#events", "すべて見る")}
+      <ul class="rows ev-rows">${!state.events ? skelRows() : upcoming.length ? upcoming.slice(0, 3).map(e => { const d = new Date(e.date + "T00:00:00"); return `
+        <li class="row-item"><time class="ev-chip"><b>${d.getDate()}</b><span>${d.getMonth() + 1}月</span></time><div class="t"><strong>${esc(e.title)}</strong>
+          <p>${e.place ? esc(e.place) + "　" : ""}${state.rsvps.has(e.id) ? '<span class="pill ok" style="margin:0">参加登録済み</span>' : ""}</p></div></li>`; }).join("")
         : `<li>${emptyState("予定されている行事はありません", "cal")}</li>`}</ul>
     </section>
   </div>
 
   <section class="panel" style="margin-top:24px">
-    <div class="panel-head"><h3>新着資料</h3><a href="#docs">資料室へ →</a></div>
+    ${panelHead("Library", "新着資料", "#docs", "資料室へ")}
     ${!state.docs ? `<ul class="rows">${skelRows(2)}</ul>` : state.docs.length
       ? `<div class="docs grid">${state.docs.slice(0, 4).map(docHtml).join("")}</div>`
       : emptyState("資料はまだありません", "book")}
   </section>`;
+}
+
+/** ホーム：次の行事（日付・あと何日・参加登録の状況） */
+function nextEventHtml(e) {
+  const d = new Date(e.date + "T00:00:00");
+  const WEEK = ["日", "月", "火", "水", "木", "金", "土"];
+  const days = Math.round((d - new Date(today() + "T00:00:00")) / 864e5);
+  const on = state.rsvps.has(e.id);
+  const rs = eventRsvpState(e, today());
+  const time = e.startTime ? `${esc(e.startTime)}${e.endTime ? "〜" + esc(e.endTime) : ""}` : "";
+  return `<a class="next-ev" href="#events">
+    <div class="ne-date"><span>${d.getMonth() + 1}月</span><b>${d.getDate()}</b><span>${WEEK[d.getDay()]}曜日</span></div>
+    <div class="ne-body">
+      <small>Next Event</small>
+      <strong>${esc(e.title)}</strong>
+      <p>${[time, e.place ? esc(e.place) : ""].filter(Boolean).join("　／　")}</p>
+      <div class="ne-tags">${on ? '<span class="pill ok">参加登録済み</span>' : e.rsvpOpen !== false && rs.open ? '<span class="pill new">参加登録受付中</span>' : ""}${e.checkinQr ? '<span class="pill">当日はQRで受付</span>' : ""}</div>
+    </div>
+    <div class="ne-count">${days === 0 ? "<b>本日</b>" : days === 1 ? "<b>明日</b>" : `<span>あと</span><b>${days}</b><span>日</span>`}</div>
+  </a>`;
+}
+
+/** ホームの背景の線（等高線のような模様） */
+function heroContours() {
+  let out = "";
+  for (let i = 0; i < 9; i++) {
+    const r = 40 + i * 34, cx = 470, cy = 250;
+    out += `<path d="M${cx - r} ${cy} C ${cx - r} ${cy - r * 0.9}, ${cx - r * 0.2} ${cy - r * 1.05}, ${cx + r * 0.3} ${cy - r * 0.8} S ${cx + r * 1.1} ${cy - r * 0.2}, ${cx + r} ${cy + r * 0.3}"/>`;
+  }
+  return out;
 }
 
 // ============================================================
@@ -393,6 +440,9 @@ function renderNews() {
 //  画面：行事・参加登録
 // ============================================================
 let evFilter = "upcoming";
+routeOf("dashboard").after = () => {
+  document.querySelector("[data-hero-scan]")?.addEventListener("click", openScan);
+};
 routeOf("events").after = () => {
   // 内容（装飾つき HTML は安全な形にしてから）を表示
   document.querySelectorAll("[data-ev-body]").forEach(el => {
