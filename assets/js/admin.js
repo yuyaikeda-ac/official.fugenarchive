@@ -433,6 +433,7 @@ function route() {
   $("page-title").textContent = view.title;
   document.title = `${view.title}｜管理コンソール｜普賢アーカイブ運営委員会`;
   $("app").classList.remove("nav-open");
+  window.scrollTo({ top: 0, behavior: "instant" });   // 画面を切り替えたら一番上から
   $("page").innerHTML = '<div class="loading"><span class="spin"></span> 読み込み中…</div>';
   return Promise.resolve(view.render(sub ? decodeURIComponent(sub) : "")).catch(e => {
     console.error(e);

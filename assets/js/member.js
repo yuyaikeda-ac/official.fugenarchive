@@ -228,7 +228,7 @@ function route() {
   $("view-title").textContent = r.label;
   document.title = r.id === "dashboard" ? "会員専用サイト｜普賢アーカイブ運営委員会" : `${r.label}｜会員サイト｜普賢アーカイブ運営委員会`;
   rerender();
-  window.scrollTo({ top: 0 });
+  window.scrollTo({ top: 0, behavior: "instant" });
   if (r.id === "news") markNewsSeen();
 }
 

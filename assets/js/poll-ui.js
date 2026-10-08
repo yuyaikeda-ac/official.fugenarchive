@@ -365,11 +365,11 @@ export function after(ctx) {
       drafts[p.id] = ans;
       if (!validate(form, p, ans)) return;
       steps[p.id] = "confirm";
-      rerender(); window.scrollTo({ top: 0 });
+      rerender(); window.scrollTo({ top: 0, behavior: "instant" });
     });
   }
   // 確認 → 送信
-  document.querySelector("[data-poll-back]")?.addEventListener("click", () => { steps[p.id] = "form"; rerender(); });
+  document.querySelector("[data-poll-back]")?.addEventListener("click", () => { steps[p.id] = "form"; rerender(); window.scrollTo({ top: 0, behavior: "instant" }); });
   document.querySelector("[data-poll-cast]")?.addEventListener("click", async (e) => {
     if (sending) return;
     if (!window.confirm("この内容で投票します。投票後は変更できません。よろしいですか？")) return;

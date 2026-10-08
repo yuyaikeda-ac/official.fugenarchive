@@ -163,6 +163,8 @@
     nextBtn.innerHTML = n === 4 ? "申込を確定する" : "次へ →";
     alertBox.innerHTML = "";
     if (n === 4) renderConfirm();
+    // 次へ・戻るで切り替えたら、ページの一番上から見せる（前の画面のスクロール位置のままにしない）
+    window.scrollTo({ top: 0, behavior: "instant" });
     const first = panels[n - 1].querySelector("input:not([type=radio]):not([type=checkbox]), input:checked");
     if (first && document.activeElement !== document.body) setTimeout(() => first.focus({ preventScroll: true }), 50);
   }
