@@ -185,6 +185,9 @@ export class SignaturePad {
   }
   resize() {
     const r = this.canvas.getBoundingClientRect();
+    // 非表示（入会申込で次のステップへ進んだときなど）は大きさが 0 になるので、そのときは変えない
+    // （0 にすると、あとで署名の画像を作るときにエラーになる）
+    if (!r.width || !r.height) return;
     const dpr = Math.max(1, window.devicePixelRatio || 1);
     this.canvas.width = Math.round(r.width * dpr);
     this.canvas.height = Math.round(r.height * dpr);
@@ -216,7 +219,7 @@ export class SignaturePad {
   undo() { this.strokes.pop(); this.draw(); this.onChange?.(); }
   /** 余白を切り取った PNG（幅 最大 600px）の data URL */
   toDataURL() {
-    const W = 600, H = Math.round(600 * this.canvas.height / this.canvas.width);
+    const W = 600, H = Math.round(600 * (this.canvas.width ? this.canvas.height / this.canvas.width : 1 / 3)) || 200;
     const c = document.createElement("canvas"); c.width = W; c.height = H;
     this.draw(c.getContext("2d"), W, H);
     const pts = this.strokes.flat();
