@@ -108,6 +108,7 @@ button { font: inherit; }
 .side-foot a { color: var(--side-muted); font-size: 12px; text-decoration: none; }
 .side-foot a:hover { color: #fff; }
 .scrim { display: none; }
+.side-account, .tabbar { display: none; }
 
 .main { min-width: 0; display: flex; flex-direction: column; }
 .topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px; padding: 12px 28px; background: rgba(255,255,255,.92); border-bottom: 1px solid var(--line); backdrop-filter: blur(10px); }
@@ -310,6 +311,54 @@ dialog::backdrop { background: rgba(10,18,32,.55); backdrop-filter: blur(2px); }
   .tbl.cards td .sub.hide-sm { display: none; }
   .toolbar .sel { flex: 1 1 100%; }
 }
+/* ---------- スマホの操作性（上部バーを簡潔に・画面下のタブ・押しやすいボタン・入力時の拡大防止） ---------- */
+@media (max-width: 860px) {
+  /* 上部バー：アカウントの操作はメニューの中へ */
+  .topbar { padding-top: max(10px, env(safe-area-inset-top)); padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); }
+  .tb-right { display: none; }
+  .tb-title h1 { font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tb-title { min-width: 0; }
+  .menu-btn { position: relative; }
+  .side { padding-top: env(safe-area-inset-top); }
+  .side-account { display: block; padding: 14px 20px; border-top: 1px solid rgba(255,255,255,.07); }
+  .side-who { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 12px; color: var(--side-text); }
+  .side-who span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .side-acts { display: flex; gap: 8px; }
+  .side-acts .btn { flex: 1; background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.14); color: #fff; }
+  .side-foot { padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+  .nav-link { padding: 11px 12px; font-size: 14.5px; }
+
+  /* 画面下のタブ */
+  .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; padding: 4px max(4px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left));
+    background: rgba(255,255,255,.96); border-top: 1px solid var(--line); backdrop-filter: blur(10px); }
+  .tab { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; padding: 6px 2px 4px; border: 0; border-radius: 10px; background: none;
+    color: var(--muted); font-size: 10.5px; font-weight: 500; line-height: 1.2; text-decoration: none; cursor: pointer; }
+  .tab svg { width: 23px; height: 23px; }
+  .tab span:not(.badge) { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tab.is-active { color: var(--accent-2); }
+  .tab .badge { position: absolute; top: 2px; left: calc(50% + 6px); min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--danger); color: #fff; font-size: 10px; font-weight: 700; line-height: 17px; text-align: center; }
+  .page { padding-bottom: calc(88px + env(safe-area-inset-bottom)); padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); }
+  .toasts { bottom: calc(76px + env(safe-area-inset-bottom)); }
+
+  /* 押しやすい大きさに */
+  .btn { min-height: 42px; padding: 9px 16px; font-size: 14px; }
+  .btn-sm { min-height: 36px; padding: 7px 13px; font-size: 13px; }
+  .icon-btn { width: 42px; height: 42px; }
+  .chip { padding: 8px 14px; font-size: 13px; }
+  .tabs button { padding: 12px 14px; }
+  .toolbar #new-btn { flex: 1 1 auto; }
+  .check input { width: 20px; height: 20px; }
+
+  /* iPhone で入力欄を押したときに画面が拡大されないよう、文字は 16px 以上 */
+  input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea, .ql-editor { font-size: 16px !important; }
+
+  /* モーダルは画面下から出るシートに */
+  .modal, .modal.wide { width: 100vw; max-width: 100vw; max-height: 92dvh; margin: auto 0 0; border-radius: 16px 16px 0 0; }
+  .modal[open] { animation: sheet-in .22s ease-out; }
+  .modal-body { padding: 16px 14px max(20px, env(safe-area-inset-bottom)); }
+  .drawer-head, .drawer .modal-head { padding-top: max(14px, env(safe-area-inset-top)); }
+}
+@keyframes sheet-in { from { transform: translateY(40px); opacity: 0; } }
 @media (max-width: 520px) {
   .stats { grid-template-columns: 1fr 1fr; gap: 10px; }
   .stat { padding: 14px; }
@@ -318,7 +367,7 @@ dialog::backdrop { background: rgba(10,18,32,.55); backdrop-filter: blur(2px); }
   .quick { grid-template-columns: 1fr; }
   .mini-list li { flex-wrap: wrap; }
   .mini-list .t { flex-basis: 100%; }
-  .toasts { left: 12px; right: 12px; bottom: 12px; }
+  .toasts { left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom)); }
   .toast { min-width: 0; max-width: none; }
 }
 

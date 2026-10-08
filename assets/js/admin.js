@@ -135,6 +135,8 @@ const ICONS = {
   vote: '<path d="M4 13h16v8H4zM8 13V5h8v8"/><path d="m10 8 1.5 1.5L14 7"/>'
 };
 const icon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</svg>`;
+// スマホの画面下のタブに出す画面（残りは「メニュー」から）
+const TABBAR = ["dashboard", "members", "events", "contacts"];
 const NAV = [
   { id: "dashboard", label: "ダッシュボード", icon: "dash" },
   { group: "コンテンツ" },
@@ -302,6 +304,9 @@ async function enter(user) {
   $("user-email").textContent = user.email;
   $("role-badge").textContent = isOwner() ? "オーナー" : "管理者";
   $("role-badge").className = `role ${currentRole}`;
+  $("side-email").textContent = user.email;
+  $("side-role").textContent = $("role-badge").textContent;
+  $("side-role").className = `role ${currentRole}`;
   renderNav();
   route();
   refreshBadges();
@@ -367,6 +372,8 @@ $("login-form").addEventListener("submit", async (e) => {
   catch (err) { console.error(err); notice("login-msg", "error", "ログインに失敗しました。メールアドレスとパスワードをご確認ください。"); }
 });
 $("mfa-btn").addEventListener("click", () => openMfaSettings());
+$("side-mfa").addEventListener("click", () => { $("app").classList.remove("nav-open"); openMfaSettings(); });
+$("side-logout").addEventListener("click", () => $("logout").click());
 // オーナー：ほかの人の 2 段階認証を解除（スマホをなくして予備コードもない場合など）
 document.addEventListener("click", async (e) => {
   const b = e.target.closest("[data-mfareset]");
@@ -396,6 +403,11 @@ function renderNav() {
   $("side-nav").innerHTML = NAV.filter(n => !n.owner || isOwner()).map(n => n.group
     ? `<div class="nav-group">${esc(n.group)}</div>`
     : `<a class="nav-link" href="#${n.id}" data-nav="${n.id}">${icon(n.icon)}<span>${esc(n.label)}</span>${n.badge ? `<span class="badge" data-badge="${n.badge}" hidden></span>` : ""}</a>`).join("");
+  const short = { dashboard: "ホーム", members: "会員", events: "行事", contacts: "問い合わせ" };
+  $("tabbar").innerHTML = TABBAR.map(id => NAV.find(n => n.id === id)).filter(Boolean).map(n =>
+    `<a class="tab" href="#${n.id}" data-nav="${n.id}">${icon(n.icon)}<span>${esc(short[n.id] || n.label)}</span>${n.badge ? `<span class="badge" data-badge="${n.badge}" hidden></span>` : ""}</a>`).join("") +
+    `<button class="tab" type="button" id="tab-menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>メニュー</span></button>`;
+  $("tab-menu").addEventListener("click", () => $("app").classList.add("nav-open"));
 }
 const VIEWS = {
   dashboard: { title: "ダッシュボード", render: renderDashboard },

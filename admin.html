@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title>管理コンソール｜普賢アーカイブ運営委員会</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -86,6 +86,11 @@
       <div><b>ADMIN CONSOLE</b><span>普賢アーカイブ運営委員会</span></div>
     </a>
     <nav class="side-nav" id="side-nav"></nav>
+    <!-- スマホ：アカウントの操作はメニューの中に（上部バーには出さない） -->
+    <div class="side-account">
+      <div class="side-who"><span id="side-email"></span><span id="side-role" class="role"></span></div>
+      <div class="side-acts"><button class="btn btn-sm" id="side-mfa" type="button">2段階認証</button><button class="btn btn-sm" id="side-logout" type="button">ログアウト</button></div>
+    </div>
     <div class="side-foot">
       <a href="index.html" target="_blank" rel="noopener">公開サイトを見る ↗</a>
       <a href="member.html" target="_blank" rel="noopener">会員サイトを見る ↗</a>
@@ -108,6 +113,8 @@
     </header>
     <main class="page" id="page" tabindex="-1"></main>
   </div>
+  <!-- スマホ：画面下のタブ（よく使う画面へすぐ移動） -->
+  <nav class="tabbar" id="tabbar" aria-label="よく使う画面"></nav>
 </div>
 
 <!-- モーダル（詳細・確認） -->
