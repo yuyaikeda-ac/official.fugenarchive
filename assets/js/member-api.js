@@ -12,11 +12,23 @@ import { db, auth, isDemo, signInWithGoogle } from "./db.js";
 
 // ★ 会員種別（入会金・年会費は無料）。変える場合はここと join.html の「会員種別」、
 //    firestore.rules の type の一覧も合わせて編集してください。
+//    closed: true の種別は新規の申込・種別変更では選べません（以前に登録した会員の表示用）
 export const MEMBER_TYPES = {
   regular: { label: "正会員" },
-  associate: { label: "準会員" },
-  student: { label: "学生会員" }
+  student: { label: "学生会員" },
+  associate: { label: "準会員", closed: true }
 };
+
+// ★ 入会の理由（正会員の申込で 1 つ選ぶ）。保存されるのは表示名そのもの
+export const JOIN_REASONS = [
+  "普賢岳ネットワーク（普賢ネット）からの参加",
+  "本会の目的（記録・資料の収集と継承）に賛同して",
+  "普賢にゆかりがある・地元に住んでいる",
+  "資料・写真・証言を提供したい",
+  "研究・教育・報道のため",
+  "会員・関係者からの紹介",
+  "その他"
+];
 
 // ★ 現在の職業の選択肢。変える場合はここを編集してください（保存されるのは表示名そのもの）
 export const OCCUPATIONS = [
@@ -30,7 +42,7 @@ export const OCCUPATIONS = [
 export const STATUS_LABEL = { pending: "審査中", active: "有効", suspended: "停止中", rejected: "否認" };
 
 // 本人が後から編集できる項目（firestore.rules と揃えています）
-export const EDITABLE_FIELDS = ["name", "kana", "occupation", "affiliation", "newsletter"];
+export const EDITABLE_FIELDS = ["name", "kana", "occupation", "affiliation", "phone", "newsletter"];
 
 function requireFirebase() {
   if (isDemo) throw new Error("Firebase が未設定です。assets/js/firebase-config.js を設定してください。");
@@ -69,6 +81,11 @@ async function saveApplication(uid, form, email) {
     name: form.name, kana: form.kana, email, type: form.type,
     occupation: form.occupation || "", affiliation: form.affiliation || "",
     ...(form.studentNo ? { studentNo: form.studentNo } : {}),
+    // 正会員のみ：本人確認のための項目
+    ...(form.type === "regular" ? {
+      birthDate: form.birthDate, phone: form.phone,
+      joinReason: form.joinReason, ...(form.referrer ? { referrer: form.referrer } : {}), pledge: true
+    } : {}),
     message: form.message || "", newsletter: !!form.newsletter,
     ...(form.cardSignature ? { cardSignature: form.cardSignature } : {}),
     status: "pending", createdAt: serverTimestamp()

@@ -43,9 +43,8 @@
           <div class="step-panel is-show" data-step="1">
             <h3 class="step-title">会員種別をお選びください</h3>
             <p class="step-sub">あとから委員会へご相談いただくことで変更も可能です。</p>
-            <div class="type-select" role="radiogroup" aria-label="会員種別">
-              <label><input type="radio" name="type" value="regular" checked><div><strong>正会員</strong><small>本会の目的に賛同する方・無料</small></div></label>
-              <label><input type="radio" name="type" value="associate"><div><strong>準会員</strong><small>本会の活動を応援する方・無料</small></div></label>
+            <div class="type-select two" role="radiogroup" aria-label="会員種別">
+              <label><input type="radio" name="type" value="regular" checked><div><strong>正会員</strong><small>本会の目的に賛同する方・無料<br>生年月日・電話番号の入力が必要です</small></div></label>
               <label><input type="radio" name="type" value="student"><div><strong>学生会員</strong><small>学生の方・無料</small></div></label>
             </div>
           </div>
@@ -61,6 +60,14 @@
             <div class="field"><label for="f-email">メールアドレス<span class="req">必須</span></label><input id="f-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" required maxlength="200"><p class="hint">ご連絡先・ログインIDとして使用します（Google で申し込む場合は Google アカウントのアドレスになります）</p><p class="err">正しいメールアドレスを入力してください</p></div>
             <div class="field"><label for="f-occ">現在のご職業<span class="req">必須</span></label><select id="f-occ" name="occupation" required></select><p class="err">ご職業を選んでください</p></div>
             <div class="field"><label for="f-aff">ご所属（勤務先・学校名など）</label><input id="f-aff" name="affiliation" autocomplete="organization" maxlength="200"></div>
+            <!-- 正会員のみ：本人確認のための項目 -->
+            <div id="regular-fields" hidden>
+              <p class="sid-lead">正会員は総会での議決権をお持ちいただくため、<strong>ご本人の確認</strong>にご協力ください。ご入力いただいた内容は審査と会員管理にのみ使用します。</p>
+              <div class="grid-2">
+                <div class="field"><label for="f-birth">生年月日<span class="req">必須</span></label><input id="f-birth" name="birthDate" type="date" autocomplete="bday" min="1900-01-01"><p class="err">生年月日を入力してください</p></div>
+                <div class="field"><label for="f-phone">電話番号<span class="req">必須</span></label><input id="f-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="090-1234-5678" maxlength="20"><p class="err">日中に連絡のつく電話番号を入力してください</p></div>
+              </div>
+            </div>
             <!-- 学生会員のみ：学生証（表面）の画像 か 学籍番号 のどちらか -->
             <div class="field student-id" id="student-id-field" hidden>
               <p class="sid-lead">学生の確認のため、<strong>学生証の画像</strong>か<strong>学籍番号</strong>のどちらかを入力してください<span class="req">必須</span></p>
@@ -101,6 +108,10 @@
               <p class="err">パスワードが一致しません</p>
             </div>
             </div>
+            <div id="regular-fields-3" hidden>
+              <div class="field"><label for="f-reason">入会の理由<span class="req">必須</span></label><select id="f-reason" name="joinReason"></select><p class="err">入会の理由を選んでください</p></div>
+              <div class="field"><label for="f-ref">紹介者のお名前（いる場合）</label><input id="f-ref" name="referrer" maxlength="100" placeholder="会員の方・普賢ネットの方など"><p class="hint">「会員・関係者からの紹介」を選んだ方は必須です</p><p class="err">紹介者のお名前を入力してください</p></div>
+            </div>
             <div class="field"><label for="f-msg">入会の動機・メッセージ<span class="req">必須</span></label><textarea id="f-msg" name="message" maxlength="2000" required placeholder="普賢との関わりや、活動への想いなどをお聞かせください"></textarea><p class="err">入会の動機を入力してください</p></div>
             <div class="field"><label class="check"><input type="checkbox" name="newsletter" checked> 会員向けのお知らせをメールで受け取る</label></div>
             <!-- 会員証の裏面に印字する直筆の署名（入会規約の署名欄がある場合はそちらの署名を使うので非表示） -->
@@ -112,6 +123,7 @@
             </div>
             <!-- 入会規約への署名（管理画面で「入会時の規約同意」の同意書を公開しているときだけ表示） -->
             <div class="terms-sign" id="terms-sign" hidden></div>
+            <div class="field" id="pledge-field" hidden><label class="check"><input type="checkbox" name="pledge"> 申込内容に偽りがないこと、および自身が反社会的勢力（暴力団・暴力団員など）に該当せず、これらと関わりがないことを誓約します</label><p class="err">誓約が必要です</p></div>
             <div class="field"><label class="check"><input type="checkbox" name="agree" required> <span id="agree-text"><a href="about.html#rules" target="_blank">運営規程</a>および<a href="privacy.html" target="_blank">プライバシーポリシー</a>に同意します</span></label><p class="err">同意が必要です</p></div>
           </div>
 
@@ -137,7 +149,7 @@
 <footer id="site-footer"></footer>
 
 <script type="module">
-  import { apply, applyWithGoogle, errorMessage, compressImage, MEMBER_TYPES, OCCUPATIONS } from "./assets/js/member-api.js";
+  import { apply, applyWithGoogle, errorMessage, compressImage, MEMBER_TYPES, OCCUPATIONS, JOIN_REASONS } from "./assets/js/member-api.js";
   import { esc } from "./assets/js/db.js";
   import { getMembershipForm, submitSignature } from "./assets/js/consent-core.js";
   import { docBoxHtml, fillDoc, padHtml, mountPad } from "./assets/js/consent-ui.js";
@@ -180,6 +192,20 @@
   F.occupation.innerHTML = '<option value="">選択してください</option>' + OCCUPATIONS.map(g =>
     `<optgroup label="${esc(g.group)}">${g.items.map(v => `<option>${esc(v)}</option>`).join("")}</optgroup>`).join("");
 
+  // ---------- 本人確認（正会員のみ） ----------
+  const opts = (list) => '<option value="">選択してください</option>' + list.map(v => `<option>${esc(v)}</option>`).join("");
+  F.joinReason.innerHTML = opts(JOIN_REASONS);
+  F.birthDate.max = new Date().toISOString().slice(0, 10);
+  const isRegular = () => F.type.value === "regular";
+  const isReferral = () => F.joinReason.value === "会員・関係者からの紹介";
+  // 全角の数字・ハイフンを半角に
+  const half = (v) => v.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[－ー―‐−]/g, "-").trim();
+  const digits = (v) => half(v).replace(/\D/g, "");
+  const syncRegularFields = () => {
+    ["regular-fields", "regular-fields-3", "pledge-field"].forEach(id => { document.getElementById(id).hidden = !isRegular(); });
+  };
+  form.querySelectorAll("input[name=type]").forEach(r => r.addEventListener("change", syncRegularFields));
+
   // ---------- 学生証（学生会員のみ） ----------
   const isStudent = () => F.type.value === "student";
   const sidField = document.getElementById("student-id-field");
@@ -214,6 +240,11 @@
     studentId: () => !isStudent() || !!studentIdImage || !!F.studentNo.value.trim(),
     studentNo: () => !isStudent() || !!studentIdImage || !!F.studentNo.value.trim(),
     occupation: v => !!v,
+    birthDate: v => !isRegular() || (/^\d{4}-\d{2}-\d{2}$/.test(v) && v >= "1900-01-01" && v <= F.birthDate.max),
+    phone: v => !isRegular() || (/^[\d+\-\s()（）]+$/.test(half(v)) && digits(v).length >= 10 && digits(v).length <= 15),
+    joinReason: v => !isRegular() || !!v,
+    referrer: v => !isRegular() || !isReferral() || v.trim().length > 0,
+    pledge: (_, el) => !isRegular() || el.checked,
     message: v => v.trim().length > 0,
     name: v => v.trim().length > 0,
     kana: v => /^[ァ-ヶーぁ-ゖ\s　]+$/.test(v.trim()),
@@ -292,7 +323,8 @@
   }));
 
   // ---------- 下書き保存（パスワードは保存しません） ----------
-  const DRAFT_FIELDS = ["type", "name", "kana", "email", "occupation", "affiliation", "studentNo", "message"];
+  const DRAFT_FIELDS = ["type", "name", "kana", "email", "occupation", "affiliation", "studentNo",
+    "birthDate", "phone", "joinReason", "referrer", "message"];
   function saveDraft() {
     try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(Object.fromEntries(DRAFT_FIELDS.map(k => [k, F[k].value])))); } catch {}
   }
@@ -309,6 +341,7 @@
   const typeRadio = typeParam && form.querySelector(`input[name=type][value="${CSS.escape(typeParam)}"]`);
   if (typeRadio) typeRadio.checked = true;
   syncStudentField();
+  syncRegularFields();
 
   // ---------- 確認画面 ----------
   function renderConfirm() {
@@ -316,6 +349,10 @@
       ["会員種別", `${MEMBER_TYPES[F.type.value].label}（入会金・年会費 無料）`],
       ["お名前", F.name.value], ["フリガナ", F.kana.value], ["メールアドレス", F.email.value], ["ご職業", F.occupation.value],
       ["ご所属", F.affiliation.value || "—"], ...(isStudent() ? [["学籍番号", F.studentNo.value.trim() || "—"]] : []),
+      ...(isRegular() ? [
+        ["生年月日", F.birthDate.value.replace(/-/g, "/")], ["電話番号", half(F.phone.value)],
+        ["入会の理由", F.joinReason.value], ["紹介者", F.referrer.value.trim() || "—"]
+      ] : []),
       ["メッセージ", F.message.value || "—"], ["お知らせメール", F.newsletter.checked ? "受け取る" : "受け取らない"],
       ["ログイン方法", useGoogle() ? "Googleアカウント（確定時にGoogleのログイン画面が開きます）" : "メールアドレスとパスワード"]
     ];
@@ -338,6 +375,10 @@
         occupation: F.occupation.value, affiliation: F.affiliation.value.trim(), studentNo: isStudent() ? F.studentNo.value.trim() : "",
         message: F.message.value.trim(), newsletter: F.newsletter.checked, password: F.password.value,
         studentId: isStudent() ? studentIdImage : "",
+        ...(isRegular() ? {
+          birthDate: F.birthDate.value, phone: half(F.phone.value),
+          joinReason: F.joinReason.value, referrer: F.referrer.value.trim()
+        } : {}),
         cardSignature: signatureImage()
       };
       const user = await (useGoogle() ? applyWithGoogle(data) : apply(data));

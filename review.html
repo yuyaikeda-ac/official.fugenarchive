@@ -88,6 +88,7 @@
         ${row("ご職業", esc(m.occupation))}
         ${row("ご所属", esc(m.affiliation))}
         ${m.type === "student" ? row("学籍番号", esc(m.studentNo)) : ""}
+        ${m.type === "regular" ? row("入会の理由", esc(m.joinReason)) + row("紹介者", esc(m.referrer)) : ""}
         ${row("申込日時", esc(fmt(m.createdAt)))}
         ${row("入会の動機・メッセージ", m.message ? `<span class="rv-msg">${esc(m.message)}</span>` : "")}
       </dl>

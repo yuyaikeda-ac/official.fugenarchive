@@ -26,6 +26,7 @@ const I = {
   card: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
   qr: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/>',
   mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+  phone: '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/>',
   user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
   pin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
@@ -924,8 +925,14 @@ function bindProfileForm() {
     if (!f.name.value.trim()) { f.name.focus(); return toast("お名前を入力してください", true); }
     const data = {
       name: f.name.value.trim(), kana: f.kana.value.trim(), occupation: f.occupation.value, affiliation: f.affiliation.value.trim(),
+      // 電話番号の欄は正会員（または登録済みの方）だけに表示
+      ...(f.phone ? { phone: f.phone.value.trim() } : {}),
       newsletter: f.newsletter.checked
     };
+    // 正会員は電話番号を空にできない
+    if (state.member.type === "regular") {
+      if (!data.phone) { f.phone.focus(); return toast("電話番号を入力してください", true); }
+    }
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> 保存中…';
     try {
       await updateProfile(state.member.id, data);
@@ -975,7 +982,7 @@ function bindProfileSide() {
 // 会員種別の変更を申請（学生会員へ変更する場合は学生証の画像か学籍番号も）
 function openTypeChange() {
   const m = state.member;
-  const options = Object.entries(MEMBER_TYPES).filter(([k]) => k !== m.type);
+  const options = Object.entries(MEMBER_TYPES).filter(([k, v]) => k !== m.type && !v.closed);
   const dlg = document.createElement("dialog");
   dlg.className = "sig-dialog";
   dlg.innerHTML = `<form novalidate>
@@ -1115,6 +1122,7 @@ function profileViewHtml(m) {
         ${row("mail", "メールアドレス", email)}
         ${row("user", "ご職業", m.occupation)}
         ${row("home", "ご所属", m.affiliation)}
+        ${m.type === "regular" || m.phone ? row("phone", "電話番号", m.phone) : ""}
         <div class="pv-row">${icon("bell")}<dt>お知らせメール</dt><dd>${m.newsletter ? '<span class="pv-on">受け取る</span>' : '<span class="pv-off">受け取らない</span>'}</dd></div>
       </dl>
     </section>`;
@@ -1134,6 +1142,7 @@ function renderProfile() {
         <div class="field"><label for="p-occupation">ご職業</label><select id="p-occupation" name="occupation"><option value="">選択してください</option>${OCCUPATIONS.map(g =>
           `<optgroup label="${esc(g.group)}">${g.items.map(v => `<option${m.occupation === v ? " selected" : ""}>${esc(v)}</option>`).join("")}</optgroup>`).join("")}</select></div>
         ${f("affiliation", "ご所属", 'autocomplete="organization" maxlength="200"')}
+        ${m.type === "regular" || m.phone ? f("phone", "電話番号", 'type="tel" autocomplete="tel" maxlength="20"') : ""}
         <div class="field"><label class="check"><input type="checkbox" name="newsletter"${m.newsletter ? " checked" : ""}> 会員向けのお知らせをメールで受け取る</label></div>
         <div class="pv-actions"><button class="lux-btn ghost" id="profile-cancel" type="button">キャンセル</button><button class="lux-btn" id="save-btn" type="submit" disabled>変更を保存</button></div>
       </form>

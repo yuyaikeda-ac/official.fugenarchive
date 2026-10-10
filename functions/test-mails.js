@@ -2,7 +2,8 @@
 const mails = require("./mails");
 
 const member = {
-  name: "普賢 太郎", kana: "フゲン タロウ", email: "taro@example.com", type: "associate",
+  name: "普賢 太郎", kana: "フゲン タロウ", email: "taro@example.com", type: "regular",
+  joinReason: "普賢岳ネットワーク（普賢ネット）からの参加", referrer: "普賢 花子",
   affiliation: "○○大学", message: "記録の継承に協力したいです。",
   status: "pending", createdAt: new Date(), memberNo: "FA-2026-0001"
 };

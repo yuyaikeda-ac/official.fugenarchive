@@ -38,7 +38,8 @@ function memberApplied(m) {
 ■ お名前　：${m.name}（${m.kana || ""}）
 ■ メール　：${m.email}
 ■ ご職業　：${m.occupation || "—"}
-■ ご所属　：${m.affiliation || "—"}${m.type === "student" ? `\n■ 学籍番号：${m.studentNo || "—"}` : ""}
+■ ご所属　：${m.affiliation || "—"}${m.type === "student" ? `\n■ 学籍番号：${m.studentNo || "—"}` : ""}${m.type === "regular" ? `
+■ 入会理由：${m.joinReason || "—"}${m.referrer ? `\n■ 紹介者　：${m.referrer}` : ""}` : ""}
 ■ 申込日時：${fmtDate(m.createdAt)}
 
 ■ 入会の動機・メッセージ
@@ -260,7 +261,7 @@ ${link}
 ■ 会員種別：${type}
 ■ お名前　：${m.name}（${m.kana || ""}）
 ■ ご職業　：${m.occupation || "—"}
-■ ご所属　：${m.affiliation || "—"}
+■ ご所属　：${m.affiliation || "—"}${m.type === "regular" ? `\n■ 入会理由：${m.joinReason || "—"}` : ""}
 
 ・理事会の全員が承認すると、自動で入会が承認され、申込者へ承認メールが送られます。
 ・1 名でも非承認の場合は、自動で否認となり、申込者へ否認メールが送られます。

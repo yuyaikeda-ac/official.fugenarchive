@@ -129,7 +129,7 @@ service cloud.firestore {
       return rqAfter == rqBefore
         || rqAfter == null
         || (rqBefore == null && before.status == 'active'
-            && rqAfter in ['regular', 'associate', 'student'] && rqAfter != before.type
+            && rqAfter in ['regular', 'student'] && rqAfter != before.type
             && str(after.get('typeRequestReason', ''), 500)
             && str(after.get('typeRequestStudentNo', ''), 50));
     }
@@ -138,16 +138,32 @@ service cloud.firestore {
       return !('cardSignature' in d)
         || (d.cardSignature is string && d.cardSignature.size() <= 300000 && d.cardSignature.matches('^data:image/png;base64,.*'));
     }
+    // 電話番号（正会員は必須。本人が後から変更することもできる）
+    function validContact(d) {
+      return str(d.get('phone', ''), 20);
+    }
+    // 正会員の申込：本人確認の項目（生年月日・電話番号・入会の理由・誓約）がそろっていること
+    function validRegularApplication(d) {
+      return d.type != 'regular'
+        || (d.get('birthDate', '') is string && d.birthDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+            && d.get('phone', '') is string && d.phone.size() >= 10
+            && str(d.get('joinReason', ''), 100) && d.joinReason.size() > 0
+            && str(d.get('referrer', ''), 100)
+            && d.get('pledge', false) == true);
+    }
     match /members/{uid} {
       allow read: if (signedIn() && request.auth.uid == uid) || isAdmin();
 
-      // 入会申込（本人・審査中のみ）
+      // 入会申込（本人・審査中のみ）。準会員の新規受付は終了
       allow create: if signedIn() && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['name', 'kana', 'email', 'type', 'occupation', 'affiliation',
-             'studentNo', 'message', 'newsletter', 'cardSignature', 'status', 'createdAt'])
+             'studentNo', 'message', 'newsletter', 'cardSignature', 'status', 'createdAt',
+             'birthDate', 'phone', 'joinReason', 'referrer', 'pledge'])
         && validCardSignature(request.resource.data)
+        && validContact(request.resource.data)
+        && validRegularApplication(request.resource.data)
         && request.resource.data.status == 'pending'
-        && request.resource.data.type in ['regular', 'associate', 'student']
+        && request.resource.data.type in ['regular', 'student']
         && str(request.resource.data.name, 100)
         && str(request.resource.data.kana, 100)
         && str(request.resource.data.email, 200)
@@ -165,8 +181,10 @@ service cloud.firestore {
         || (signedIn() && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['name', 'kana', 'occupation', 'affiliation', 'newsletter', 'cardSignature', 'signatureRewrite', 'signatureRewriteAt', 'email',
-                       'typeRequest', 'typeRequestReason', 'typeRequestAt', 'typeRequestStudentNo'])
+                       'typeRequest', 'typeRequestReason', 'typeRequestAt', 'typeRequestStudentNo',
+                       'phone'])
         && validCardSignature(request.resource.data)
+        && validContact(request.resource.data)
         && selfSignatureOk()
         && selfTypeRequestOk()
         // メールアドレスは、ログイン中のアカウント（確認済み）のアドレスに合わせる場合のみ

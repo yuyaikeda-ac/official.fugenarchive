@@ -123,7 +123,9 @@ module.exports = function review({ onDocumentCreated, onDocumentUpdated, onCall,
       me: { name: voter.name, email: voter.email, decision: voter.decision, reason: voter.reason, decidedAt: ts(voter.decidedAt) },
       member: m && {
         name: m.name, kana: m.kana, email: m.email, type: m.type, occupation: m.occupation || "", affiliation: m.affiliation || "", studentNo: m.studentNo || "",
-        message: m.message || "", status: m.status, createdAt: ts(m.createdAt)
+        message: m.message || "", status: m.status, createdAt: ts(m.createdAt),
+        // 正会員：理事には入会の理由・紹介者まで（生年月日・電話番号は管理画面のみ）
+        joinReason: m.joinReason || "", referrer: m.referrer || ""
       },
       studentIdImage: sidSnap.exists ? sidSnap.get("image") : null
     };

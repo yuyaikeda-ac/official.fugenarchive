@@ -9,7 +9,7 @@
 //  ・管理者の招待（オーナーのみ）
 // ============================================================
 import { adminApi, esc, fmtDate, isDemo, NEWS_CATEGORIES, db, app, setKeepLogin, keepLoginPref } from "./db.js";
-import { getStudentId, OCCUPATIONS } from "./member-api.js";
+import { getStudentId, OCCUPATIONS, JOIN_REASONS } from "./member-api.js";
 import { createRichEditor } from "./rich-editor.js";
 import { mfaGate, openMfaSettings, mfaReset } from "./mfa.js";
 import { renderRich } from "./rich-view.js";
@@ -84,7 +84,7 @@ const SCHEMA = {
   members: {
     label: "会員", order: "createdAt",
     fields: [
-      { key: "type", label: "会員種別", type: "select", options: { regular: "正会員", associate: "準会員", student: "学生会員" }, required: true, half: true },
+      { key: "type", label: "会員種別", type: "select", options: { regular: "正会員", student: "学生会員" }, required: true, half: true },
       { key: "validUntil", label: "有効期限（空欄＝期限なし）", type: "date", half: true },
       { key: "memberNo", label: "会員番号（有効な会員は空欄で保存すると自動で採番）", type: "text", generate: true },
       { key: "name", label: "お名前", type: "text", required: true, half: true },
@@ -93,13 +93,18 @@ const SCHEMA = {
       { key: "occupation", label: "職業", type: "select", options: Object.fromEntries([["", "（未選択）"], ...OCCUPATIONS.flatMap(g => g.items).map(v => [v, v])]), half: true },
       { key: "affiliation", label: "所属", type: "text", half: true },
       { key: "studentNo", label: "学籍番号（学生会員）", type: "text", half: true },
+      { key: "birthDate", label: "生年月日", type: "date", half: true },
+      { key: "phone", label: "電話番号", type: "text", half: true },
+      { key: "joinReason", label: "入会の理由", type: "select", options: Object.fromEntries([["", "（未選択）"], ...JOIN_REASONS.map(v => [v, v])]), half: true },
+      { key: "referrer", label: "紹介者", type: "text", half: true },
       { key: "message", label: "入会時のメッセージ", type: "textarea" },
       { key: "newsletter", label: "お知らせメールを受け取る", type: "checkbox" }
     ]
   }
 };
 
-const MEMBER_TYPE = { regular: "正会員", associate: "準会員", student: "学生会員" };
+// 準会員は新規受付を終了（以前に登録した会員の表示用に名前だけ残す）
+const MEMBER_TYPE = { regular: "正会員", student: "学生会員", associate: "準会員（受付終了）" };
 // ★ 会員の状態は「承認」「否認」「停止」「再開」ボタンでのみ変更します（委員会承認制）
 const MEMBER_STATUS = { pending: "審査中", active: "有効", suspended: "停止中", rejected: "否認" };
 
@@ -1126,6 +1131,9 @@ async function renderMembers() {
       <td data-label="種別">${esc(MEMBER_TYPE[r.type] || r.type)}${r.memberNo ? `<span class="sub">${esc(r.memberNo)}</span>` : r.status === "pending" ? '<span class="sub hide-sm">承認時に自動付与</span>' : ""}
         ${(r.type === "student" && r.status === "pending") || r.typeRequest === "student" ? `<button class="btn btn-sm" data-sid="${esc(r.id)}" style="margin-top:4px">学生証を見る</button>` : ""}
         ${r.type === "student" && r.studentNo ? `<span class="sub">学籍番号：${esc(r.studentNo)}</span>` : ""}
+        ${r.joinReason ? `<span class="sub">入会の理由：${esc(r.joinReason)}${r.referrer ? `（紹介：${esc(r.referrer)}）` : ""}</span>` : ""}
+        ${r.birthDate ? `<span class="sub">生年月日：${esc(r.birthDate.replace(/-/g, "/"))}</span>` : ""}
+        ${r.phone ? `<span class="sub">電話：${esc(r.phone)}</span>` : ""}
         ${r.typeRequest && r.typeRequestReason ? `<span class="sub">変更の理由：${esc(r.typeRequestReason)}</span>` : ""}
         ${r.typeRequest === "student" && r.typeRequestStudentNo ? `<span class="sub">申請の学籍番号：${esc(r.typeRequestStudentNo)}</span>` : ""}</td>
       <td data-label="申込日">${fmtD(r.createdAt)}${r.approvedAt ? `<span class="sub">承認 ${fmtD(r.approvedAt)}</span>` : ""}</td>
@@ -2294,7 +2302,7 @@ function exportCsv(f, sigs) {
 // ============================================================
 const POLL_STATUS = { draft: ["draft", "下書き"], open: ["ok", "受付中"], closed: ["closed", "受付終了（集計前）"], final: ["gold", "確定"] };
 const POLL_KIND = { resolution: "総会の議決", survey: "アンケート" };
-const POLL_AUD = { regular: "正会員", associate: "準会員", student: "学生会員" };
+const POLL_AUD = { regular: "正会員", student: "学生会員" };
 const Q_TYPE = { single: "単一選択", multi: "複数選択", text: "自由記述" };
 const VOTE_OPTIONS = ["賛成", "反対", "棄権"];
 const pollPill = (st) => pill(...(POLL_STATUS[st] || ["draft", st || "—"]));
@@ -2308,7 +2316,7 @@ function pollPreset(kind) {
     questions: [{ id: "q1", text: "議案第1号 ○○の件", type: "single", options: [...VOTE_OPTIONS], required: true }]
   };
   return {
-    title: "", kind: "survey", audience: ["regular", "associate", "student"], anonymous: false, showResults: "after_final", opensAt: "", closesAt: "",
+    title: "", kind: "survey", audience: ["regular", "student"], anonymous: false, showResults: "after_final", opensAt: "", closesAt: "",
     questions: [{ id: "q1", text: "", type: "single", options: ["", ""], required: true }]
   };
 }
@@ -2331,7 +2339,7 @@ async function renderPolls(sub = "") {
     const list = polls.filter(p => !q || (p.title || "").toLowerCase().includes(q));
     $("tbl").querySelector("tbody").innerHTML = list.length ? list.map(p => `<tr class="clickable" data-open="${esc(p.id)}">
       <td class="st">${pollPill(p.status)}${p.anonymous ? pill("info", "無記名") : ""}</td>
-      <td class="main"><b>${esc(p.title || "（無題）")}</b><span class="sub">${(p.audience || []).map(a => esc(POLL_AUD[a] || a)).join("・")}</span></td>
+      <td class="main"><b>${esc(p.title || "（無題）")}</b><span class="sub">${(p.audience || []).map(a => esc(POLL_AUD[a] || MEMBER_TYPE[a] || a)).join("・")}</span></td>
       <td data-label="種類">${p.kind === "resolution" ? pill("gold", POLL_KIND.resolution) : esc(POLL_KIND[p.kind] || p.kind || "")}</td>
       <td data-label="受付期間">${p.opensAt ? esc(fmtLocal(p.opensAt)) : "公開時"} 〜 ${esc(fmtLocal(p.closesAt) || "—")}</td>
       <td data-label="投票数">${esc(p.voteCount ?? 0)} 票</td>
@@ -2559,7 +2567,7 @@ async function renderPollDetail(id) {
       <div>
         <div class="meta">${pollPill(st)} ${p.kind === "resolution" ? pill("gold", POLL_KIND.resolution) : pill("info", POLL_KIND[p.kind] || "")} ${p.anonymous ? pill("info", "無記名") : pill("closed", "記名")}</div>
         <h2>${esc(p.title || "（無題）")}</h2>
-        <div class="muted small">受付 ${p.opensAt ? esc(fmtLocal(p.opensAt)) : "公開時"} 〜 ${esc(fmtLocal(p.closesAt) || "—")}　／　対象 ${(p.audience || []).map(a => esc(POLL_AUD[a] || a)).join("・")}　／　結果 ${p.showResults === "never" ? "会員に非公開" : "確定後に会員へ公開"}${p.publishedAt ? `　／　公開 ${fmtDT(p.publishedAt)}` : ""}${p.finalizedAt ? `　／　確定 ${fmtDT(p.finalizedAt)}` : ""}</div>
+        <div class="muted small">受付 ${p.opensAt ? esc(fmtLocal(p.opensAt)) : "公開時"} 〜 ${esc(fmtLocal(p.closesAt) || "—")}　／　対象 ${(p.audience || []).map(a => esc(POLL_AUD[a] || MEMBER_TYPE[a] || a)).join("・")}　／　結果 ${p.showResults === "never" ? "会員に非公開" : "確定後に会員へ公開"}${p.publishedAt ? `　／　公開 ${fmtDT(p.publishedAt)}` : ""}${p.finalizedAt ? `　／　確定 ${fmtDT(p.finalizedAt)}` : ""}</div>
       </div>
       <div class="form-actions">
         ${st === "draft" ? '<button class="btn" id="edit-btn">編集</button><button class="btn btn-ok" id="publish-btn">公開して受付開始</button>' : ""}
@@ -2725,7 +2733,7 @@ function printPollResults(p, r) {
     <div class="cert-head"><img src="LOGO.png" alt=""><div><b>普賢アーカイブ運営委員会</b><span>Fugen Archive Development Committee</span></div><h1>${p.kind === "resolution" ? "議決結果" : "集計結果"}</h1></div>
     <h2>${esc(p.title)}</h2>
     <table><tr><th>種類</th><td>${esc(POLL_KIND[p.kind] || p.kind)}（${p.anonymous ? "無記名" : "記名"}）</td></tr>
-      <tr><th>対象</th><td>${(p.audience || []).map(a => esc(POLL_AUD[a] || a)).join("・")}</td></tr>
+      <tr><th>対象</th><td>${(p.audience || []).map(a => esc(POLL_AUD[a] || MEMBER_TYPE[a] || a)).join("・")}</td></tr>
       <tr><th>受付期間</th><td>${p.opensAt ? esc(fmtLocal(p.opensAt)) : fmtDT(p.publishedAt)} 〜 ${esc(fmtLocal(p.closesAt))}</td></tr>
       <tr><th>確定日時</th><td>${fmtDT(p.finalizedAt)}</td></tr>
       <tr><th>投票数</th><td>${esc(r.total ?? 0)} 票 ／ 対象 ${esc(r.eligible ?? "—")} 名${r.eligible ? `（投票率 ${Math.round((r.total || 0) / r.eligible * 100)}%）` : ""}</td></tr></table>
