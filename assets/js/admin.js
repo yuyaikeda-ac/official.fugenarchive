@@ -1707,7 +1707,6 @@ async function renderAdmins() {
 const BOARD_NOTE = "\n\n理事会の審査中です。管理者の判断で確定しますか？";
 const REVIEW_STATUS = { open: "理事会審査中", approved: "理事会：全員承認", rejected: "理事会：否認", closed: "理事会審査：終了" };
 const DECISION = { approve: { label: "承認", cls: "ok" }, reject: { label: "非承認", cls: "ng" } };
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** 入会審査を担当する理事会の設定（無ければ {}） */
 async function getReviewSetting() {
@@ -1822,7 +1821,7 @@ async function renderBoard() {
           </div>
         </div>
       </section>`).join("")}</div>`
-      : '<div class="card"><div class="empty">理事会はまだありません。「理事会を作成」から、理事の名前とメールアドレスを登録してください。</div></div>'}`;
+      : '<div class="card"><div class="empty">理事会はまだありません。「理事会を作成」を押して、管理者の中から理事を選んでください。</div></div>'}`;
 
   $("rv-setting").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1846,21 +1845,23 @@ async function renderBoard() {
   }));
 }
 
-/** 理事会の作成・編集（右から出るパネル） */
-function openGroupEditor(g) {
-  const row = (p = {}) => `<div class="dir-row">
-      <input name="dname" placeholder="お名前" maxlength="100" value="${esc(p.name || "")}">
-      <input name="demail" type="email" placeholder="メールアドレス" maxlength="200" value="${esc(p.email || "")}">
-      <button type="button" class="icon-btn" data-rm aria-label="この理事を削除">✕</button>
-    </div>`;
+/** 理事会の作成・編集（右から出るパネル）。理事は管理者の中から選ぶ */
+async function openGroupEditor(g) {
+  const admins = (await getRows("admins", true)).filter(a => a.email)
+    .map(a => ({ name: a.name || a.email, email: a.email.trim().toLowerCase(), owner: a.role === "owner" }))
+    .sort((a, b) => b.owner - a.owner || a.name.localeCompare(b.name, "ja"));
+  const cur = new Set((g?.members || []).map(m => m.email));
+  // 以前に手入力で登録した、管理者ではない理事（チェックを外すまでは残す）
+  const others = (g?.members || []).filter(m => !admins.some(a => a.email === m.email));
+  const item = (p, sub) => `<label class="check dir-pick"><input type="checkbox" name="dir" value="${esc(p.email)}" data-name="${esc(p.name)}"${cur.has(p.email) ? " checked" : ""}>
+      <span><b>${esc(p.name)}</b><span class="sub">${esc(p.email)}${sub ? `・${sub}` : ""}</span></span></label>`;
   const body = openDrawer(g ? `理事会を編集：${g.name}` : "理事会を作成", `
     <form id="grp-form" novalidate>
       <label class="fld"><span>理事会の名前<span class="req">必須</span></span><input name="name" required maxlength="100" value="${esc(g?.name || "")}" placeholder="例：2026年度 理事会"></label>
       <label class="fld"><span>説明（任意）</span><input name="description" maxlength="300" value="${esc(g?.description || "")}" placeholder="例：入会審査を担当"></label>
       <div class="fld"><span>理事（承認依頼メールの送り先）<span class="req">必須</span></span>
-        <div id="dirs" class="dirs">${(g?.members?.length ? g.members : [{}]).map(row).join("")}</div>
-        <div><button type="button" class="btn btn-sm" id="add-dir">${icon("plus")}理事を追加</button></div>
-        <span class="hint">審査では、ここに登録した全員の承認が必要です。理事が審査中に入れ替わった場合は、会員管理の「審査状況」から審査をやり直せます。</span>
+        <div class="dirs">${admins.map(a => item(a, a.owner ? "オーナー" : "")).join("")}${others.map(m => item(m, "管理者ではありません")).join("")}</div>
+        <span class="hint">管理者の中から選びます。理事にしたい方が一覧にいない場合は、先に管理者として招待してください（招待はオーナーが「管理者」の画面で行います）。審査では、選んだ全員の承認が必要です。理事が審査中に入れ替わった場合は、会員管理の「審査状況」から審査をやり直せます。</span>
       </div>
       <div id="grp-err"></div>
       <div class="drawer-foot">
@@ -1868,29 +1869,14 @@ function openGroupEditor(g) {
         <button type="submit" class="btn btn-primary" id="grp-save">保存</button>
       </div>
     </form>`);
-  const form = body.querySelector("#grp-form"), dirs = body.querySelector("#dirs");
-  body.querySelector("#add-dir").addEventListener("click", () => { dirs.insertAdjacentHTML("beforeend", row()); dirs.lastElementChild.querySelector("input").focus(); });
-  dirs.addEventListener("click", e => {
-    if (!e.target.closest("[data-rm]")) return;
-    e.target.closest(".dir-row").remove();
-    if (!dirs.children.length) dirs.insertAdjacentHTML("beforeend", row());
-  });
+  const form = body.querySelector("#grp-form");
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const err = (msg) => { body.querySelector("#grp-err").innerHTML = `<div class="note error" style="margin-top:8px">${esc(msg)}</div>`; };
     const name = form.elements.name.value.trim();
     if (!name) { form.elements.name.focus(); return err("理事会の名前を入力してください。"); }
-    const members = [], seen = new Set();
-    for (const r of dirs.querySelectorAll(".dir-row")) {
-      const n = r.querySelector('[name="dname"]').value.trim(), m = r.querySelector('[name="demail"]').value.trim().toLowerCase();
-      r.classList.remove("is-bad");
-      if (!n && !m) continue;
-      if (!EMAIL_RE.test(m)) { r.classList.add("is-bad"); r.querySelector('[name="demail"]').focus(); return err(`メールアドレスの形式が正しくありません：${m || "（空欄）"}`); }
-      if (seen.has(m)) continue; // 同じメールアドレスは 1 人として扱う
-      seen.add(m);
-      members.push({ name: n || m, email: m });
-    }
-    if (!members.length) return err("理事を 1 人以上登録してください。");
+    const members = [...form.querySelectorAll('[name="dir"]:checked')].map(c => ({ name: c.dataset.name, email: c.value }));
+    if (!members.length) return err("理事を 1 人以上選んでください。");
     const data = { name, description: form.elements.description.value.trim(), members, updatedAt: new Date() };
     const btn = body.querySelector("#grp-save");
     btn.disabled = true;
