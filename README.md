@@ -12,7 +12,8 @@ about.html        委員会について（概要・挨拶・名簿・規程・�
 news.html         お知らせ一覧／詳細（news.html?id=xxx）
 archive.html      普賢アーカイブについて（紹介ページ・外部サイトへのリンク）※HTMLを直接編集
 events.html       行事・イベント
-contact.html      お問い合わせ（チケットを発行して専用チャットへ）
+materials.html    資料提供のお願い（募集する資料・提供のかたち・流れ・FAQ・相談メモ）※HTMLを直接編集
+contact.html      お問い合わせ（チケットを発行して専用チャットへ。contact.html?category=資料提供 で種別を選択済みに）
 ticket.html       お問い合わせの専用チャット（ticket.html#ID.トークン。AI オペレータ・担当者とやりとり）
 join.html         入会案内（会員特典・会員種別・入会の流れ・FAQ）
 apply.html        入会お申込みフォーム（4ステップ。apply.html?type=student で種別を選択済みにできる）

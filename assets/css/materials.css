@@ -1,0 +1,237 @@
+@charset "UTF-8";
+/* ============================================================
+   資料提供のお願い（materials.html）
+   白 × 紺 × 金の明るい記録写真集のようなページ。
+   member.css のボタン・FAQ・出現アニメーション（.reveal）を使います。
+   マウスを当てても動く演出は入れていません。
+   ============================================================ */
+.mt {
+  --bg: #ffffff;
+  --bg-2: #f8f6f0;         /* 交互に入る薄いクリーム */
+  --rule: rgba(11,58,110,.12);
+  --gold-1: #b8862b;       /* 金の線 */
+  --gold-2: #8a6514;       /* 金の文字（白地で読める濃さ） */
+  --head: #0b3a6e;         /* 見出し */
+  --tx: #33404f;
+  --tx-sub: #5f6b7d;
+  background: var(--bg); color: var(--tx);
+}
+.mt .eyebrow { color: var(--gold-1); }
+.mt .grain { position: absolute; inset: 0; pointer-events: none; opacity: .05; mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+/* ---------- ボタン（マウスを当てても浮かせない） ---------- */
+.mt .lux-btn:hover, .mt .lux-btn:active { transform: none; }
+
+/* ---------- 見出し（左に見出し・右に説明） ---------- */
+.mt-sec { position: relative; padding: 130px 0; }
+.mt-sec.alt { background: var(--bg-2); }
+.mt-head { display: grid; grid-template-columns: 1fr 1fr; gap: 24px 64px; align-items: end; margin-bottom: 72px; }
+.mt-head h2 { margin: 14px 0 0; font-family: var(--serif); font-size: clamp(30px, 4vw, 48px); line-height: 1.35; letter-spacing: .06em; color: var(--head); font-weight: 700; }
+.mt-head p { margin: 0; color: var(--tx-sub); line-height: 2.1; font-size: 15px; }
+.mt-head p strong { color: var(--head); font-weight: 700; }
+
+/* ============================================================
+   ヒーロー：朝の空と山並み、流れる雲
+   ============================================================ */
+.mt-hero { position: relative; overflow: hidden; min-height: max(680px, calc(100svh - 150px)); display: flex; align-items: center; color: var(--head);
+  background:
+    radial-gradient(ellipse 40% 35% at 58% 72%, rgba(241,217,142,.55), transparent 70%),
+    linear-gradient(180deg, #e6eef8 0%, #f2f1ec 55%, #fbf5e6 100%); }
+.mt-ridge { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 62%; }
+.mt-ridge .far  { fill: #d9e3ef; opacity: 0; animation: mt-fade 2.4s .2s ease forwards; }
+.mt-ridge .main { fill: url(#mt-ridge-fill); }
+.mt-ridge .near { fill: #fff; }
+.mt-ridge .edge { fill: none; stroke: var(--gold-1); stroke-width: 1.4; stroke-dasharray: 2600; stroke-dashoffset: 2600; animation: mt-draw 4s .4s cubic-bezier(.6,0,.2,1) forwards; }
+@keyframes mt-draw { to { stroke-dashoffset: 0; } }
+.mt-cloud { position: absolute; height: 90px; border-radius: 50%; background: rgba(255,255,255,.85); filter: blur(26px); animation: mt-drift 70s linear infinite alternate; }
+@keyframes mt-drift { from { transform: translateX(-8vw); } to { transform: translateX(8vw); } }
+
+.mt-hero .inner { position: relative; z-index: 1; width: 100%; padding-top: 80px; padding-bottom: 220px; }
+.mt-crumb { position: absolute; top: 26px; left: 16px; list-style: none; display: flex; gap: 8px; margin: 0; padding: 0; font-size: 12px; color: var(--tx-sub); }
+.mt-crumb li + li::before { content: "／"; margin-right: 8px; }
+.mt-crumb a { color: var(--head); text-decoration: none; }
+.mt-hero .eyebrow { display: flex; align-items: center; gap: 16px; opacity: 0; animation: mt-fade 1s .2s ease forwards; }
+.mt-hero .eyebrow::before { content: ""; width: 48px; height: 1px; background: var(--gold-1); }
+.mt-hero h1 { margin: 26px 0 30px; font-family: var(--serif); font-weight: 700; font-size: clamp(38px, 6.4vw, 88px); line-height: 1.3; letter-spacing: .04em; }
+.mt-hero h1 .ln { display: block; overflow: hidden; padding-bottom: .06em; }
+.mt-hero h1 .ln > span { display: inline-block; transform: translateY(105%); animation: mt-rise 1.3s cubic-bezier(.2,.8,.2,1) forwards; }
+.mt-hero h1 .ln:nth-child(2) > span { animation-delay: .2s; }
+.mt-hero h1 em { font-style: normal; background: linear-gradient(100deg, #c9a144, #8a6514 55%, #b8862b); -webkit-background-clip: text; background-clip: text; color: transparent; }
+@keyframes mt-rise { to { transform: none; } }
+.mt-hero .lead { max-width: 560px; margin: 0 0 40px; color: #3f4b5e; line-height: 2.1; opacity: 0; animation: mt-fade 1.2s .7s ease forwards; }
+.mt-hero .actions { display: flex; flex-wrap: wrap; gap: 14px; opacity: 0; animation: mt-fade 1.2s .9s ease forwards; }
+@keyframes mt-fade { to { opacity: 1; } }
+/* 右端の縦書き */
+.mt-vert { position: absolute; right: 24px; top: 50%; transform: translateY(-60%); writing-mode: vertical-rl; font-family: var(--serif); font-size: 14px; letter-spacing: .5em; color: var(--gold-2); opacity: 0; animation: mt-fade 2s 1.2s ease forwards; }
+.mt-vert::after { content: ""; display: inline-block; width: 1px; height: 70px; margin-top: 18px; background: linear-gradient(var(--gold-1), transparent); }
+.mt-scroll { position: absolute; z-index: 1; left: 50%; bottom: 26px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; font-family: var(--display); font-size: 11px; letter-spacing: .4em; color: var(--tx-sub); text-decoration: none; }
+.mt-scroll::after { content: ""; width: 1px; height: 48px; background: linear-gradient(var(--gold-1), transparent); transform-origin: top; animation: mt-drip 2.4s ease-in-out infinite; }
+@keyframes mt-drip { 0% { transform: scaleY(0); opacity: 1; } 60% { transform: scaleY(1); opacity: 1; } 100% { transform: scaleY(1); opacity: 0; } }
+
+/* ============================================================
+   メッセージ：大きな言葉
+   ============================================================ */
+.mt-statement { position: relative; overflow: hidden; }
+.mt-statement .bg-word { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-family: var(--display); font-size: clamp(120px, 22vw, 340px); font-weight: 600; letter-spacing: .04em; line-height: 1; color: transparent; -webkit-text-stroke: 1px rgba(11,58,110,.07); white-space: nowrap; pointer-events: none; user-select: none; }
+.mt-statement .inner { position: relative; max-width: 900px; }
+.mt-statement blockquote { margin: 26px 0 40px; font-family: var(--serif); font-size: clamp(26px, 3.6vw, 44px); line-height: 1.75; letter-spacing: .06em; color: var(--head); font-weight: 600; }
+.mt-statement blockquote .gold { color: var(--gold-2); }
+.mt-statement p { max-width: 720px; margin: 0; color: var(--tx-sub); line-height: 2.2; }
+
+/* ============================================================
+   募集している資料：一覧（行ごとに金の線が引かれる）
+   ============================================================ */
+.mt-list { list-style: none; margin: 0; padding: 0; border-bottom: 1px solid var(--rule); }
+.mt-list > li { position: relative; display: grid; grid-template-columns: 220px 1fr 1.25fr; gap: 16px 48px; align-items: start; padding: 42px 0; border-top: 1px solid var(--rule); }
+.mt-list > li::before { content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 1px; background: linear-gradient(90deg, var(--gold-1), rgba(184,134,43,.15) 70%, transparent); transform: scaleX(0); transform-origin: left; transition: transform 1.6s cubic-bezier(.2,.8,.2,1); }
+.mt-list > li.is-in::before { transform: scaleX(1); }
+.mt-list .en { font-family: var(--display); font-style: italic; font-size: 30px; font-weight: 500; color: var(--gold-1); line-height: 1.2; letter-spacing: .02em; }
+.mt-list h3 { display: flex; align-items: center; gap: 16px; margin: 0; font-family: var(--serif); font-size: 24px; color: var(--head); letter-spacing: .06em; }
+.mt-list h3 svg { width: 26px; height: 26px; flex-shrink: 0; color: var(--gold-1); }
+.mt-list p { margin: 0 0 16px; color: var(--tx-sub); font-size: 14.5px; line-height: 2; }
+.mt-tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.mt-tags li { padding: 4px 14px; border: 1px solid rgba(184,134,43,.4); background: var(--gold-soft); color: var(--gold-2); font-size: 12px; letter-spacing: .06em; }
+
+/* ---------- 流れる例 ---------- */
+.mt-marquee { position: relative; padding: 70px 0; overflow: hidden; background: #fff; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.mt-marquee h2 { margin: 0 0 34px; text-align: center; font-family: var(--serif); font-size: 15px; font-weight: 500; letter-spacing: .3em; color: var(--tx-sub); }
+.mt-row { display: flex; width: max-content; animation: mt-slide 80s linear infinite; }
+.mt-row + .mt-row { margin-top: 18px; animation-direction: reverse; animation-duration: 95s; }
+.mt-row span { flex-shrink: 0; padding: 0 34px; font-family: var(--serif); font-size: clamp(18px, 2vw, 24px); color: var(--head); white-space: nowrap; letter-spacing: .08em; }
+.mt-row + .mt-row span { color: var(--gold-2); }
+.mt-row span::after { content: ""; display: inline-block; width: 6px; height: 6px; margin-left: 68px; vertical-align: middle; transform: rotate(45deg); background: var(--gold-1); }
+@keyframes mt-slide { to { transform: translateX(-50%); } }
+
+/* ============================================================
+   ご提供のかたち：4 列（縦の罫線で区切る）
+   ============================================================ */
+.mt-ways { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.mt-way { display: flex; flex-direction: column; padding: 44px 32px 40px; border-left: 1px solid var(--rule); }
+.mt-way:first-child { border-left: 0; padding-left: 0; }
+.mt-way .sub { margin: 0 0 12px; font-family: var(--display); font-style: italic; font-size: 20px; color: var(--gold-1); }
+.mt-way h3 { margin: 0 0 18px; font-family: var(--serif); font-size: 24px; color: var(--head); letter-spacing: .08em; }
+.mt-way p { flex: 1; margin: 0 0 26px; color: var(--tx-sub); font-size: 14px; line-height: 2; }
+.mt-way .pill { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; letter-spacing: .08em; color: var(--tx); }
+.mt-way .pill::before { content: ""; width: 18px; height: 1px; background: var(--gold-1); }
+.mt-way .pill.keep { color: var(--gold-2); }
+
+/* ============================================================
+   ご提供の流れ：横に線が引かれ、順に点灯
+   ============================================================ */
+.mt-flow { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 40px; margin: 0; padding: 0; list-style: none; }
+.mt-flow::before, .mt-flow::after { content: ""; position: absolute; left: 0; right: 0; top: 7px; height: 1px; background: var(--rule); }
+.mt-flow::after { background: linear-gradient(90deg, var(--gold-1), #dcc06c); transform: scaleX(0); transform-origin: left; transition: transform 2.4s cubic-bezier(.6,0,.2,1); }
+.mt-flow.is-in::after { transform: scaleX(1); }
+.mt-flow li { position: relative; padding-top: 44px; }
+.mt-flow .dot { position: absolute; left: 0; top: 0; width: 15px; height: 15px; border-radius: 50%; background: #fff; border: 1px solid rgba(11,58,110,.3); transition: .6s ease; }
+.mt-flow.is-in .dot { border-color: var(--gold-1); background: var(--gold-1); box-shadow: 0 0 0 6px rgba(184,134,43,.15); }
+.mt-flow.is-in li:nth-child(1) .dot { transition-delay: .1s; } .mt-flow.is-in li:nth-child(2) .dot { transition-delay: .8s; }
+.mt-flow.is-in li:nth-child(3) .dot { transition-delay: 1.5s; } .mt-flow.is-in li:nth-child(4) .dot { transition-delay: 2.2s; }
+.mt-flow .step { display: block; margin-bottom: 8px; font-family: var(--display); font-style: italic; font-size: 18px; color: var(--gold-1); }
+.mt-flow h3 { margin: 0 0 12px; font-family: var(--serif); font-size: 21px; color: var(--head); letter-spacing: .06em; }
+.mt-flow p { margin: 0; color: var(--tx-sub); font-size: 14px; line-height: 2; }
+
+/* ============================================================
+   安心してご提供いただくために：2 × 2
+   ============================================================ */
+.mt-promise { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--rule); }
+.mt-promise > div { display: grid; grid-template-columns: 48px 1fr; gap: 0 24px; padding: 40px 40px 40px 0; border-bottom: 1px solid var(--rule); }
+.mt-promise > div:nth-child(even) { padding: 40px 0 40px 40px; border-left: 1px solid var(--rule); }
+.mt-promise svg { width: 36px; height: 36px; color: var(--gold-1); grid-row: span 2; }
+.mt-promise h3 { margin: 0 0 10px; font-family: var(--serif); font-size: 19px; color: var(--head); letter-spacing: .06em; }
+.mt-promise p { margin: 0; color: var(--tx-sub); font-size: 14px; line-height: 2; }
+
+/* ============================================================
+   かんたん相談メモ
+   ============================================================ */
+.mt-memo { display: grid; grid-template-columns: .85fr 1.15fr; background: #fff; border: 1px solid rgba(184,134,43,.35); box-shadow: 0 30px 60px -40px rgba(11,58,110,.35); }
+.mt-memo-side { padding: 56px 48px; background: linear-gradient(160deg, var(--gold-soft), #fff 70%); border-right: 1px solid var(--rule); }
+.mt-memo-side h2 { margin: 14px 0 18px; font-family: var(--serif); font-size: clamp(26px, 3vw, 34px); color: var(--head); letter-spacing: .06em; }
+.mt-memo-side p { margin: 0; color: var(--tx-sub); font-size: 14px; line-height: 2.1; }
+.mt-memo-side ul { margin: 28px 0 0; padding: 0; list-style: none; font-size: 13px; color: var(--tx); }
+.mt-memo-side li { position: relative; padding: 6px 0 6px 26px; }
+.mt-memo-side li::before { content: ""; position: absolute; left: 0; top: 17px; width: 14px; height: 1px; background: var(--gold-1); }
+.mt-memo-form { padding: 52px 48px; }
+.mt-memo-form fieldset { margin: 0 0 30px; padding: 0; border: 0; }
+.mt-memo-form legend { margin-bottom: 14px; padding: 0; font-size: 13px; font-weight: 700; letter-spacing: .12em; color: var(--head); }
+.mt-memo-form legend small { margin-left: 8px; font-weight: 400; color: var(--tx-sub); letter-spacing: .04em; }
+.mt-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.mt-chips label { position: relative; cursor: pointer; }
+.mt-chips input { position: absolute; opacity: 0; pointer-events: none; }
+.mt-chips span { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border: 1px solid rgba(11,58,110,.22); background: #fff; color: var(--tx); font-size: 13.5px; letter-spacing: .04em; user-select: none; transition: background .3s, color .3s, border-color .3s; }
+.mt-chips input:checked + span { background: var(--head); border-color: var(--head); color: #fff; }
+.mt-chips input:checked + span::before { content: "✓"; font-size: 12px; color: #f1d98e; }
+.mt-chips input:focus-visible + span { outline: 2px solid var(--navy-2); outline-offset: 3px; }
+.mt-memo-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; padding-top: 28px; border-top: 1px solid var(--rule); }
+.mt-memo-foot small { flex: 1 1 240px; color: var(--tx-sub); font-size: 12px; line-height: 1.9; }
+
+/* ---------- よくあるご質問（member.css の .faq を罫線だけの形に） ---------- */
+.mt .faq { max-width: none; padding: 0; background: none; border: 0; border-top: 1px solid var(--rule); border-radius: 0; box-shadow: none; }
+.mt .faq details, .mt .faq details:last-child { border-bottom: 1px solid var(--rule); }
+.mt .faq summary { padding: 28px 56px 28px 48px; color: var(--head); font-size: 17px; letter-spacing: .04em; }
+.mt .faq summary::before { top: 22px; color: var(--gold-1); font-style: italic; }
+.mt .faq summary::after { border-color: var(--gold-1); top: 34px; }
+.mt .faq details[open] summary::after { top: 38px; }
+.mt .faq .a { padding: 0 56px 30px 48px; color: var(--tx-sub); }
+
+/* ============================================================
+   最後の呼びかけ
+   ============================================================ */
+.mt-cta { position: relative; overflow: hidden; padding: 150px 0 160px; text-align: center; color: var(--head);
+  background: radial-gradient(ellipse 50% 60% at 50% 110%, rgba(241,217,142,.5), transparent 70%), linear-gradient(180deg, var(--bg-2), #fbf5e6); }
+.mt-cta .ridge { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 160px; }
+.mt-cta .ridge path { fill: none; stroke: rgba(184,134,43,.55); stroke-width: 1.2; }
+.mt-cta .inner { position: relative; }
+.mt-cta h2 { margin: 18px 0 22px; font-family: var(--serif); font-size: clamp(32px, 5vw, 64px); line-height: 1.4; letter-spacing: .08em; }
+.mt-cta p { margin: 0 auto 44px; max-width: 560px; color: var(--tx-sub); line-height: 2.1; }
+.mt-cta .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+
+/* 出現アニメーションを少しゆっくりに */
+.mt .reveal { transform: translateY(32px); transition-duration: 1.2s; }
+.mt .reveal.is-in { transform: none; }
+
+/* ---------- レスポンシブ ---------- */
+@media (max-width: 1000px) {
+  .mt-ways { grid-template-columns: 1fr 1fr; }
+  .mt-way:nth-child(3) { border-left: 0; padding-left: 0; }
+  .mt-way:nth-child(-n+2) { border-bottom: 1px solid var(--rule); }
+  .mt-flow { grid-template-columns: 1fr 1fr; gap: 48px 40px; }
+  .mt-flow::before, .mt-flow::after { display: none; }
+  .mt-list > li { grid-template-columns: 1fr 1.3fr; }
+  .mt-list .en { grid-column: 1 / -1; font-size: 24px; }
+}
+@media (max-width: 860px) {
+  .mt-sec { padding: 90px 0; }
+  .mt-head { grid-template-columns: 1fr; margin-bottom: 48px; }
+  .mt-memo { grid-template-columns: 1fr; }
+  .mt-memo-side { border-right: 0; border-bottom: 1px solid var(--rule); }
+  .mt-promise { grid-template-columns: 1fr; }
+  .mt-promise > div, .mt-promise > div:nth-child(even) { padding: 32px 0; border-left: 0; }
+  .mt-vert { display: none; }
+}
+@media (max-width: 640px) {
+  .mt-hero .inner { padding-top: 64px; padding-bottom: 160px; }
+  .mt-crumb { display: none; }
+  .mt-list > li { grid-template-columns: 1fr; padding: 32px 0; }
+  .mt-ways, .mt-flow { grid-template-columns: 1fr; }
+  .mt-way, .mt-way:first-child, .mt-way:nth-child(3) { padding: 32px 0; border-left: 0; border-bottom: 1px solid var(--rule); }
+  .mt-way:last-child { border-bottom: 0; }
+  .mt-memo-side, .mt-memo-form { padding: 36px 22px; }
+  .mt-memo-foot .lux-btn { width: 100%; }
+  .mt .faq summary { padding: 22px 36px; font-size: 15px; }
+  .mt .faq summary::before { top: 16px; left: 0; }
+  .mt .faq summary::after { right: 6px; top: 28px; }
+  .mt .faq details[open] summary::after { top: 32px; }
+  .mt .faq .a { padding: 0 0 24px 36px; }
+  .mt-cta { padding: 110px 0 130px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mt-ridge .far, .mt-hero .eyebrow, .mt-hero .lead, .mt-hero .actions, .mt-vert { opacity: 1; animation: none; }
+  .mt-ridge .edge { stroke-dashoffset: 0; animation: none; }
+  .mt-hero h1 .ln > span { transform: none; animation: none; }
+  .mt-cloud { animation: none; }
+  .mt-row { animation: none; flex-wrap: wrap; width: auto; justify-content: center; row-gap: 12px; }
+  .mt-row [aria-hidden] { display: none; }
+  .mt-list > li::before, .mt-flow::after { transition: none; }
+}

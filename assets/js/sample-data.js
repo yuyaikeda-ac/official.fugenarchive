@@ -16,7 +16,7 @@ export const sampleData = {
       body: "普賢アーカイブに新たな写真資料を追加しました。", url: "" },
     { id: "s4", date: "2026-08-25", category: "kaikoku",
       title: "資料提供のお願い",
-      body: "普賢に関する写真・文書・記念品などをお持ちの方は、お問い合わせフォームよりご連絡ください。", url: "contact.html" }
+      body: "普賢に関する写真・文書・記念品などをお持ちの方は、ご連絡ください。くわしくは「資料提供のお願い」のページをご覧ください。", url: "materials.html" }
   ],
   // コレクション: events
   events: [
