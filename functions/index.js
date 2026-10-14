@@ -39,7 +39,7 @@ const onCallMfa = (o, handler) => onCallRaw(o, (req, res) =>
 
 // ---------- 管理者の操作ログ・ログインの記録・管理者への正会員の付与（中身は audit.js） ----------
 //  管理者が行う関数の呼び出しも記録するため、以降の onCall はすべて withAudit を重ねたものを使う
-const audit = require("./audit")({ onDocumentCreated, onDocumentWrittenWithAuthContext, onCall: onCallMfa, HttpsError, getFirestore, FieldValue, logger, sendAll, mails, mailSecrets: opts.secrets });
+const audit = require("./audit")({ onDocumentCreated, onDocumentWrittenWithAuthContext, onCall: onCallMfa, HttpsError, getFirestore, FieldValue, logger, sendAll, mails, mailSecrets: opts.secrets, memberNoOf });
 Object.assign(exports, audit.exports);
 const onCall = audit.withAudit(onCallMfa);
 
@@ -271,6 +271,9 @@ async function issueMemberNo(db) {
     tx.set(ref, { seq: next, updatedAt: FieldValue.serverTimestamp() });
     return next;
   });
+  return memberNoOf(seq);
+}
+function memberNoOf(seq) {
   const year = new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo", year: "numeric" });
   return `${MEMBER_NO.prefix}-${year}-${String(seq).padStart(MEMBER_NO.digits, "0")}`;
 }

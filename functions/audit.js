@@ -9,8 +9,9 @@
 //  ・管理者は会員と同じメールアドレスで二重に登録できないため、管理者には正会員の登録を自動で付与する
 //    （管理者になったとき＋ログインのたびに確認。すでに有効な会員ならそのまま）
 //    自動ではメールを送らない。オーナーが管理画面の「管理者」で「正会員のお知らせを送る」を押したときに送る（adminMemberNotice）
+//    まだログインしていない管理者でも、ボタンを押せばその場で付与して送る。会員番号は付与と同じトランザクションで採番する（番号が飛ばない）
 // ============================================================
-module.exports = function audit({ onDocumentCreated, onDocumentWrittenWithAuthContext, onCall, HttpsError, getFirestore, FieldValue, logger, sendAll, mails, mailSecrets }) {
+module.exports = function audit({ onDocumentCreated, onDocumentWrittenWithAuthContext, onCall, HttpsError, getFirestore, FieldValue, logger, sendAll, mails, mailSecrets, memberNoOf }) {
   const LOGS = "admin_logs";
 
   // ★ 記録しないコレクション（ログ自身・関数だけが書くもの）
@@ -125,32 +126,41 @@ module.exports = function audit({ onDocumentCreated, onDocumentWrittenWithAuthCo
 
   // ---------- 管理者に正会員の登録を付与 ----------
   async function ensureAdminMember(db, uid, a) {
-    const ref = db.doc(`members/${uid}`);
+    const ref = db.doc(`members/${uid}`), counter = db.doc("counters/memberNo");
+    let memberNo = "";
     const result = await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       const now = new Date();
+      const grant = !snap.exists || snap.get("status") === "pending";
+      if (!grant) return null;   // すでに有効・停止中などの会員はそのまま
+      // 会員番号（functions/index.js の issueMemberNo と同じカウンター。カウンターが無ければ既存の最大値から）
+      memberNo = snap.exists ? snap.get("memberNo") || "" : "";
+      if (!memberNo) {
+        const c = await tx.get(counter);
+        let seq = c.exists ? Number(c.get("seq")) || 0 : 0;
+        if (!c.exists) (await tx.get(db.collection("members"))).forEach(d => { const m = /-(\d+)$/.exec(d.get("memberNo") || ""); if (m) seq = Math.max(seq, +m[1]); });
+        tx.set(counter, { seq: seq + 1, updatedAt: FieldValue.serverTimestamp() });
+        memberNo = memberNoOf(seq + 1);
+      }
       if (!snap.exists) {
         tx.set(ref, {
           name: a.name || a.email || "", kana: "", email: String(a.email || "").toLowerCase(),
           type: "regular", status: "active", occupation: "", affiliation: "",
           message: "管理者として登録されたため、正会員の登録を自動で付与しました。", newsletter: true,
-          createdAt: now, approvedAt: now, approvedBy: "system:admin", adminAuto: true
+          memberNo, createdAt: now, approvedAt: now, approvedBy: "system:admin", adminAuto: true
         });
         return "created";
       }
-      // 申込中なら正会員で承認（会員番号は syncMemberCard が付ける）
-      if (snap.get("status") === "pending") {
-        tx.update(ref, { status: "active", type: "regular", approvedAt: now, approvedBy: "system:admin", adminAuto: true });
-        return "approved";
-      }
-      return null;   // すでに有効・停止中などの会員はそのまま
+      // 申込中なら正会員で承認
+      tx.update(ref, { status: "active", type: "regular", memberNo, approvedAt: now, approvedBy: "system:admin", adminAuto: true });
+      return "approved";
     });
     if (result) {
       await write(db, {
         type: "system", ...who(uid, a), col: "members", docId: uid, label: a.name || a.email || "",
-        detail: result === "created" ? "管理者のため、正会員の登録を自動で付与しました。" : "管理者のため、審査中の入会申込を正会員として承認しました。"
+        detail: (result === "created" ? "管理者のため、正会員の登録を自動で付与しました" : "管理者のため、審査中の入会申込を正会員として承認しました") + `（${memberNo}）。`
       });
-      logger.info("管理者に正会員を付与", { uid, result });
+      logger.info("管理者に正会員を付与", { uid, result, memberNo });
     }
     return result;
   }
@@ -190,11 +200,14 @@ module.exports = function audit({ onDocumentCreated, onDocumentWrittenWithAuthCo
     const me = await adminOf(db, req.auth?.uid);
     if (me?.role !== "owner") throw new HttpsError("permission-denied", "オーナーのみ実行できます。");
     const uid = req.data?.uid;
-    if (typeof uid !== "string" || !uid || !(await adminOf(db, uid))) throw new HttpsError("invalid-argument", "管理者を指定してください。");
+    const a = typeof uid === "string" && uid ? await adminOf(db, uid) : null;
+    if (!a) throw new HttpsError("invalid-argument", "管理者を指定してください。");
+    // まだログインしていない管理者は、ここで正会員を付与してから送る
+    await ensureAdminMember(db, uid, a);
     const ref = db.doc(`members/${uid}`);
     const snap = await ref.get();
     const m = snap.exists ? snap.data() : null;
-    if (!m || m.status !== "active" || !m.memberNo) throw new HttpsError("failed-precondition", "まだ正会員の登録（会員番号）がありません。その方が管理画面にログインすると付与されます。");
+    if (!m || m.status !== "active" || !m.memberNo) throw new HttpsError("failed-precondition", `会員の状態が「${m?.status || "未登録"}」のため送れません。会員管理で確認してください。`);
     if (!m.email) throw new HttpsError("failed-precondition", "会員のメールアドレスが登録されていません。");
     await sendAll(mails.adminMemberGranted(m), "管理者への正会員の付与");
     await ref.update({ adminNoticeSentAt: FieldValue.serverTimestamp(), adminNoticeSentBy: req.auth.uid });

@@ -1657,16 +1657,20 @@ async function renderAdmins() {
   const [admins, invites, members] = await Promise.all([adminApi.listAll("admins"), adminApi.listAll("admin_invites"), getRows("members", true).catch(() => [])]);
   // 管理者には正会員の登録が自動で付く（functions/audit.js）。お知らせメールはオーナーがここから送る
   const memberOf = (a) => members.find(m => m.id === a.id);
+  //  ・まだ付与されていない管理者も、ボタンを押すとその場で付与して送る（停止中・否認の会員は対象外）
+  const granted = (m) => m?.memberNo && m.status === "active";
+  const canNotice = (a) => { const m = memberOf(a); return !m || m.status === "pending" || granted(m); };
   const memberCell = (a) => {
     const m = memberOf(a);
-    if (!m?.memberNo || m.status !== "active") return '<span class="sub">正会員：次回のログイン時に付与</span>';
-    return `<span class="sub">正会員 ${esc(m.memberNo)}・お知らせ ${m.adminNoticeSentAt ? `送信済み（${fmtDT(m.adminNoticeSentAt)}）` : "未送信"}</span>`;
+    if (granted(m)) return `<span class="sub">正会員 ${esc(m.memberNo)}・お知らせ ${m.adminNoticeSentAt ? `送信済み（${fmtDT(m.adminNoticeSentAt)}）` : "未送信"}</span>`;
+    if (!canNotice(a)) return `<span class="sub">会員の状態：${esc(MEMBER_STATUS[m.status] || m.status)}（お知らせは送れません）</span>`;
+    return '<span class="sub">正会員：未付与（ログイン時、またはお知らせを送るときに付与）</span>';
   };
-  const noticeBtn = (a) => {
-    const m = memberOf(a);
-    return m?.memberNo && m.status === "active"
-      ? `<button class="btn btn-sm" data-notice="${esc(a.id)}">${m.adminNoticeSentAt ? "お知らせを再送" : "正会員のお知らせを送る"}</button>` : "";
-  };
+  const noticeBtn = (a) => !canNotice(a) ? ""
+    : `<button class="btn btn-sm" data-notice="${esc(a.id)}">${memberOf(a)?.adminNoticeSentAt ? "お知らせを再送" : granted(memberOf(a)) ? "正会員のお知らせを送る" : "正会員を付与してお知らせを送る"}</button>`;
+  const unsent = admins.filter(a => canNotice(a) && !memberOf(a)?.adminNoticeSentAt);
+  /** お知らせを送る（未付与なら付与してから。functions/audit.js の adminMemberNotice） */
+  const sendNotice = (uid) => httpsCallable(getFunctions(app, "asia-northeast1"), "adminMemberNotice")({ uid });
   admins.sort((a, b) => (a.role === "owner" ? -1 : 1) - (b.role === "owner" ? -1 : 1));
   $("page").innerHTML = `
     <section class="card" style="margin-bottom:20px">
@@ -1680,6 +1684,8 @@ async function renderAdmins() {
         </form>
       </div>
     </section>
+    <div class="toolbar"><h2 class="sec-title">管理者の一覧</h2><span class="spacer"></span>
+      ${unsent.length ? `<button class="btn btn-primary" id="notice-all">正会員のお知らせを未送信の ${unsent.length} 人にまとめて送る</button>` : '<span class="muted small">全員に正会員のお知らせを送信済みです</span>'}</div>
     <div class="card table-wrap"><table class="tbl cards" id="tbl">
       <thead><tr><th>役割</th><th>お名前 / メール</th><th>登録日 / 最終ログイン</th><th></th></tr></thead>
       <tbody>
@@ -1702,15 +1708,30 @@ async function renderAdmins() {
     try { await adminApi.invite(email, name, currentAdmin.uid); toast(`${email} を招待しました。`); route(); }
     catch (err) { fail("招待に失敗しました")(err); }
   });
+  $("notice-all")?.addEventListener("click", async (e) => {
+    if (!window.confirm(`次の ${unsent.length} 人に、正会員のお知らせメールを送ります（まだ付与されていない方は、付与してから送ります）。よろしいですか？\n\n${unsent.map(a => `・${a.name || a.email}（${a.email}）`).join("\n")}`)) return;
+    e.target.disabled = true;
+    let ok = 0;
+    const failed = [];
+    for (const a of unsent) {   // 会員番号が順に付くよう、1 人ずつ
+      e.target.textContent = `送信中…（${ok + failed.length + 1}/${unsent.length}）`;
+      try { await sendNotice(a.id); ok++; }
+      catch (err) { console.error(err); failed.push(`${a.name || a.email}：${err.message}`); }
+    }
+    if (failed.length) toast(`${ok} 人に送信しました。送れなかった方：${failed.join("／")}`, "error");
+    else toast(`${ok} 人にお知らせを送信しました。`);
+    invalidate("members"); route();
+  });
   $("tbl").addEventListener("click", async e => {
     const { deladmin, delinvite, notice: noticeUid } = e.target.dataset;
     try {
       if (noticeUid) {
         const a = admins.find(x => x.id === noticeUid), m = memberOf(a);
-        if (!window.confirm(`${a.name || a.email} さん（${m.email}）に、正会員の登録（${m.memberNo}）のお知らせメールを送ります。よろしいですか？`)) return;
+        const what = granted(m) ? `正会員の登録（${m.memberNo}）のお知らせメールを送ります。` : "正会員の登録を付与（会員番号を発行）して、お知らせメールを送ります。";
+        if (!window.confirm(`${a.name || a.email} さん（${m?.email || a.email}）に、${what}よろしいですか？`)) return;
         e.target.disabled = true;
-        await httpsCallable(getFunctions(app, "asia-northeast1"), "adminMemberNotice")({ uid: noticeUid });
-        toast(`${m.email} にお知らせを送信しました。`); invalidate("members"); route();
+        try { const r = await sendNotice(noticeUid); toast(`${r.data.to} にお知らせを送信しました。`); }
+        finally { invalidate("members"); route(); }
       }
       if (deladmin) {
         const a = admins.find(x => x.id === deladmin);
