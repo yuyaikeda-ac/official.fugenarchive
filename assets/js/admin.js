@@ -7,6 +7,7 @@
 //  ・理事会（理事のグループ・入会審査の担当）と、理事会による審査状況の確認
 //  ・投票・アンケート（総会の議決・無記名投票・集計の確定・ハッシュチェーンの検証）
 //  ・管理者の招待（オーナーのみ）
+//  ・管理者の操作ログ（オーナーのみ。ログイン・作成・更新・削除・関数での操作を、変更前後の値まで確認できる）
 // ============================================================
 import { adminApi, esc, fmtDate, isDemo, NEWS_CATEGORIES, db, app, setKeepLogin, keepLoginPref } from "./db.js";
 import { getStudentId, OCCUPATIONS, JOIN_REASONS } from "./member-api.js";
@@ -20,7 +21,7 @@ import {
 } from "./consent-core.js";
 import {
   collection, query, where, getDocs, getDoc, doc, addDoc, updateDoc, setDoc, deleteDoc, deleteField,
-  onSnapshot, orderBy, limit as qLimit
+  onSnapshot, orderBy, limit as qLimit, startAfter
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 
@@ -139,7 +140,8 @@ const ICONS = {
   shield: '<path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/>',
   board: '<path d="M3 21h18M5 21V10l7-6 7 6v11"/><path d="M9 21v-6h6v6"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
-  vote: '<path d="M4 13h16v8H4zM8 13V5h8v8"/><path d="m10 8 1.5 1.5L14 7"/>'
+  vote: '<path d="M4 13h16v8H4zM8 13V5h8v8"/><path d="m10 8 1.5 1.5L14 7"/>',
+  log: '<path d="M6 3h12v18H6zM9 7h6M9 11h6M9 15h4"/>'
 };
 const icon = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</svg>`;
 // スマホの画面下のタブに出す画面（残りは「メニュー」から）
@@ -159,7 +161,8 @@ const NAV = [
   { group: "受信" },
   { id: "contacts", label: "お問い合わせ", icon: "mail", badge: "contacts" },
   { group: "設定", owner: true },
-  { id: "admins", label: "管理者", icon: "shield", owner: true }
+  { id: "admins", label: "管理者", icon: "shield", owner: true },
+  { id: "logs", label: "操作ログ", icon: "log", owner: true }
 ];
 
 // ============================================================
@@ -317,6 +320,8 @@ async function enter(user) {
   renderNav();
   route();
   refreshBadges();
+  // ログインの記録（同じログインは 1 件だけ）と、管理者への正会員の付与（functions/audit.js）
+  httpsCallable(getFunctions(app, "asia-northeast1"), "adminSignedIn")({ keep: keepLoginPref() }).catch(e => console.warn("ログインの記録に失敗", e));
 }
 
 // ---------- Google ログイン ----------
@@ -428,7 +433,8 @@ const VIEWS = {
   board: { title: "理事会", render: renderBoard },
   polls: { title: "投票・アンケート", render: renderPolls },
   contacts: { title: "お問い合わせ", render: renderContacts },
-  admins: { title: "管理者", render: renderAdmins, owner: true }
+  admins: { title: "管理者", render: renderAdmins, owner: true },
+  logs: { title: "操作ログ", render: renderLogs, owner: true }
 };
 function route() {
   if (!currentAdmin) return;
@@ -1663,13 +1669,13 @@ async function renderAdmins() {
       </div>
     </section>
     <div class="card table-wrap"><table class="tbl cards" id="tbl">
-      <thead><tr><th>役割</th><th>お名前 / メール</th><th>登録日</th><th></th></tr></thead>
+      <thead><tr><th>役割</th><th>お名前 / メール</th><th>登録日 / 最終ログイン</th><th></th></tr></thead>
       <tbody>
       ${admins.map(a => `<tr>
         <td class="st">${a.role === "owner" ? pill("gold", "オーナー") : pill("info", "管理者")}</td>
         <td class="main"><b>${esc(a.name || "")}</b><span class="sub">${esc(a.email || a.id)}</span></td>
-        <td data-label="登録日">${fmtD(a.createdAt)}</td>
-        <td class="act"><button class="btn btn-sm" data-mfareset="${esc(a.id)}" data-name="${esc(a.name || a.email || "")}">2段階認証を解除</button>${a.role === "owner" ? "" : `<button class="btn btn-sm btn-danger" data-deladmin="${esc(a.id)}">管理者から外す</button>`}</td></tr>`).join("")}
+        <td data-label="登録日">${fmtD(a.createdAt)}<span class="sub">最終ログイン ${a.lastLoginAt ? fmtDT(a.lastLoginAt) : "—"}</span></td>
+        <td class="act"><a class="btn btn-sm" href="#logs/${encodeURIComponent(a.id)}">ログを見る</a><button class="btn btn-sm" data-mfareset="${esc(a.id)}" data-name="${esc(a.name || a.email || "")}">2段階認証を解除</button>${a.role === "owner" ? "" : `<button class="btn btn-sm btn-danger" data-deladmin="${esc(a.id)}">管理者から外す</button>`}</td></tr>`).join("")}
       <tr><th colspan="4">招待中（未登録）</th></tr>
       ${invites.length ? invites.map(i => `<tr>
         <td class="st">${pill("draft", "招待中")}</td>
@@ -1695,6 +1701,177 @@ async function renderAdmins() {
       if (delinvite) { await adminApi.remove("admin_invites", delinvite); toast("招待を取り消しました。"); route(); }
     } catch (err) { fail("失敗しました")(err); }
   });
+}
+
+// ============================================================
+//  操作ログ（オーナー専用）
+//   #logs        … すべての管理者
+//   #logs/<UID>  … 1 人の管理者だけ
+//  ・admin_logs は Cloud Functions（functions/audit.js）だけが書き込む。画面からは変更・削除できない
+//  ・管理者・期間はサーバーで絞り込み（200 件ずつ読み込む）、種類・対象・キーワードは読み込んだ中から絞り込む
+//  ★ 表示名は LOG_TYPE / LOG_COLLECTION / LOG_FIELD
+// ============================================================
+const LOG_TYPE = {
+  login: ["info", "ログイン"], create: ["ok", "作成"], update: ["pending", "更新"],
+  delete: ["ng", "削除"], call: ["gold", "操作"], system: ["closed", "自動処理"]
+};
+const LOG_COLLECTION = {
+  news: "お知らせ", member_news: "会員向けお知らせ", events: "行事", member_docs: "会員限定資料", members: "会員",
+  student_ids: "学生証", consent_forms: "電子同意書", consent_signatures: "同意書の署名", board_groups: "理事会",
+  settings: "設定", reviews: "理事会審査", polls: "投票・アンケート", contacts: "お問い合わせ", tickets: "お問い合わせチャット",
+  admins: "管理者", admin_invites: "管理者の招待", counters: "会員番号のカウンター", rsvps: "行事の参加登録", checkins: "当日受付"
+};
+const LOG_FIELD = {
+  ...Object.fromEntries(Object.values(SCHEMA).flatMap(c => c.fields.map(f => [f.key, f.label]))),
+  status: "状態", type: "種別", memberNo: "会員番号", name: "お名前", kana: "フリガナ", email: "メール", phone: "電話番号",
+  approvedAt: "承認日時", approvedBy: "承認した人", rejectedAt: "否認日時", rejectedBy: "否認した人", createdAt: "作成日時",
+  createdBy: "作成した人", updatedAt: "更新日時", updatedBy: "更新した人", role: "役割", bodyHtml: "本文（書式つき）",
+  members: "メンバー", groupId: "審査を担当する理事会", seq: "連番", version: "版", contentHash: "ハッシュ",
+  signatureRewrite: "署名の書き直し", typeRequest: "種別変更の申請", typeDecision: "種別変更の判断", cardSignature: "会員証の署名"
+};
+const PROVIDER = { password: "メールとパスワード", "google.com": "Google" };
+const logState = { uid: "", from: "", to: "", type: "all", col: "all", q: "" };
+
+/** ブラウザ・OS の簡単な表示（例：Chrome / Mac） */
+function uaShort(ua = "") {
+  const b = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "";
+  const o = /iPhone|iPad/.test(ua) ? "iPhone/iPad" : /Android/.test(ua) ? "Android" : /Mac OS X/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : "";
+  return [b, o].filter(Boolean).join(" / ") || (ua ? "その他" : "—");
+}
+const logVal = (v) => v === null || v === undefined || v === "" ? "（なし）"
+  : typeof v === "boolean" ? (v ? "はい" : "いいえ")
+  : typeof v === "object" ? JSON.stringify(v, null, 2)
+  : /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/.test(v) ? fmtDT(v) : String(v);
+const logTarget = (l) => `${LOG_COLLECTION[l.col] || l.col || ""}${l.label ? `「${l.label}」` : l.docId ? `（${l.docId}）` : ""}`;
+
+/** 1 行の要約（本文と小さな補足） */
+function logSummary(l) {
+  if (l.type === "login") return [`${PROVIDER[l.provider] || l.provider || ""}でログイン${l.mfa ? "（2段階認証済み）" : ""}`,
+    [l.ip && `IP ${l.ip}`, uaShort(l.ua), l.keep && "ログインを保持"].filter(Boolean).join("・")];
+  if (l.type === "call") return [`${l.label || l.fn}${l.ok === false ? "（失敗）" : ""}`,
+    l.ok === false ? l.error : Object.entries(l.data || {}).slice(0, 3).map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`).join("・").slice(0, 120)];
+  if (l.type === "system") return [l.detail || "", logTarget(l)];
+  const verb = { create: "を作成", update: "を更新", delete: "を削除" }[l.type] || "";
+  const keys = (l.changes || []).map(c => LOG_FIELD[c.key] || c.key);
+  return [`${logTarget(l)}${verb}`, l.type === "update" && keys.length ? `変更：${keys.slice(0, 6).join("、")}${keys.length > 6 ? ` ほか${keys.length - 6}項目` : ""}` : ""];
+}
+
+async function renderLogs(sub) {
+  if (sub !== undefined) logState.uid = sub;
+  const admins = (await adminApi.listAll("admins")).sort((a, b) => (b.role === "owner") - (a.role === "owner") || (a.name || a.email || "").localeCompare(b.name || b.email || "", "ja"));
+  const PAGE = 200;
+  let rows = [], last = null, done = false;
+
+  $("page").innerHTML = `
+    <p class="page-intro">管理者がいつ・何をしたかの記録です。ログイン（方法・IPアドレス・ブラウザ）、お知らせ・会員などの作成・更新・削除（変更前と変更後の値）、返信・審査・投票の確定などの操作（成功・失敗）を、サーバーで自動的に記録しています。記録はオーナーだけが見られ、だれも変更・削除できません。行を押すと詳細を表示します。</p>
+    <div class="toolbar">
+      <select class="sel" id="lg-uid"><option value="">すべての管理者</option>${admins.map(a => `<option value="${esc(a.id)}"${logState.uid === a.id ? " selected" : ""}>${esc(a.name || a.email)}${a.role === "owner" ? "（オーナー）" : ""}</option>`).join("")}
+        ${logState.uid && !admins.some(a => a.id === logState.uid) ? `<option value="${esc(logState.uid)}" selected>管理者から外れた方（${esc(logState.uid)}）</option>` : ""}</select>
+      <label class="small muted">期間 <input class="sel" type="date" id="lg-from" value="${esc(logState.from)}"> 〜 <input class="sel" type="date" id="lg-to" value="${esc(logState.to)}"></label>
+      <span class="spacer"></span>
+      <button class="btn btn-sm" id="lg-csv">CSV をダウンロード</button>
+    </div>
+    <div class="toolbar">
+      <div class="chips" id="lg-chips"></div>
+      <span class="spacer"></span>
+      <select class="sel" id="lg-col"></select>
+      <input class="search" id="lg-q" type="search" placeholder="名前・対象・IP・内容で検索" value="${esc(logState.q)}">
+    </div>
+    <div class="card table-wrap"><table class="tbl cards" id="lg-tbl">
+      <thead><tr><th>日時</th><th>管理者</th><th>種類</th><th>内容</th></tr></thead><tbody></tbody></table></div>
+    <p class="muted small" id="lg-count" style="margin:10px 2px"></p>
+    <div style="text-align:center"><button class="btn" id="lg-more" hidden>さらに古い記録を読み込む</button></div>`;
+
+  const filtered = () => {
+    const q = logState.q.trim().toLowerCase();
+    return rows
+      .filter(l => logState.type === "all" || l.type === logState.type)
+      .filter(l => logState.col === "all" || l.col === logState.col)
+      .filter(l => !q || JSON.stringify([l.name, l.email, l.ip, l.label, l.fn, l.col, l.docId, l.detail, logSummary(l), l.changes, l.data]).toLowerCase().includes(q));
+  };
+  const draw = () => {
+    const count = (t) => rows.filter(l => t === "all" || l.type === t).length;
+    $("lg-chips").innerHTML = ["all", ...Object.keys(LOG_TYPE)].map(t =>
+      `<button class="chip${logState.type === t ? " is-active" : ""}" data-t="${t}">${t === "all" ? "すべて" : LOG_TYPE[t][1]}<span class="n">${count(t)}</span></button>`).join("");
+    const cols = [...new Set(rows.map(l => l.col).filter(Boolean))].sort();
+    $("lg-col").innerHTML = `<option value="all">すべての対象</option>` + cols.map(c => `<option value="${esc(c)}"${logState.col === c ? " selected" : ""}>${esc(LOG_COLLECTION[c] || c)}</option>`).join("");
+    const list = filtered();
+    $("lg-tbl").querySelector("tbody").innerHTML = list.length ? list.map(l => {
+      const [main, note] = logSummary(l);
+      const [cls, label] = LOG_TYPE[l.type] || ["draft", l.type];
+      return `<tr class="clickable" data-id="${esc(l.id)}">
+        <td data-label="日時" style="white-space:nowrap">${fmtDT(l.at)}</td>
+        <td class="main"><b>${esc(l.name || l.email || l.uid || "")}</b>${l.name && l.email ? `<span class="sub">${esc(l.email)}</span>` : ""}</td>
+        <td class="st">${pill(cls, label)}${l.type === "call" && l.ok === false ? pill("ng", "失敗") : ""}</td>
+        <td>${esc(main)}${note ? `<span class="sub">${esc(note)}</span>` : ""}</td></tr>`;
+    }).join("") : `<tr><td colspan="4" class="empty">${rows.length ? "条件に合う記録はありません。" : "記録はまだありません。"}</td></tr>`;
+    $("lg-count").textContent = `読み込んだ ${rows.length} 件のうち ${list.length} 件を表示${done ? "（これより古い記録はありません）" : ""}`;
+    $("lg-more").hidden = done;
+  };
+  const load = async () => {
+    const cond = [];
+    if (logState.uid) cond.push(where("uid", "==", logState.uid));
+    if (logState.from) cond.push(where("at", ">=", new Date(`${logState.from}T00:00:00+09:00`)));
+    if (logState.to) cond.push(where("at", "<", new Date(new Date(`${logState.to}T00:00:00+09:00`).getTime() + 86400000)));
+    const snap = await getDocs(query(collection(db, "admin_logs"), ...cond, orderBy("at", "desc"), ...(last ? [startAfter(last)] : []), qLimit(PAGE)));
+    rows = rows.concat(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    last = snap.docs[snap.docs.length - 1] || last;
+    done = snap.size < PAGE;
+    draw();
+  };
+  const reload = () => { rows = []; last = null; done = false; load().catch(fail("記録の読み込みに失敗しました")); };
+
+  $("lg-uid").addEventListener("change", e => { logState.uid = e.target.value; history.replaceState(null, "", `#logs${logState.uid ? "/" + encodeURIComponent(logState.uid) : ""}`); reload(); });
+  $("lg-from").addEventListener("change", e => { logState.from = e.target.value; reload(); });
+  $("lg-to").addEventListener("change", e => { logState.to = e.target.value; reload(); });
+  $("lg-chips").addEventListener("click", e => { const b = e.target.closest("[data-t]"); if (b) { logState.type = b.dataset.t; draw(); } });
+  $("lg-col").addEventListener("change", e => { logState.col = e.target.value; draw(); });
+  $("lg-q").addEventListener("input", e => { logState.q = e.target.value; draw(); });
+  $("lg-more").addEventListener("click", async e => { e.target.disabled = true; await load().catch(fail("記録の読み込みに失敗しました")); e.target.disabled = false; });
+  $("lg-tbl").addEventListener("click", e => { const tr = e.target.closest("[data-id]"); const l = tr && rows.find(x => x.id === tr.dataset.id); if (l) showLog(l, admins); });
+  $("lg-csv").addEventListener("click", () => {
+    const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const out = filtered().map(l => { const [main, note] = logSummary(l); return [fmtDT(l.at), l.name, l.email, LOG_TYPE[l.type]?.[1] || l.type, main, note,
+      LOG_COLLECTION[l.col] || l.col || "", l.docId || "", l.ip || "", l.ua || "",
+      (l.changes || []).map(c => `${LOG_FIELD[c.key] || c.key}: ${logVal(c.before)} → ${logVal(c.after)}`).join("\n")]; });
+    const csv = "﻿" + [["日時", "お名前", "メール", "種類", "内容", "補足", "対象", "ID", "IPアドレス", "ブラウザ", "変更内容"], ...out].map(r => r.map(cell).join(",")).join("\r\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    a.download = `操作ログ_${new Date().toLocaleDateString("sv-SE")}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+  await load();
+}
+
+/** 1 件の詳細（変更前と変更後を並べて表示） */
+function showLog(l, admins) {
+  const [cls, label] = LOG_TYPE[l.type] || ["draft", l.type];
+  const a = admins.find(x => x.id === l.uid);
+  const row = (k, v) => v === undefined || v === null || v === "" ? "" : `<dt>${esc(k)}</dt><dd>${v}</dd>`;
+  const pre = (v) => `<div class="mono" style="white-space:pre-wrap;max-height:220px;overflow:auto">${esc(logVal(v))}</div>`;
+  const changes = (l.changes || []).length ? `
+    <h4 style="margin:18px 0 8px">${l.type === "update" ? "変更された項目" : l.type === "create" ? "作成された内容" : "削除された内容"}（${l.changes.length}項目）</h4>
+    <div class="table-wrap"><table class="tbl"><thead><tr><th>項目</th>${l.type !== "create" ? "<th>変更前</th>" : ""}${l.type !== "delete" ? "<th>変更後</th>" : ""}</tr></thead><tbody>
+    ${l.changes.map(c => `<tr><td><b>${esc(LOG_FIELD[c.key] || c.key)}</b>${LOG_FIELD[c.key] ? `<span class="sub mono">${esc(c.key)}</span>` : ""}</td>
+      ${l.type !== "create" ? `<td style="background:#fef2f2">${pre(c.before)}</td>` : ""}${l.type !== "delete" ? `<td style="background:#f0fdf4">${pre(c.after)}</td>` : ""}</tr>`).join("")}
+    </tbody></table></div>` : "";
+  openModal("操作ログの詳細", `
+    <dl class="dl">
+      ${row("日時", esc(fmtDT(l.at)) + (l.authTime ? `<span class="sub muted small">（認証した時刻 ${esc(fmtDT(l.authTime))}）</span>` : ""))}
+      ${row("管理者", `<b>${esc(l.name || "")}</b> ${esc(l.email || "")}${a ? "" : ' <span class="muted small">（現在は管理者ではありません）</span>'}<span class="sub mono">${esc(l.uid || "")}</span>`)}
+      ${row("種類", pill(cls, label) + (l.type === "call" ? (l.ok === false ? pill("ng", "失敗") : pill("ok", "成功")) : ""))}
+      ${row("内容", esc(logSummary(l)[0]))}
+      ${l.col ? row("対象", `${esc(LOG_COLLECTION[l.col] || l.col)}<span class="sub mono">${esc(l.col)}/${esc(l.docId || "")}</span>`) : ""}
+      ${l.type === "login" ? row("ログイン方法", esc(PROVIDER[l.provider] || l.provider || "—")) + row("2段階認証", l.mfa ? "確認済み" : "設定なし") + row("ログインの保持", l.keep ? "1週間ログインしたまま" : "しない") : ""}
+      ${l.fn ? row("関数", `<span class="mono">${esc(l.fn)}</span>${l.ms != null ? ` <span class="muted small">（${esc(l.ms)}ミリ秒）</span>` : ""}`) : ""}
+      ${row("エラー", l.error ? esc(l.error) : "")}
+      ${row("IPアドレス", l.ip ? `<span class="mono">${esc(l.ip)}</span>` : "")}
+      ${row("ブラウザ", l.ua ? `${esc(uaShort(l.ua))}<span class="sub mono">${esc(l.ua)}</span>` : "")}
+      ${row("記録ID", `<span class="mono">${esc(l.id)}</span>`)}
+    </dl>
+    ${l.data && Object.keys(l.data).length ? `<h4 style="margin:18px 0 8px">送信した内容</h4>${pre(l.data)}` : ""}
+    ${changes}`, { wide: true });
 }
 
 // ============================================================

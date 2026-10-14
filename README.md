@@ -52,6 +52,7 @@ functions/polls.js           投票・アンケート（総会の議決権行使
 functions/events.js          行事のワンクリック参加登録（定員・締切の確認、確認メール）
 functions/notify.js          会員へのお知らせメール（投稿時の「会員にメールで知らせる」）
 functions/review.js          理事会による入会審査（承認依頼メール・回答の受付・全員承認／1人でも非承認で自動確定）
+functions/audit.js           管理者の操作ログ（admin_logs）の記録と、管理者への正会員の自動付与
 storage.rules                Firebase Storage セキュリティルール（画像は管理者のみアップロード可）
 LOGO.png                     ロゴ（ヘッダー・ファビコン・紹介ブロックで使用）
 assets/js/sample-data.js     Firebase 未設定時のサンプルデータ
@@ -92,6 +93,8 @@ firebase.json                Firebase Hosting 設定
 - **オーナー**：yuya.ikr@gmail.com（`admins` の role が `owner`）。管理画面の「管理者（オーナー専用）」タブで、管理者の **招待** と **解除** ができます。オーナーは解除できません。
 - **管理者の追加方法**：オーナーがメールアドレスとお名前を入力して「招待する」→ 招待された方に管理画面のURLを伝える → その方が招待されたメールアドレスで登録・ログイン（Google ログインなら即完了、メールとパスワードの場合は確認メールのリンクを開く）→ 自動で管理者になります。
 - 管理者を増やせるのはオーナーだけです（セキュリティルールで制限）。
+- **管理者は正会員**：管理者になると、同じアカウントで正会員の登録が自動で付与されます（会員番号も自動）。管理者と会員で同じメールアドレスを二重に登録できないためです。すでに有効な会員ならそのまま、入会申込の審査中なら正会員として承認されます。以前からの管理者も、次に管理画面へログインしたときに付与されます。
+- **操作ログ（オーナー専用）**：管理画面の「操作ログ」で、管理者ごと・期間・種類（ログイン／作成／更新／削除／操作／自動処理）・対象で絞り込んで確認できます。行を押すと、変更前と変更後の値、IP アドレス、ブラウザ、関数の送信内容・成功／失敗などの詳細を表示します。CSV でも書き出せます。「管理者」画面の「ログを見る」から、その人の記録だけを開けます。記録は Cloud Functions（`functions/audit.js`）がサーバーで行い、だれも変更・削除できません。記録する関数は `ADMIN_CALLS`、表示名は `admin.js` の `LOG_TYPE` / `LOG_COLLECTION` / `LOG_FIELD` で変更できます。
 
 ## Google ログイン
 
@@ -137,8 +140,9 @@ firebase.json                Firebase Hosting 設定
 | `member_news` | `title`, `date`, `body`, `important` |
 | `member_docs` | `title`, `date`, `category`, `description`、ファイルなら `filePath`, `fileName`, `fileSize`, `fileType`（Storage の member_docs/）、外部リンクなら `url` |
 | `rsvps` | 行事の参加登録。ID = 行事ID_会員UID |
-| `admins` | 管理者。ID = UID。`role`（owner/admin）, `email`, `name`, `invitedBy`, `createdAt` |
+| `admins` | 管理者。ID = UID。`role`（owner/admin）, `email`, `name`, `invitedBy`, `createdAt`, `lastLoginAt`（最終ログイン） |
 | `admin_invites` | 管理者への招待。ID = 小文字のメールアドレス |
+| `admin_logs` | 管理者の操作ログ。`type`（login/create/update/delete/call/system）, `uid`, `email`, `name`, `at`, 対象の `col`・`docId`, 変更内容の `changes`（`key`・`before`・`after`）, `ip`, `ua` など。閲覧はオーナーのみ、書き込みは Cloud Functions のみ |
 | `student_ids` | 学生証（表面）の画像。ID = UID。承認・否認・削除で自動削除 |
 | `consent_forms` | 電子同意書。`title`, `bodyHtml`, `version`, `status`（draft/published/closed）, `audience`（members/public/both）, `purpose`（general/membership）, `extraFields`, `contentHash`（公開時の SHA-256） |
 | `consent_signatures` | 署名の記録（変更不可）。`formId`, `formHash`, `name`, `email`, `signatureImage`, `signatureHash`, `recordHash`、サーバーが付ける `seq`, `prevSeal`, `seal` |

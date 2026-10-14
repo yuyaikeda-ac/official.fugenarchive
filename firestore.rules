@@ -4,6 +4,7 @@ rules_version = '2';
 //  - news / events  : 誰でも閲覧可、管理者のみ書き込み可
 //  - contacts       : 誰でも送信（作成）可、閲覧・削除は管理者のみ
 //  - admins         : 管理者の UID を登録（コンソールから手動で追加）
+//  - admin_logs     : 管理者の操作ログ（記録は Cloud Functions のみ、閲覧はオーナーのみ）
 //  - members        : 本人が「審査中」で申込、本人は一部項目のみ編集可、承認は管理者
 //  - member_news / member_docs : 有効な会員のみ閲覧、管理者のみ書き込み
 //  - rsvps          : 有効な会員が自分の参加登録のみ作成・取消
@@ -73,6 +74,12 @@ service cloud.firestore {
       // 役割の変更は不可。削除（管理者の解除）はオーナーのみ、オーナー自身は削除不可
       allow update: if false;
       allow delete: if isOwner() && resource.data.role != 'owner';
+    }
+
+    // ---------- 管理者の操作ログ（functions/audit.js が記録。閲覧はオーナーのみ、だれも書き換え・削除できない） ----------
+    match /admin_logs/{id} {
+      allow read: if isOwner();
+      allow write: if false;
     }
 
     // ---------- 会員証の確認ページ用（QRコードの番号を知っている人だけが1件ずつ読める） ----------

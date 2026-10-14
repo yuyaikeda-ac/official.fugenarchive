@@ -10,7 +10,7 @@
 //      CONSENT_SEAL_KEY … 電子同意書の封印用の秘密鍵（ランダムな長い文字列。変更すると過去の封印を検証できなくなる）
 //  ・メールの文面は mails.js で編集できます
 // ============================================================
-const { onDocumentCreated, onDocumentUpdated, onDocumentWritten } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated, onDocumentWritten, onDocumentWrittenWithAuthContext } = require("firebase-functions/v2/firestore");
 const { onCall: onCallRaw, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const { setGlobalOptions } = require("firebase-functions/v2");
@@ -34,8 +34,14 @@ const opts = { secrets: [MAIL_WEBAPP_URL, MAIL_TOKEN], retry: false };
 // 2 段階認証（mfa.js）：設定している人は、このログインでコードを確認するまで「ログインしていない」扱いにする
 // （管理者・会員の確認はすべて req.auth を見るので、ここで外せば全関数に効く）
 const { sessionOk } = require("./mfa");
-const onCall = (o, handler) => onCallRaw(o, (req, res) =>
+const onCallMfa = (o, handler) => onCallRaw(o, (req, res) =>
   handler(req.auth && !sessionOk(req.auth.token) ? { ...req, auth: undefined } : req, res));
+
+// ---------- 管理者の操作ログ・ログインの記録・管理者への正会員の付与（中身は audit.js） ----------
+//  管理者が行う関数の呼び出しも記録するため、以降の onCall はすべて withAudit を重ねたものを使う
+const audit = require("./audit")({ onDocumentCreated, onDocumentWrittenWithAuthContext, onCall: onCallMfa, HttpsError, getFirestore, FieldValue, logger });
+Object.assign(exports, audit.exports);
+const onCall = audit.withAudit(onCallMfa);
 
 /** Apps Script にまとめて送信を依頼する */
 async function sendAll(list, context) {
@@ -147,7 +153,7 @@ Object.assign(exports, require("./notify")({ onCall, HttpsError, getFirestore, F
 Object.assign(exports, require("./events")({ onCall, HttpsError, getFirestore, FieldValue, logger, sendAll, mails, mailSecrets: opts.secrets }));
 
 // ---------- 2 段階認証（中身は mfa.js。コードを入力する前にも呼ぶので、onCallRaw で登録） ----------
-Object.assign(exports, require("./mfa")({ onCall: onCallRaw, HttpsError, getFirestore, getAuth, FieldValue, logger, sendAll, mails, mailSecrets: opts.secrets }));
+Object.assign(exports, require("./mfa")({ onCall: audit.withAudit(onCallRaw), HttpsError, getFirestore, getAuth, FieldValue, logger, sendAll, mails, mailSecrets: opts.secrets }));
 
 // ---------- 管理画面：お問い合わせ（以前のフォーム）へ担当者が返信 ----------
 exports.replyContact = onCall({ secrets: opts.secrets, maxInstances: 3 }, async (req) => {
