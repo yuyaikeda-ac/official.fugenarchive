@@ -712,3 +712,34 @@ dialog::backdrop { background: rgba(10,18,32,.55); backdrop-filter: blur(2px); }
   .lg-ch-head { display: none; }
   .lg-ch > span[data-label]::before { content: attr(data-label); display: block; margin-bottom: 2px; color: var(--muted); font-size: 11px; }
 }
+
+/* ============ 会員管理 ============ */
+.mb-filter { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 14px; }
+.mb-filter .lg-chips { padding-top: 0; }
+.mb-filter .fld { display: flex; flex-direction: column; gap: 4px; margin: 0; min-width: 0; }
+.mb-filter .fld > span { font-size: 12px; color: var(--muted); }
+.mb-filter .fld select, .mb-filter .fld input { box-sizing: border-box; width: 100%; height: 40px; }
+.mb-filter .search { padding-left: 34px; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%238a94a3' stroke-width='2'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='m14 14-3.5-3.5'/%3E%3C/svg%3E") no-repeat 11px center; }
+.mb-item.needs { box-shadow: inset 3px 0 0 #d97706; }
+.adm-name em { margin-right: 8px; font-style: normal; color: var(--muted); font-size: 12px; }
+.mb-pills { display: inline-flex; flex-wrap: wrap; gap: 4px; vertical-align: 2px; }
+.mb-pills .pill { margin: 0; }
+.adm-ava.mb-pending { background: #fef3c7; color: #92400e; }
+.adm-ava.mb-suspended, .adm-ava.mb-rejected { background: #eceff3; color: #6b7280; }
+.mb-asks { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; }
+.mb-ask { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 10px 14px; border: 1px solid #f3d9a4; border-radius: 10px; background: #fffbeb; }
+.mb-ask p { margin: 0; min-width: 0; line-height: 1.55; }
+.mb-ask p b { font-weight: 700; color: #92400e; margin-right: 8px; }
+.mb-ask p small { display: block; color: #7c5a1a; font-size: 12px; }
+.mb-ask-acts { display: flex; gap: 6px; }
+.mb-extra { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 22px; margin: 0; font-size: 12.5px; }
+.mb-extra div { display: flex; gap: 6px; min-width: 0; }
+.mb-extra dt { color: var(--muted); white-space: nowrap; }
+.mb-extra dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .mb-filter { grid-template-columns: minmax(0, 1fr); }
+  .mb-filter .lg-chips { grid-column: auto; }
+  .mb-ask-acts { width: 100%; }
+  .mb-ask-acts .btn { flex: 1; }
+  .mb-extra { flex-direction: column; }
+}
