@@ -1672,36 +1672,60 @@ async function renderAdmins() {
   /** お知らせを送る（未付与なら付与してから。functions/audit.js の adminMemberNotice） */
   const sendNotice = (uid) => httpsCallable(getFunctions(app, "asia-northeast1"), "adminMemberNotice")({ uid });
   admins.sort((a, b) => (a.role === "owner" ? -1 : 1) - (b.role === "owner" ? -1 : 1));
+  /** 管理者 1 人分のカード（名前・役割 → 登録日・最終ログイン・会員番号・お知らせ → ボタン） */
+  const adminCard = (a) => {
+    const m = memberOf(a), owner = a.role === "owner";
+    const memberInfo = granted(m) ? `<b>${esc(m.memberNo)}</b>`
+      : !canNotice(a) ? `<span class="warn">${esc(MEMBER_STATUS[m.status] || m.status)}</span>` : '<span class="muted">未付与</span>';
+    const noticeInfo = !canNotice(a) ? '<span class="muted">送れません</span>'
+      : m?.adminNoticeSentAt ? `送信済み<small>${fmtDT(m.adminNoticeSentAt)}</small>` : '<span class="warn">未送信</span>';
+    return `<article class="adm-item">
+      <div class="adm-who">
+        <span class="adm-ava${owner ? " owner" : ""}" aria-hidden="true">${esc((a.name || a.email || "?").trim().slice(0, 1))}</span>
+        <div class="adm-name"><b>${esc(a.name || a.email || "")}</b>${owner ? pill("gold", "オーナー") : pill("info", "管理者")}<span>${esc(a.email || a.id)}</span></div>
+      </div>
+      <dl class="adm-meta">
+        <div><dt>登録日</dt><dd>${fmtD(a.createdAt)}</dd></div>
+        <div><dt>最終ログイン</dt><dd>${a.lastLoginAt ? fmtDT(a.lastLoginAt) : '<span class="muted">まだありません</span>'}</dd></div>
+        <div><dt>会員番号（正会員）</dt><dd>${memberInfo}</dd></div>
+        <div><dt>正会員のお知らせ</dt><dd>${noticeInfo}</dd></div>
+      </dl>
+      <div class="adm-acts">
+        ${noticeBtn(a)}
+        <a class="btn btn-sm" href="#logs/${encodeURIComponent(a.id)}">操作ログを見る</a>
+        <span class="spacer"></span>
+        <button class="btn btn-sm" data-mfareset="${esc(a.id)}" data-name="${esc(a.name || a.email || "")}">2段階認証を解除</button>
+        ${owner ? "" : `<button class="btn btn-sm btn-danger" data-deladmin="${esc(a.id)}">管理者から外す</button>`}
+      </div>
+    </article>`;
+  };
   $("page").innerHTML = `
-    <section class="card" style="margin-bottom:20px">
+    <section class="card adm-sec">
       <div class="card-head"><h2>管理者を招待する</h2></div>
       <div class="card-body">
-        <p class="muted small" style="margin-top:0">招待したメールアドレスで管理画面に登録・ログインすると、自動で管理者になります。招待した方には、管理画面のURL（${esc(location.origin)}/admin.html）をお知らせください（招待メールも自動で届きます）。</p>
-        <form id="invite-form" class="row2" style="align-items:end">
+        <p class="muted small" style="margin-top:0">招待したメールアドレスで管理画面に登録・ログインすると、自動で管理者になり、正会員の登録も付きます。招待メールも自動で届きます（管理画面の URL：${esc(location.origin)}/admin.html）。</p>
+        <form id="invite-form" class="adm-invite">
           <label class="fld"><span>メールアドレス</span><input type="email" id="inv-email" required></label>
           <label class="fld"><span>お名前</span><input type="text" id="inv-name" maxlength="100" required></label>
-          <div><button class="btn btn-primary" type="submit">招待する</button></div>
+          <button class="btn btn-primary" type="submit">招待する</button>
         </form>
       </div>
     </section>
-    <div class="toolbar"><h2 class="sec-title">管理者の一覧</h2><span class="spacer"></span>
-      ${unsent.length ? `<button class="btn btn-primary" id="notice-all">正会員のお知らせを未送信の ${unsent.length} 人にまとめて送る</button>` : '<span class="muted small">全員に正会員のお知らせを送信済みです</span>'}</div>
-    <div class="card table-wrap"><table class="tbl cards" id="tbl">
-      <thead><tr><th>役割</th><th>お名前 / メール</th><th>登録日 / 最終ログイン</th><th></th></tr></thead>
-      <tbody>
-      ${admins.map(a => `<tr>
-        <td class="st">${a.role === "owner" ? pill("gold", "オーナー") : pill("info", "管理者")}</td>
-        <td class="main"><b>${esc(a.name || "")}</b><span class="sub">${esc(a.email || a.id)}</span></td>
-        <td data-label="登録日">${fmtD(a.createdAt)}<span class="sub">最終ログイン ${a.lastLoginAt ? fmtDT(a.lastLoginAt) : "—"}</span>${memberCell(a)}</td>
-        <td class="act">${noticeBtn(a)}<a class="btn btn-sm" href="#logs/${encodeURIComponent(a.id)}">ログを見る</a><button class="btn btn-sm" data-mfareset="${esc(a.id)}" data-name="${esc(a.name || a.email || "")}">2段階認証を解除</button>${a.role === "owner" ? "" : `<button class="btn btn-sm btn-danger" data-deladmin="${esc(a.id)}">管理者から外す</button>`}</td></tr>`).join("")}
-      <tr><th colspan="4">招待中（未登録）</th></tr>
-      ${invites.length ? invites.map(i => `<tr>
-        <td class="st">${pill("draft", "招待中")}</td>
-        <td class="main"><b>${esc(i.name || "")}</b><span class="sub">${esc(i.email)}</span></td>
-        <td data-label="招待日">${fmtD(i.createdAt)}</td>
-        <td class="act"><button class="btn btn-sm" data-delinvite="${esc(i.id)}">招待を取り消す</button></td></tr>`).join("")
-        : '<tr><td colspan="4" class="empty">招待中の方はいません。</td></tr>'}
-      </tbody></table></div>`;
+    <div id="tbl">
+      <section class="card adm-sec">
+        <div class="card-head"><h2>管理者 <span class="muted small">${admins.length} 人</span></h2>
+          ${unsent.length ? `<button class="btn btn-primary btn-sm" id="notice-all">正会員のお知らせを未送信の ${unsent.length} 人に送る</button>` : '<span class="muted small">全員に正会員のお知らせを送信済み</span>'}</div>
+        <div class="adm-list">${admins.map(adminCard).join("")}</div>
+      </section>
+      <section class="card adm-sec">
+        <div class="card-head"><h2>招待中（まだ登録していない方） <span class="muted small">${invites.length} 人</span></h2></div>
+        ${invites.length ? `<div class="adm-list">${invites.map(i => `<article class="adm-item adm-inv">
+          <div class="adm-who"><span class="adm-ava inv" aria-hidden="true">${esc((i.name || i.email).trim().slice(0, 1))}</span>
+            <div class="adm-name"><b>${esc(i.name || i.email)}</b>${pill("draft", "招待中")}<span>${esc(i.email)}・招待日 ${fmtD(i.createdAt)}</span></div></div>
+          <div class="adm-acts"><button class="btn btn-sm" data-delinvite="${esc(i.id)}">招待を取り消す</button></div>
+        </article>`).join("")}</div>` : '<p class="empty">招待中の方はいません。</p>'}
+      </section>
+    </div>`;
   $("invite-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const email = $("inv-email").value.trim().toLowerCase(), name = $("inv-name").value.trim();

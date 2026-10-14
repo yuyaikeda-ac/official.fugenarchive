@@ -611,3 +611,38 @@ dialog::backdrop { background: rgba(10,18,32,.55); backdrop-filter: blur(2px); }
   .ci-guest .ci-row { flex-wrap: wrap; }
   .ci-guest .ci-row input { flex-basis: 100%; }
 }
+
+/* ============ 管理者（オーナー専用） ============ */
+.adm-sec { margin-bottom: 20px; }
+.adm-sec .card-head h2 .small { margin-left: 6px; font-weight: 400; }
+.adm-invite { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: end; }
+.adm-list { display: flex; flex-direction: column; }
+.adm-item { display: grid; grid-template-columns: minmax(220px, 1.1fr) 2fr; gap: 10px 24px; align-items: center; padding: 16px 18px; border-top: 1px solid var(--line); }
+.adm-item:first-child { border-top: 0; }
+.adm-who { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.adm-ava { flex: 0 0 40px; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: #e8eef8; color: var(--side-2); font-weight: 700; font-size: 16px; }
+.adm-ava.owner { background: #f6eedb; color: #7a5b16; }
+.adm-ava.inv { background: #fef3c7; color: #92400e; }
+.adm-name { min-width: 0; line-height: 1.5; }
+.adm-name b { font-size: 15px; margin-right: 8px; }
+.adm-name > span:last-child { display: block; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.adm-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 16px; margin: 0; }
+.adm-meta dt { color: var(--muted); font-size: 11px; }
+.adm-meta dd { margin: 0; font-size: 13px; }
+.adm-meta dd small { display: block; color: var(--muted); font-size: 11px; }
+.adm-meta .warn { color: #b45309; font-weight: 500; }
+.adm-acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.adm-acts .spacer { flex: 1; }
+.adm-inv { grid-template-columns: 1fr auto; }
+.adm-inv .adm-acts { grid-column: auto; padding-top: 0; border-top: 0; }
+@media (max-width: 1100px) {
+  .adm-item { grid-template-columns: 1fr; }
+  .adm-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .adm-invite { grid-template-columns: 1fr; }
+  .adm-sec .card-head { flex-wrap: wrap; }
+  .adm-item { padding: 14px; }
+  .adm-acts .spacer { display: none; }
+  .adm-inv { grid-template-columns: 1fr; }
+}
