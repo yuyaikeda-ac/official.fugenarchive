@@ -13,6 +13,7 @@ const invite = { email: "new-admin@example.com", name: "新しい管理者" };
 const all = [
   ["入会申込", mails.memberApplied(member)],
   ["承認", mails.memberApproved(member)],
+  ["管理者への正会員の付与", mails.adminMemberGranted(member)],
   ["否認", mails.memberRejected(member)],
   ["お問い合わせ", mails.contactReceived(contact)],
   ["管理者招待", mails.adminInvited(invite)]

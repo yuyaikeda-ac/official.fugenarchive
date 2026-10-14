@@ -8,8 +8,9 @@
 //      system … 管理者に関する自動処理（正会員の自動付与など）
 //  ・管理者は会員と同じメールアドレスで二重に登録できないため、管理者には正会員の登録を自動で付与する
 //    （管理者になったとき＋ログインのたびに確認。すでに有効な会員ならそのまま）
+//    自動ではメールを送らない。オーナーが管理画面の「管理者」で「正会員のお知らせを送る」を押したときに送る（adminMemberNotice）
 // ============================================================
-module.exports = function audit({ onDocumentCreated, onDocumentWrittenWithAuthContext, onCall, HttpsError, getFirestore, FieldValue, logger }) {
+module.exports = function audit({ onDocumentCreated, onDocumentWrittenWithAuthContext, onCall, HttpsError, getFirestore, FieldValue, logger, sendAll, mails, mailSecrets }) {
   const LOGS = "admin_logs";
 
   // ★ 記録しないコレクション（ログ自身・関数だけが書くもの）
@@ -25,7 +26,8 @@ module.exports = function audit({ onDocumentCreated, onDocumentWrittenWithAuthCo
     ticketStaffReply: "お問い合わせチャットへ返信",
     ticketSetStatus: "お問い合わせチャットの状態を変更",
     ticketTransfer: "お問い合わせチャットを転送",
-    mfaReset: "2段階認証を解除（オーナー）"
+    mfaReset: "2段階認証を解除（オーナー）",
+    adminMemberNotice: "管理者へ正会員のお知らせを送信"
   };
 
   /** 値を保存できる形に（画像は省略・長い文字は切り詰め） */
@@ -181,5 +183,23 @@ module.exports = function audit({ onDocumentCreated, onDocumentWrittenWithAuthCo
     return { ok: true, member };
   });
 
-  return { exports: { auditWrites, adminMemberOnCreate, adminSignedIn }, withAudit };
+  // ---------- オーナー：管理者へ正会員のお知らせメールを送る ----------
+  // onCall はまだ withAudit を重ねていないので、ここで重ねて記録する
+  const adminMemberNotice = withAudit(onCall)({ secrets: mailSecrets, maxInstances: 3 }, async (req) => {
+    const db = getFirestore();
+    const me = await adminOf(db, req.auth?.uid);
+    if (me?.role !== "owner") throw new HttpsError("permission-denied", "オーナーのみ実行できます。");
+    const uid = req.data?.uid;
+    if (typeof uid !== "string" || !uid || !(await adminOf(db, uid))) throw new HttpsError("invalid-argument", "管理者を指定してください。");
+    const ref = db.doc(`members/${uid}`);
+    const snap = await ref.get();
+    const m = snap.exists ? snap.data() : null;
+    if (!m || m.status !== "active" || !m.memberNo) throw new HttpsError("failed-precondition", "まだ正会員の登録（会員番号）がありません。その方が管理画面にログインすると付与されます。");
+    if (!m.email) throw new HttpsError("failed-precondition", "会員のメールアドレスが登録されていません。");
+    await sendAll(mails.adminMemberGranted(m), "管理者への正会員の付与");
+    await ref.update({ adminNoticeSentAt: FieldValue.serverTimestamp(), adminNoticeSentBy: req.auth.uid });
+    return { ok: true, to: m.email };
+  });
+
+  return { exports: { auditWrites, adminMemberOnCreate, adminSignedIn, adminMemberNotice }, withAudit };
 };

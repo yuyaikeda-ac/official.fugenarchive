@@ -1654,7 +1654,19 @@ function openContact(r) {
 //  管理者（オーナー専用）
 // ============================================================
 async function renderAdmins() {
-  const [admins, invites] = await Promise.all([adminApi.listAll("admins"), adminApi.listAll("admin_invites")]);
+  const [admins, invites, members] = await Promise.all([adminApi.listAll("admins"), adminApi.listAll("admin_invites"), getRows("members", true).catch(() => [])]);
+  // 管理者には正会員の登録が自動で付く（functions/audit.js）。お知らせメールはオーナーがここから送る
+  const memberOf = (a) => members.find(m => m.id === a.id);
+  const memberCell = (a) => {
+    const m = memberOf(a);
+    if (!m?.memberNo || m.status !== "active") return '<span class="sub">正会員：次回のログイン時に付与</span>';
+    return `<span class="sub">正会員 ${esc(m.memberNo)}・お知らせ ${m.adminNoticeSentAt ? `送信済み（${fmtDT(m.adminNoticeSentAt)}）` : "未送信"}</span>`;
+  };
+  const noticeBtn = (a) => {
+    const m = memberOf(a);
+    return m?.memberNo && m.status === "active"
+      ? `<button class="btn btn-sm" data-notice="${esc(a.id)}">${m.adminNoticeSentAt ? "お知らせを再送" : "正会員のお知らせを送る"}</button>` : "";
+  };
   admins.sort((a, b) => (a.role === "owner" ? -1 : 1) - (b.role === "owner" ? -1 : 1));
   $("page").innerHTML = `
     <section class="card" style="margin-bottom:20px">
@@ -1674,8 +1686,8 @@ async function renderAdmins() {
       ${admins.map(a => `<tr>
         <td class="st">${a.role === "owner" ? pill("gold", "オーナー") : pill("info", "管理者")}</td>
         <td class="main"><b>${esc(a.name || "")}</b><span class="sub">${esc(a.email || a.id)}</span></td>
-        <td data-label="登録日">${fmtD(a.createdAt)}<span class="sub">最終ログイン ${a.lastLoginAt ? fmtDT(a.lastLoginAt) : "—"}</span></td>
-        <td class="act"><a class="btn btn-sm" href="#logs/${encodeURIComponent(a.id)}">ログを見る</a><button class="btn btn-sm" data-mfareset="${esc(a.id)}" data-name="${esc(a.name || a.email || "")}">2段階認証を解除</button>${a.role === "owner" ? "" : `<button class="btn btn-sm btn-danger" data-deladmin="${esc(a.id)}">管理者から外す</button>`}</td></tr>`).join("")}
+        <td data-label="登録日">${fmtD(a.createdAt)}<span class="sub">最終ログイン ${a.lastLoginAt ? fmtDT(a.lastLoginAt) : "—"}</span>${memberCell(a)}</td>
+        <td class="act">${noticeBtn(a)}<a class="btn btn-sm" href="#logs/${encodeURIComponent(a.id)}">ログを見る</a><button class="btn btn-sm" data-mfareset="${esc(a.id)}" data-name="${esc(a.name || a.email || "")}">2段階認証を解除</button>${a.role === "owner" ? "" : `<button class="btn btn-sm btn-danger" data-deladmin="${esc(a.id)}">管理者から外す</button>`}</td></tr>`).join("")}
       <tr><th colspan="4">招待中（未登録）</th></tr>
       ${invites.length ? invites.map(i => `<tr>
         <td class="st">${pill("draft", "招待中")}</td>
@@ -1691,8 +1703,15 @@ async function renderAdmins() {
     catch (err) { fail("招待に失敗しました")(err); }
   });
   $("tbl").addEventListener("click", async e => {
-    const { deladmin, delinvite } = e.target.dataset;
+    const { deladmin, delinvite, notice: noticeUid } = e.target.dataset;
     try {
+      if (noticeUid) {
+        const a = admins.find(x => x.id === noticeUid), m = memberOf(a);
+        if (!window.confirm(`${a.name || a.email} さん（${m.email}）に、正会員の登録（${m.memberNo}）のお知らせメールを送ります。よろしいですか？`)) return;
+        e.target.disabled = true;
+        await httpsCallable(getFunctions(app, "asia-northeast1"), "adminMemberNotice")({ uid: noticeUid });
+        toast(`${m.email} にお知らせを送信しました。`); invalidate("members"); route();
+      }
       if (deladmin) {
         const a = admins.find(x => x.id === deladmin);
         if (!window.confirm(`${a.name || a.email} さんを管理者から外します。よろしいですか？`)) return;

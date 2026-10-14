@@ -39,7 +39,7 @@ const onCallMfa = (o, handler) => onCallRaw(o, (req, res) =>
 
 // ---------- 管理者の操作ログ・ログインの記録・管理者への正会員の付与（中身は audit.js） ----------
 //  管理者が行う関数の呼び出しも記録するため、以降の onCall はすべて withAudit を重ねたものを使う
-const audit = require("./audit")({ onDocumentCreated, onDocumentWrittenWithAuthContext, onCall: onCallMfa, HttpsError, getFirestore, FieldValue, logger });
+const audit = require("./audit")({ onDocumentCreated, onDocumentWrittenWithAuthContext, onCall: onCallMfa, HttpsError, getFirestore, FieldValue, logger, sendAll, mails, mailSecrets: opts.secrets });
 Object.assign(exports, audit.exports);
 const onCall = audit.withAudit(onCallMfa);
 
@@ -103,7 +103,8 @@ exports.mailOnMemberReviewed = onDocumentUpdated({ document: "members/{uid}", ..
   //  ・番号なしで承認され、サーバーが番号を付けた場合 … 番号が付いた更新で送信
   const approvedNow = before.status === "pending" && after.status === "active" && after.memberNo;
   const numberedAfterApproval = before.status === "active" && after.status === "active" && !before.memberNo && after.memberNo;
-  if (approvedNow || numberedAfterApproval) {
+  // 管理者への正会員の自動付与（adminAuto）は送らない。案内はオーナーが管理画面から送る（audit.js の adminMemberNotice）
+  if ((approvedNow || numberedAfterApproval) && !after.adminAuto) {
     await sendAll(mails.memberApproved(after), "入会承認");
   }
 });

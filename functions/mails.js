@@ -99,6 +99,31 @@ ${signature()}`
   }];
 }
 
+// ---------- 管理者に付与した正会員の案内（オーナーが管理画面の「管理者」から送信） ----------
+function adminMemberGranted(m) {
+  return [{
+    to: m.email,
+    subject: `【${CONFIG.orgName}】正会員の登録のお知らせ`,
+    text:
+`${m.name} 様
+
+${CONFIG.orgName}です。
+管理者としてご登録いただいたため、同じアカウントで正会員の登録を付与いたしました。
+入会のお申し込みは不要です。本日より会員サイトのすべての機能をご利用いただけます。
+
+■ 会員番号：${m.memberNo || "—"}
+■ 会員種別：正会員
+
+▼ 会員サイト（ログイン）
+${CONFIG.siteUrl}/member-login.html
+※ 管理画面と同じメールアドレス・ログイン方法でログインできます。
+
+会員サイトでは、会員向けのお知らせ・会員限定資料・行事への参加登録・デジタル会員証をご利用いただけます。
+今後ともどうぞよろしくお願いいたします。
+${signature()}`
+  }];
+}
+
 // ---------- 否認されたとき ----------
 function memberRejected(m) {
   return [{
@@ -724,4 +749,4 @@ ${CONFIG.siteUrl}/admin.html#polls/${p.id}
   }];
 }
 
-module.exports = {CONFIG, memberApplied, memberApproved, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided , contactAiReply, passwordResetByAi, contactAiNotify, contactStaffReply , ticketReplyToCustomer, ticketToStaff , ticketTransferred , loginGuideByAi , eventRsvpMail, memberNotice, pollOpened, voteReceipt, pollAutoClosed , mfaCode };
+module.exports = {CONFIG, memberApplied, memberApproved, adminMemberGranted, memberRejected, contactReceived, adminInvited, consentSigned, reviewRequest, reviewResult , signatureRewriteRequested, signatureRewriteAllowed , typeChangeRequested, typeChangeDecided , contactAiReply, passwordResetByAi, contactAiNotify, contactStaffReply , ticketReplyToCustomer, ticketToStaff , ticketTransferred , loginGuideByAi , eventRsvpMail, memberNotice, pollOpened, voteReceipt, pollAutoClosed , mfaCode };
