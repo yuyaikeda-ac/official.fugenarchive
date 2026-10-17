@@ -232,7 +232,7 @@ function receiptBlock(p, r, { print = false } = {}) {
   return `<section class="receipt pl-receipt${print ? " is-print" : ""}">
     <div class="receipt-head">
       <img src="LOGO.png" alt="">
-      <div><b>普賢アーカイブ運営委員会</b><span>電子投票　投票の控え</span></div>
+      <div><b>普賢岳アーカイブ運営委員会</b><span>電子投票　投票の控え</span></div>
       <span class="receipt-ok">✓ 投票済み</span>
     </div>
     <dl class="receipt-list">

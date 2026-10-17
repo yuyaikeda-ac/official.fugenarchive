@@ -6,8 +6,8 @@
 
 // ★ 設定
 const CONFIG = {
-  orgName: "普賢アーカイブ運営委員会",
-  notifyTo: "yuya.ikr@gmail.com",                       // 委員会への通知先
+  orgName: "普賢岳アーカイブ運営委員会",
+  notifyTo: "fugen.archive.support@gmail.com",          // 委員会への通知先
   siteUrl: "https://fugen-archive-official.web.app",    // サイトのURL
 };
 

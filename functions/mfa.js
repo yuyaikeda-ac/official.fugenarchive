@@ -19,7 +19,7 @@
 const crypto = require("node:crypto");
 
 const MFA = {
-  issuer: "普賢アーカイブ",
+  issuer: "普賢岳アーカイブ",
   emailCodeMin: 10,       // メールのコードの有効期限（分）
   emailCooldownSec: 60,   // メールのコードを送り直せるまでの秒数
   emailPerHour: 8,        // 1 時間に送れるメールのコードの数

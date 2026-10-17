@@ -285,7 +285,7 @@ export async function openMfaSettings({ onClose } = {}) {
       </div>
       <div class="mfa-msg"></div>
       <div class="mfa-row"><button type="button" class="mfa-btn primary mfa-done">控えました</button></div>`);
-    const text = `普賢アーカイブ 2 段階認証の予備コード（${new Date().toLocaleDateString("ja-JP")} 作成・各 1 回のみ）\n\n${codes.join("\n")}\n`;
+    const text = `普賢岳アーカイブ 2 段階認証の予備コード（${new Date().toLocaleDateString("ja-JP")} 作成・各 1 回のみ）\n\n${codes.join("\n")}\n`;
     ui.$(".mfa-copy").addEventListener("click", async () => {
       try { await navigator.clipboard.writeText(text); ui.msg("コピーしました。", "ok"); } catch { ui.msg("コピーできませんでした。書き写してください。"); }
     });

@@ -444,7 +444,7 @@ function route() {
   const key = VIEWS[name] === view ? name : "dashboard";
   document.querySelectorAll("[data-nav]").forEach(a => a.classList.toggle("is-active", a.dataset.nav === (view.nav || key)));
   $("page-title").textContent = view.title;
-  document.title = `${view.title}｜管理コンソール｜普賢アーカイブ運営委員会`;
+  document.title = `${view.title}｜管理コンソール｜普賢岳アーカイブ運営委員会`;
   $("app").classList.remove("nav-open");
   window.scrollTo({ top: 0, behavior: "instant" });   // 画面を切り替えたら一番上から
   $("page").innerHTML = '<div class="loading"><span class="spin"></span> 読み込み中…</div>';
@@ -2529,7 +2529,7 @@ function printCertificate(f, s) {
   const extra = Object.entries(s.extra || {}).filter(([, v]) => v);
   const area = $("print-area");
   area.innerHTML = `<div class="cert">
-    <div class="cert-head"><img src="LOGO.png" alt=""><div><b>普賢アーカイブ運営委員会</b><span>Fugen Archive Development Committee</span></div><h1>署名証明書</h1></div>
+    <div class="cert-head"><img src="LOGO.png" alt=""><div><b>普賢岳アーカイブ運営委員会</b><span>Fugen Archive Development Committee</span></div><h1>署名証明書</h1></div>
     <p>下記の者が、下記の文書に電子的に署名（同意）したことを証明します。署名の記録は SHA-256 によりハッシュ化され、委員会のサーバーで封印されています。</p>
     <h2>文書</h2>
     <table><tr><th>標題</th><td>${esc(s.formTitle || f.title)}</td></tr>
@@ -2549,7 +2549,7 @@ function printCertificate(f, s) {
       <tr><th>封印番号</th><td>${s.seal ? `#${esc(s.seq)}` : "封印待ち"}</td></tr>
       <tr><th>封印（HMAC-SHA256）</th><td class="mono">${esc(s.seal || "—")}</td></tr>
       <tr><th>前の封印</th><td class="mono">${esc(s.prevSeal || "—")}</td></tr></table>
-    <p class="cert-foot">発行日時 ${esc(new Date().toLocaleString("ja-JP"))}　／　発行者 ${esc(currentAdmin.email)}　／　普賢アーカイブ運営委員会 管理コンソール</p>
+    <p class="cert-foot">発行日時 ${esc(new Date().toLocaleString("ja-JP"))}　／　発行者 ${esc(currentAdmin.email)}　／　普賢岳アーカイブ運営委員会 管理コンソール</p>
   </div>`;
   const img = area.querySelector(".sig");
   const go = () => { window.print(); };
@@ -3011,7 +3011,7 @@ function downloadCsv(name, rows) {
 function printPollResults(p, r) {
   const area = $("print-area");
   area.innerHTML = `<div class="cert">
-    <div class="cert-head"><img src="LOGO.png" alt=""><div><b>普賢アーカイブ運営委員会</b><span>Fugen Archive Development Committee</span></div><h1>${p.kind === "resolution" ? "議決結果" : "集計結果"}</h1></div>
+    <div class="cert-head"><img src="LOGO.png" alt=""><div><b>普賢岳アーカイブ運営委員会</b><span>Fugen Archive Development Committee</span></div><h1>${p.kind === "resolution" ? "議決結果" : "集計結果"}</h1></div>
     <h2>${esc(p.title)}</h2>
     <table><tr><th>種類</th><td>${esc(POLL_KIND[p.kind] || p.kind)}（${p.anonymous ? "無記名" : "記名"}）</td></tr>
       <tr><th>対象</th><td>${(p.audience || []).map(a => esc(POLL_AUD[a] || MEMBER_TYPE[a] || a)).join("・")}</td></tr>
@@ -3026,7 +3026,7 @@ function printPollResults(p, r) {
     <table><tr><th>内容のハッシュ</th><td class="mono">${esc(p.contentHash || "—")}</td></tr>
       <tr><th>結果のハッシュ</th><td class="mono">${esc(r.resultsHash || "—")}</td></tr>
       <tr><th>封印（HMAC-SHA256）</th><td class="mono">${esc(r.seal || "—")}</td></tr></table>
-    <p class="cert-foot">発行日時 ${esc(new Date().toLocaleString("ja-JP"))}　／　発行者 ${esc(currentAdmin.email)}　／　普賢アーカイブ運営委員会 管理コンソール</p>
+    <p class="cert-foot">発行日時 ${esc(new Date().toLocaleString("ja-JP"))}　／　発行者 ${esc(currentAdmin.email)}　／　普賢岳アーカイブ運営委員会 管理コンソール</p>
   </div>`;
   addEventListener("afterprint", () => { area.innerHTML = ""; }, { once: true });
   window.print();

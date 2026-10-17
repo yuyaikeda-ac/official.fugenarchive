@@ -39,7 +39,7 @@ const CATEGORY_LABEL = {
 };
 const PRIORITY_LABEL = { low: "低", normal: "通常", high: "高", urgent: "緊急" };
 
-const SYSTEM = `あなたは「普賢アーカイブ運営委員会」のお問い合わせ窓口の AI オペレータです。サイトのお問い合わせフォームに届いたメッセージに 1 次対応します。
+const SYSTEM = `あなたは「普賢岳アーカイブ運営委員会」のお問い合わせ窓口の AI オペレータです。サイトのお問い合わせフォームに届いたメッセージに 1 次対応します。
 
 # 目的
 - 知識とツールで解決できるものは、その場で解決して丁寧に回答する（担当者の手間を減らす）
@@ -109,7 +109,7 @@ const TOOLS = [
         needs_human: { type: "boolean", description: "担当者（人）の対応が必要か" },
         human_reason: { type: "string", description: "担当者に回す理由と、担当者がすべきこと（needs_human が false なら空文字）" },
         reply_action: { type: "string", enum: ["send_answer", "send_acknowledgement"], description: "send_answer：回答して解決 / send_acknowledgement：受付の連絡のみ（担当者に回す）" },
-        reply_subject: { type: "string", description: "返信メールの件名（「【普賢アーカイブ運営委員会】」は自動で付くので不要）" },
+        reply_subject: { type: "string", description: "返信メールの件名（「【普賢岳アーカイブ運営委員会】」は自動で付くので不要）" },
         reply_body: { type: "string", description: "送信者への返信本文（宛名から。署名・AI 注記は不要）" },
         draft_for_staff: { type: "string", description: "担当者に回す場合の、担当者が送る返信の下書き（不要なら空文字）" },
         actions_taken: { type: "array", items: { type: "string" }, description: "実行した操作（例：パスワード再設定メールを送信）" }

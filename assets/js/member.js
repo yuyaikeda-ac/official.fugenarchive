@@ -230,7 +230,7 @@ function route() {
   toggleMore(false);
   $("tab-more")?.classList.toggle("is-active", !TABBAR.includes(r.id));
   $("view-title").textContent = r.label;
-  document.title = r.id === "dashboard" ? "会員専用サイト｜普賢アーカイブ運営委員会" : `${r.label}｜会員サイト｜普賢アーカイブ運営委員会`;
+  document.title = r.id === "dashboard" ? "会員専用サイト｜普賢岳アーカイブ運営委員会" : `${r.label}｜会員サイト｜普賢岳アーカイブ運営委員会`;
   rerender();
   window.scrollTo({ top: 0, behavior: "instant" });
   if (r.id === "news") markNewsSeen();
@@ -722,7 +722,7 @@ async function openScan() {
     <div class="scan-card">
       <div class="scan-top">
         <img src="LOGO.png" alt="">
-        <div class="scan-org"><b>普賢アーカイブ運営委員会</b><span>MEMBERSHIP CARD</span></div>
+        <div class="scan-org"><b>普賢岳アーカイブ運営委員会</b><span>MEMBERSHIP CARD</span></div>
         <button class="scan-close" type="button" aria-label="閉じる">×</button>
       </div>
       <div class="scan-qr-area"><div class="scan-qr">${qr || '<p class="scan-wait">QRコードを準備中です。<br>しばらくしてから開き直してください。</p>'}</div></div>

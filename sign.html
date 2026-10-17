@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>電子同意書｜普賢アーカイブ運営委員会</title>
+<title>電子同意書｜普賢岳アーカイブ運営委員会</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap" rel="stylesheet">
@@ -70,7 +70,7 @@
       return state("会員の方専用の同意書です", `「${esc(form.title)}」は会員サイトから署名できます。`, memberLinks(form.id));
     }
 
-    document.title = `${form.title}｜電子同意書｜普賢アーカイブ運営委員会`;
+    document.title = `${form.title}｜電子同意書｜普賢岳アーカイブ運営委員会`;
     root.innerHTML = docBoxHtml(form) + signFormHtml(form, { mode: "public" });
     fillDoc(root, form);
     bindSignForm(root, form, { mode: "public", onDone: showReceipt });

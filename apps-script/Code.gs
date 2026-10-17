@@ -1,5 +1,5 @@
 /**
- * 普賢アーカイブ運営委員会：メール送信用 Google Apps Script
+ * 普賢岳アーカイブ運営委員会：メール送信用 Google Apps Script
  *
  * Cloud Functions（functions/index.js）から呼び出され、
  * このスクリプトを作成した Google アカウントの Gmail からメールを送信します。
@@ -17,7 +17,7 @@
  */
 
 // 差出人として表示される名前
-const ORG_NAME = "普賢アーカイブ運営委員会";
+const ORG_NAME = "普賢岳アーカイブ運営委員会";
 // 1 回の呼び出しで送れる最大通数（悪用防止）
 const MAX_PER_REQUEST = 5;
 

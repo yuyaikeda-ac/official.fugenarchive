@@ -1,6 +1,6 @@
 {
   "name": "fugen-archive-functions",
-  "description": "普賢アーカイブ運営委員会：申請時のメール送信",
+  "description": "普賢岳アーカイブ運営委員会：申請時のメール送信",
   "private": true,
   "main": "index.js",
   "engines": {

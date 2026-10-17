@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>会員証の確認｜普賢アーカイブ運営委員会</title>
+<title>会員証の確認｜普賢岳アーカイブ運営委員会</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap" rel="stylesheet">
@@ -46,7 +46,7 @@
 
   <div class="inner verify">
     <div class="v-card" id="result"><div class="v-skel">確認しています…</div></div>
-    <p class="v-note">このページは、普賢アーカイブ運営委員会のデジタル会員証に印字されたQRコードから表示される確認ページです。表示内容は委員会のデータベースの最新の情報です。ご不明な点は <a href="contact.html">お問い合わせ</a> ください。</p>
+    <p class="v-note">このページは、普賢岳アーカイブ運営委員会のデジタル会員証に印字されたQRコードから表示される確認ページです。表示内容は委員会のデータベースの最新の情報です。ご不明な点は <a href="contact.html">お問い合わせ</a> ください。</p>
   </div>
 </main>
 
@@ -85,14 +85,14 @@
 
     const expired = card.validUntil && new Date(card.validUntil + "T23:59:59") < now;
     let head;
-    if (card.status === "active" && !expired) head = status("ok", "✓", "有効な会員です", "普賢アーカイブ運営委員会の会員資格が確認できました。");
+    if (card.status === "active" && !expired) head = status("ok", "✓", "有効な会員です", "普賢岳アーカイブ運営委員会の会員資格が確認できました。");
     else if (card.status === "active" && expired) head = status("warn", "!", "有効期限が切れています", "会員資格の有効期限を過ぎています。");
     else if (card.status === "suspended") head = status("warn", "!", "会員資格停止中", "この会員の資格は現在停止されています。");
     else head = status("ng", "×", "無効な会員証です", "この会員証は現在有効ではありません。");
 
     box.innerHTML = head + `
       <div class="v-body">
-        <div class="v-org"><img src="LOGO.png" alt=""><div><strong>普賢アーカイブ運営委員会</strong><small>FUGEN ARCHIVE DEVELOPMENT COMMITTEE</small></div></div>
+        <div class="v-org"><img src="LOGO.png" alt=""><div><strong>普賢岳アーカイブ運営委員会</strong><small>FUGEN ARCHIVE DEVELOPMENT COMMITTEE</small></div></div>
         <dl class="v-list">
           <div><dt>会員番号</dt><dd class="no">${esc(card.memberNo)}</dd></div>
           <div><dt>氏名</dt><dd>${esc(card.name)} 様</dd></div>

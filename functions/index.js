@@ -44,10 +44,25 @@ Object.assign(exports, audit.exports);
 const onCall = audit.withAudit(onCallMfa);
 
 /** Apps Script にまとめて送信を依頼する */
+// 委員会への通知（宛先が mails.js の CONFIG.notifyTo のメール）は、管理者全員（admins の email）にも同時に送る
+async function withAdminRecipients(targets) {
+  if (!targets.some(m => m.to === mails.CONFIG.notifyTo)) return targets;
+  let to = mails.CONFIG.notifyTo;
+  try {
+    const snap = await getFirestore().collection("admins").get();
+    const emails = snap.docs.map(d => String(d.get("email") || "").trim().toLowerCase()).filter(e => e.includes("@"));
+    to = [...new Set([mails.CONFIG.notifyTo, ...emails])].join(",");
+  } catch (e) {
+    logger.warn("管理者の宛先を取得できませんでした（通知先のみに送信します）", { error: e.message });
+  }
+  return targets.map(m => (m.to === mails.CONFIG.notifyTo ? { ...m, to } : m));
+}
+
 async function sendAll(list, context) {
-  const targets = list.filter(m => m.to);
+  let targets = list.filter(m => m.to);
   if (!targets.length) return;
   try {
+    targets = await withAdminRecipients(targets);
     const res = await fetch(MAIL_WEBAPP_URL.value().trim(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },

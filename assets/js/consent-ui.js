@@ -180,7 +180,7 @@ export function receiptHtml(rec, { print = false } = {}) {
   return `<section class="receipt${print ? " is-print" : ""}">
     <div class="receipt-head">
       <img src="LOGO.png" alt="">
-      <div><b>普賢アーカイブ運営委員会</b><span>電子同意書　署名の控え</span></div>
+      <div><b>普賢岳アーカイブ運営委員会</b><span>電子同意書　署名の控え</span></div>
       <span class="receipt-ok">✓ 署名済み</span>
     </div>
     <dl class="receipt-list">

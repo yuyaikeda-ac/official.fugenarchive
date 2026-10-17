@@ -6,11 +6,11 @@
 // ============================================================
 
 const SITE = {
-  name: "普賢アーカイブ運営委員会",
+  name: "普賢岳アーカイブ運営委員会",
   nameEn: "Fugen Archive Development Committee",
   address: "〒000-0000 ○○県○○市 ○○○ 0-0-0",
-  email: "fugen.archive.info@gmail.com",
-  // ★ 普賢アーカイブ（別サイト）のURL。ここを変えると全ページのリンクが変わります。
+  email: "fugen.archive.support@gmail.com",
+  // ★ 普賢岳アーカイブ（別サイト）のURL。ここを変えると全ページのリンクが変わります。
   archiveUrl: "https://archive.example.jp/"
 };
 
@@ -19,7 +19,7 @@ const NAV = [
   ["ホーム", "index.html"],
   ["委員会について", "about.html"],
   ["お知らせ", "news.html"],
-  ["普賢アーカイブについて", "archive.html"],
+  ["普賢岳アーカイブについて", "archive.html"],
   ["行事・イベント", "events.html"],
   ["入会案内", "join.html"],
   ["お問い合わせ", "contact.html"]
@@ -47,7 +47,7 @@ const HEADER_HTML = `
     </a>
     <div class="header-actions">
       <a class="header-member-btn" href="member-login.html">会員ログイン</a>
-      <a class="header-archive-btn" data-archive-link>普賢アーカイブを見る<span aria-hidden="true">↗</span></a>
+      <a class="header-archive-btn" data-archive-link>普賢岳アーカイブを見る<span aria-hidden="true">↗</span></a>
     </div>
     <button class="menu-toggle" aria-label="メニュー" aria-expanded="false"><span></span><span></span><span></span></button>
   </div>
@@ -76,7 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (header) header.innerHTML = HEADER_HTML;
   if (footer) footer.innerHTML = FOOTER_HTML;
 
-  // ---- 普賢アーカイブ（別サイト）へのリンク：data-archive-link を付けた <a> に URL を設定 ----
+  // ---- 普賢岳アーカイブ（別サイト）へのリンク：data-archive-link を付けた <a> に URL を設定 ----
   document.querySelectorAll("[data-archive-link]").forEach(a => {
     a.href = SITE.archiveUrl;
     a.target = "_blank";

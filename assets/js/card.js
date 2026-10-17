@@ -37,7 +37,7 @@ function frontHtml(m, mini) {
         <div class="mc-art"><img src="LOGO.png" alt=""></div>
         <div class="mc-body">
           <div class="mc-org">
-            <span class="ja">普賢アーカイブ運営委員会</span>
+            <span class="ja">普賢岳アーカイブ運営委員会</span>
             <span class="en">Fugen Archive Development Committee</span>
           </div>
           <div class="mc-kicker">Membership Card<i></i><span class="mc-type">${esc(TYPE_LABEL[m.type] || "")}</span></div>
@@ -59,7 +59,7 @@ function backHtml(m) {
   return `
       <div class="mcard-face mcard-back">
         <div class="mb-head">
-          <b>普賢アーカイブ運営委員会</b>
+          <b>普賢岳アーカイブ運営委員会</b>
           <span>Fugen Archive Development Committee</span>
         </div>
         <div class="mb-sign">
@@ -67,7 +67,7 @@ function backHtml(m) {
           <span class="mb-sign-label">Signature</span>
         </div>
         <ul class="mb-terms">
-          <li>本カードは、普賢アーカイブ運営委員会の会員であることを証明するものです。</li>
+          <li>本カードは、普賢岳アーカイブ運営委員会の会員であることを証明するものです。</li>
           <li>表面のQRコードから、会員資格の有効性を確認できます。</li>
           <li>本カードは本人のみ使用でき、譲渡・貸与はできません。</li>
         </ul>
@@ -98,7 +98,7 @@ export function printSheetHtml(m, info) {
   return `
   <div class="ps-head">
     <img src="LOGO.png" alt="">
-    <div><b>普賢アーカイブ運営委員会</b><span>Fugen Archive Development Committee</span></div>
+    <div><b>普賢岳アーカイブ運営委員会</b><span>Fugen Archive Development Committee</span></div>
     <h1>会員証</h1>
   </div>
   <p class="ps-note">点線に沿って切り取り、表面と裏面を貼り合わせてお使いください。</p>

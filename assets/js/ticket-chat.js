@@ -66,7 +66,7 @@ function renderHead() {
       <small>${esc(t.name ? `${t.name} 様・` : "")}${esc(fmtDate(t.createdAt))} 受付</small>
     </div>
     <span class="tk-status ${st.cls}">${esc(t.statusLabel || st.label)}</span>`;
-  document.title = `${t.no || "お問い合わせ"}｜お問い合わせチャット｜普賢アーカイブ運営委員会`;
+  document.title = `${t.no || "お問い合わせ"}｜お問い合わせチャット｜普賢岳アーカイブ運営委員会`;
 }
 
 function bubble(m) {

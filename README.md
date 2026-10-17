@@ -1,16 +1,16 @@
-# 普賢アーカイブ運営委員会 公式サイト
+# 普賢岳アーカイブ運営委員会 公式サイト
 
-普賢アーカイブ運営委員会（運営団体）の公式サイトです。HTML / CSS / JavaScript だけで作られた静的サイトで、お知らせ・行事・お問い合わせのデータは Firebase（Firestore）に保存されます。
+普賢岳アーカイブ運営委員会（運営団体）の公式サイトです。HTML / CSS / JavaScript だけで作られた静的サイトで、お知らせ・行事・お問い合わせのデータは Firebase（Firestore）に保存されます。
 
-※「普賢アーカイブ」本体は別のウェブサイトです。このサイトからはリンクで案内します（URL は `assets/js/common.js` の `archiveUrl`）。
+※「普賢岳アーカイブ」本体は別のウェブサイトです。このサイトからはリンクで案内します（URL は `assets/js/common.js` の `archiveUrl`）。
 
 ## ファイル構成
 
 ```
-index.html        トップページ（スライダー・News・Discover・普賢アーカイブ紹介・行事）
+index.html        トップページ（スライダー・News・Discover・普賢岳アーカイブ紹介・行事）
 about.html        委員会について（概要・挨拶・名簿・規程・沿革）※HTMLを直接編集
 news.html         お知らせ一覧／詳細（news.html?id=xxx）
-archive.html      普賢アーカイブについて（紹介ページ・外部サイトへのリンク）※HTMLを直接編集
+archive.html      普賢岳アーカイブについて（紹介ページ・外部サイトへのリンク）※HTMLを直接編集
 events.html       行事・イベント
 materials.html    資料提供のお願い（募集する資料・提供のかたち・流れ・FAQ・相談メモ）※HTMLを直接編集
 contact.html      お問い合わせ（チケットを発行して専用チャットへ。contact.html?category=資料提供 で種別を選択済みに）
@@ -65,7 +65,7 @@ firebase.json                Firebase Hosting 設定
 | やりたいこと | 編集する場所 |
 |---|---|
 | メニュー項目・フッターの住所/メール | `assets/js/common.js` の `SITE` と `NAV` |
-| 普賢アーカイブ（別サイト）のURL | `assets/js/common.js` の `SITE.archiveUrl`（全ページのリンクに反映） |
+| 普賢岳アーカイブ（別サイト）のURL | `assets/js/common.js` の `SITE.archiveUrl`（全ページのリンクに反映） |
 | ロゴ | `LOGO.png` を同じ名前で差し替え |
 | サイトの色 | `assets/css/style.css` 先頭の `:root` |
 | トップのスライド文言・画像 | `index.html` の `<div class="slider">` 内 |
@@ -102,7 +102,7 @@ firebase.json                Firebase Hosting 設定
 
 ## メール送信（Google Apps Script 経由）
 
-入会申込・審査結果・お問い合わせ・管理者招待のときに、Cloud Functions（`functions/`）が Google Apps Script（`apps-script/Code.gs`）に依頼してメールを送ります。メールは **Apps Script を設置した Gmail アカウント** から送信されます（無料アカウントは 1 日約 100 通まで）。
+入会申込・審査結果・お問い合わせ・管理者招待のときに、Cloud Functions（`functions/`）が Google Apps Script（`apps-script/Code.gs`）に依頼してメールを送ります。メールは **Apps Script を設置した Gmail アカウント**（fugen.archive.support@gmail.com）から送信されます（無料アカウントは 1 日約 100 通まで）。委員会への通知先とフッターのメールアドレスも同じアドレスです。
 
 | 送るメール | 宛先 |
 |---|---|
@@ -112,8 +112,9 @@ firebase.json                Firebase Hosting 設定
 | 管理者招待 | 招待された人 |
 
 - 文面・委員会の通知先は `functions/mails.js` の `CONFIG` と各関数で編集します。
+- 委員会への通知（入会申込・お問い合わせ・各種申請・チケット・投票の自動締切）は、`CONFIG.notifyTo` に加えて **管理者全員**（`admins` の `email`）にも同時に届きます。管理者を招待・解除すると宛先も自動で変わります。
 - **設置手順**
-  1. 送信に使う Gmail アカウントで https://script.google.com →「新しいプロジェクト」に `apps-script/Code.gs` を貼り付けて保存
+  1. 送信に使う Gmail アカウント（fugen.archive.support@gmail.com）で https://script.google.com →「新しいプロジェクト」に `apps-script/Code.gs` を貼り付けて保存
   2. 関数 `setup` を実行（権限を許可）→ 実行ログの TOKEN を控える
   3. 「デプロイ」→「新しいデプロイ」→ 種類「ウェブアプリ」、実行ユーザー「自分」、アクセス「全員」→ URL を控える
   4. プロジェクトのフォルダで次を実行し、それぞれ貼り付ける
