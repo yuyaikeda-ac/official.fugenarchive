@@ -11,7 +11,7 @@ const SITE = {
   address: "〒000-0000 ○○県○○市 ○○○ 0-0-0",
   email: "fugen.archive.support@gmail.com",
   // ★ 普賢岳アーカイブ（別サイト）のURL。ここを変えると全ページのリンクが変わります。
-  archiveUrl: "https://archive.example.jp/"
+  archiveUrl: "https://fugen-archive.com/"
 };
 
 // グローバルナビゲーション（表示名, リンク先）
